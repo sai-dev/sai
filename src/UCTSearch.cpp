@@ -188,6 +188,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         if (move != FastBoard::PASS && currstate.superko()) {
             next->invalidate();
         } else {
+            std::string tmp = currstate.move_to_text(move);
+            myprintf("%4s ", tmp.c_str());
             result = play_simulation(currstate, next);
         }
     }
@@ -570,6 +572,7 @@ void UCTWorker::operator()() {
 
 void UCTSearch::increment_playouts() {
     m_playouts++;
+    myprintf("\n");
 }
 
 int UCTSearch::think(int color, passflag_t passflag) {
