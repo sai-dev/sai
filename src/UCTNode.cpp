@@ -313,6 +313,23 @@ void UCTNode::sort_children(int color) {
     std::stable_sort(rbegin(m_children), rend(m_children), NodeComp(color));
 }
 
+class NodeCompByPolicy : public std::binary_function<UCTNode::node_ptr_t&,
+                                             UCTNode::node_ptr_t&, bool> {
+public:
+  //    NodeCompByPolicy(int color) : m_color(color) {};
+    bool operator()(const UCTNode::node_ptr_t& a,
+                    const UCTNode::node_ptr_t& b) {
+        return a->get_score() < b->get_score();
+    }
+  //private:
+  //    int m_color;
+};
+
+void UCTNode::sort_children_by_policy() {
+    LOCK(get_mutex(), lock);
+    std::stable_sort(rbegin(m_children), rend(m_children), NodeCompByPolicy());
+}
+
 UCTNode& UCTNode::get_best_root_child(int color) {
     LOCK(get_mutex(), lock);
     assert(!m_children.empty());

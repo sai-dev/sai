@@ -139,6 +139,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                 node->create_children(m_nodes, currstate, eval, mem_full_pct);
             if (success) {
                 result = SearchResult::from_eval(eval);
+		myprintf("@");
+		print_move_choices_by_policy(currstate, *node, 3, 0.10f);
             }
         }
     }
@@ -518,6 +520,25 @@ void UCTSearch::increment_playouts() {
     myprintf("\n");
 }
 
+
+void UCTSearch::print_move_choices_by_policy(KoState & state, UCTNode & parent, int at_least_as_many, float probab_threash) {
+    parent.sort_children_by_policy();
+    int movecount = 0;
+    float policy_value_of_move = 1.0f;
+    for (const auto& node : parent.get_children()) {
+        // Always display at least two moves
+        if (++movecount > at_least_as_many && policy_value_of_move<probab_threash) break;
+
+	policy_value_of_move = node->get_score();
+        std::string tmp = state.move_to_text(node->get_move());
+        myprintf("%4s %4.1f",
+		 tmp.c_str(),
+		 policy_value_of_move * 100.0f);
+    }
+    myprintf("\n");
+}
+
+
 int UCTSearch::think(int color, passflag_t passflag) {
     // Start counting time for us
     m_rootstate.start_clock(color);
@@ -553,6 +574,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
     myprintf("NN eval=%f\n",
              (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval));
+
+    myprintf("root @");
+    print_move_choices_by_policy(m_rootstate, *m_root, 5, 0.01f);
 
     m_run = true;
     int cpus = cfg_num_threads;
