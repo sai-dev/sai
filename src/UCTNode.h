@@ -49,6 +49,7 @@ public:
 
     const std::vector<UCTNodePointer>& get_children() const;
     void sort_children(int color);
+    void sort_children_by_policy();
     UCTNode& get_best_root_child(int color);
     UCTNode* uct_select_child(int color, bool is_root);
 

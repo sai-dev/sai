@@ -320,6 +320,20 @@ void UCTNode::sort_children(int color) {
     std::stable_sort(rbegin(m_children), rend(m_children), NodeComp(color));
 }
 
+class NodeCompByPolicy : public std::binary_function<UCTNodePointer&,
+                                             UCTNodePointer&, bool> {
+public:
+    bool operator()(const UCTNodePointer& a,
+                    const UCTNodePointer& b) {
+        return a.get_score() < b.get_score();
+    }
+};
+
+void UCTNode::sort_children_by_policy() {
+    LOCK(get_mutex(), lock);
+    std::stable_sort(rbegin(m_children), rend(m_children), NodeCompByPolicy());
+}
+
 UCTNode& UCTNode::get_best_root_child(int color) {
     LOCK(get_mutex(), lock);
     assert(!m_children.empty());

@@ -103,6 +103,7 @@ public:
 private:
     float get_min_psa_ratio() const;
     void dump_stats(FastState& state, UCTNode& parent);
+    void print_move_choices_by_policy(KoState& state, UCTNode& parent, int at_least_as_many, float probab_threash);
     void tree_stats(const UCTNode& node);
     std::string get_pv(FastState& state, UCTNode& parent);
     void dump_analysis(int playouts);
