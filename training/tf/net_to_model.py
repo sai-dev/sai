@@ -4,6 +4,7 @@ import os
 import sys
 from tfprocess import TFProcess, read_weights
 
+from config import *
 
 if __name__ == "__main__":
     version, blocks, channels, weights = read_weights(sys.argv[1])
@@ -16,8 +17,8 @@ if __name__ == "__main__":
     print("Blocks", blocks)
 
     x = [
-        tf.placeholder(tf.float32, [None, 18, 19 * 19]),
-        tf.placeholder(tf.float32, [None, 362]),
+        tf.placeholder(tf.float32, [None, 18, BOARD_SQUARES]),
+        tf.placeholder(tf.float32, [None, BOARD_SQUARES + 1]),
         tf.placeholder(tf.float32, [None, 1])
         ]
 

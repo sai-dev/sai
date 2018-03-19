@@ -37,7 +37,9 @@ import time
 import threading
 import unittest
 
-# 16 planes, 1 side to move, 1 x 362 probs, 1 winner = 19 lines
+from config import *
+
+# 16 planes, 1 side to move, 1 x BOARD_SQUARES probs, 1 winner = 19 lines
 DATA_ITEM_LINES = 16 + 1 + 1 + 1
 
 # Sane values are from 4096 to 64 or so. The maximum depends on the amount
@@ -113,8 +115,8 @@ def _parse_function(planes, probs, winner):
 
     planes = tf.to_float(planes)
 
-    planes = tf.reshape(planes, (BATCH_SIZE, 18, 19*19))
-    probs = tf.reshape(probs, (BATCH_SIZE, 19*19 + 1))
+    planes = tf.reshape(planes, (BATCH_SIZE, 18, BOARD_SIZE * BOARD_SIZE))
+    probs = tf.reshape(probs, (BATCH_SIZE, BOARD_SIZE * BOARD_SIZE + 1))
     winner = tf.reshape(winner, (BATCH_SIZE, 1))
 
     return (planes, probs, winner)
