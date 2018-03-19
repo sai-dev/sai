@@ -31,6 +31,11 @@ import tensorflow as tf
 import time
 import unittest
 
+from config import *
+
+# 16 planes, 1 side to move, 1 x BOARD_SQUARES probs, 1 winner = 19 lines
+DATA_ITEM_LINES = 16 + 1 + 1 + 1
+
 # Sane values are from 4096 to 64 or so.
 # You need to adjust the learning rate if you change this. Should be
 # a multiple of RAM_BATCH_SIZE. NB: It's rare that large batch sizes are
