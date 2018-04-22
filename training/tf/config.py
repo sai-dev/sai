@@ -12,3 +12,6 @@ TRAINING_STEPS = 8000
 
 # Display intermediate output after the specified number of training steps
 INFO_STEPS = 1000
+
+# Maximum number of training steps (0 continue forever)
+MAX_TRAINING_STEPS = 0

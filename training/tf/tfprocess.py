@@ -334,7 +334,9 @@ class TFProcess:
         info_steps = INFO_STEPS
         stats = Stats()
         timer = Timer()
-        while True:
+        n = 0
+        while n < MAX_TRAINING_STEPS or MAX_TRAINING_STEPS == 0:
+            n += 1
             batch = next(train_data)
             # Measure losses and compute gradients for this batch.
             losses = self.measure_loss(batch, training=True)
@@ -391,6 +393,8 @@ class TFProcess:
                 save_path = self.saver.save(self.session, path,
                                             global_step=steps)
                 print("Model saved in file: {}".format(save_path))
+        print("Finished.")
+        os._exit(0)
 
     def save_leelaz_weights(self, filename):
         with open(filename, "w") as file:
