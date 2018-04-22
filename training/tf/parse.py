@@ -162,8 +162,11 @@ def main(args):
     if args:
         restore_file = args.pop(0)
         tfprocess.restore(restore_file)
-    while True:
+    n = 0
+    while n < MAX_TRAINING_STEPS or MAX_TRAINING_STEPS == 0:
         tfprocess.process(BATCH_SIZE)
+        n += 1
+    print("Finished.")
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
