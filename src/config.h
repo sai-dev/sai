@@ -30,6 +30,11 @@
 #endif
 
 /*
+ * KOMI_VALUE: Define the komi value
+ */
+#define KOMI_VALUE 7.5f
+
+/*
  * BOARD_SIZE: Define size of the board to compile Leela with, must be an odd number due to winograd tiles
  */
 #define BOARD_SIZE 19
