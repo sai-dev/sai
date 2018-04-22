@@ -34,7 +34,7 @@ constexpr int RETRY_DELAY_MIN_SEC = 30;
 constexpr int RETRY_DELAY_MAX_SEC = 60 * 60;  // 1 hour
 constexpr int MAX_RETRIES = 3;           // Stop retrying after 3 times
 const QString Leelaz_min_version = "0.11";
-const QString server_url = "http://zero.sjeng.org/";
+const QString server_url = "http://sai.unich.it/sai7/";
 
 Management::Management(const int gpus,
                        const int games,
