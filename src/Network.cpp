@@ -127,6 +127,7 @@ std::vector<float> Network::winograd_transform_f(const std::vector<float>& f,
     // transpose(G.dot(f).dot(G.transpose()))
     // U matrix is transposed for better memory layout in SGEMM
     auto U = std::vector<float>(WINOGRAD_TILE * outputs * channels);
+    // [fm] the following array has 16 components, but only 12 are set
     const auto G = std::array<float, WINOGRAD_TILE>{ 1.0,  0.0,  0.0,
                                                      0.5,  0.5,  0.5,
                                                      0.5, -0.5,  0.5,

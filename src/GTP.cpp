@@ -96,6 +96,7 @@ void GTP::setup_default_parameters() {
     cfg_softmax_temp = 1.0f;
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign
+    // if negative, the default is 10%, otherwise, this value % is used
     cfg_resignpct = -1;
     cfg_noise = false;
     cfg_random_cnt = 0;
