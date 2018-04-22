@@ -42,6 +42,11 @@
 #endif
 
 /*
+ * KOMI_VALUE: Define the komi value
+ */
+#define KOMI_VALUE 7.5f
+
+/*
  * Features
  *
  * USE_BLAS: Use a basic linear algebra library.
