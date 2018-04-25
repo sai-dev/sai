@@ -331,7 +331,7 @@ class TFProcess:
                 'accuracy': r[3], 'total': r[0]+r[1]+r[2] }
 
     def process(self, train_data, test_data):
-        info_steps=1000
+        info_steps = INFO_STEPS
         stats = Stats()
         timer = Timer()
         while True:
