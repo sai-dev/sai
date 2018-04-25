@@ -9,3 +9,6 @@ LEARN_RATE = 0.05
 
 # Outputs new network after the specified number of training steps
 TRAINING_STEPS = 8000
+
+# Display intermediate output after the specified number of training steps
+TRAINING_STEPS_VERBOSE = 1000

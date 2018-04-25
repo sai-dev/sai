@@ -231,7 +231,7 @@ class TFProcess:
         self.avg_policy_loss.append(policy_loss)
         self.avg_mse_loss.append(mse_loss)
         self.avg_reg_term.append(reg_term)
-        if steps % 1000 == 0:
+        if steps % TRAINING_STEPS_VERBOSE == 0:
             time_end = time.time()
             speed = 0
             if self.time_start:
