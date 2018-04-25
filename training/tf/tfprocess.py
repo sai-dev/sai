@@ -254,7 +254,7 @@ class TFProcess:
             self.train_writer.add_summary(train_summaries, steps)
             self.time_start = time_end
             self.avg_policy_loss, self.avg_mse_loss, self.avg_reg_term = [], [], []
-        if steps % 8000 == 0:
+        if steps % TRAINING_STEPS == 0:
             sum_accuracy = 0
             sum_mse = 0
             sum_policy = 0
