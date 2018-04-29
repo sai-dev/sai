@@ -167,7 +167,8 @@ def main(args):
         tfprocess.process(BATCH_SIZE)
         n += 1
     print("Finished.")
-
+    os._exit(0)
+    
 if __name__ == "__main__":
     mp.set_start_method('spawn')
     main(sys.argv[1:])
