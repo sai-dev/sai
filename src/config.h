@@ -38,7 +38,7 @@
  * BOARD_SIZE: Define size of the board to compile Leela with, must be an odd number due to winograd tiles
  */
 #define BOARD_SIZE 7
-#define BOARD_SQUARES BOARD_SIZE*BOARD_SIZE
+#define BOARD_SQUARES (BOARD_SIZE*BOARD_SIZE)
 
 #if (BOARD_SIZE % 2 == 0)
 #error Code assumes odd board size, remove at your own risk!
@@ -48,7 +48,11 @@
  * DIRICHLET_ALPHA_19X19: alpha parameter for Dirichlet noise for 19x19 board, it gets automatically rescaled with board size
  */
 
-#define DIRICHLET_ALPHA_19X19 0.045f
+// sai4: visits=100 alpha=0.2f (alpha19x19=0.02715)
+// sai5-6: visits=40 alpha=0.3f (alpha19x19=0.04072)
+// sai8-9: wrong
+// sai9: visits=250 alpha19x19=0.01357f (alpha=0.1f) (low value = high noise)
+#define DIRICHLET_ALPHA_19X19 0.01357f
 
 /*
  * Features
