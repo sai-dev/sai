@@ -48,7 +48,7 @@
  * DIRICHLET_ALPHA_19X19: alpha parameter for Dirichlet noise for 19x19 board, it gets automatically rescaled with board size
  */
 
-#define DIRICHLET_ALPHA_19X19 0.015f
+#define DIRICHLET_ALPHA_19X19 0.045f
 
 /*
  * Features
@@ -59,6 +59,7 @@
  * Also used for OpenCL self-checks.
  */
 #define USE_BLAS
+//#define FEATURE_USE_CPU_ONLY
 
 /*
  * We use OpenBLAS by default, except on macOS, which has a fast BLAS
