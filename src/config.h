@@ -34,7 +34,7 @@
  * BOARD_SIZE: Define size of the board to compile Leela with, must be an odd
    number due to winograd tiles
  */
-#define BOARD_SIZE 19
+#define BOARD_SIZE 7
 #define BOARD_SQUARES (BOARD_SIZE*BOARD_SIZE)
 
 #if (BOARD_SIZE % 2 == 0)
@@ -44,12 +44,12 @@
 /*
  * KOMI_VALUE: Define the komi value
  */
-#define KOMI_VALUE 7.5f
+#define KOMI_VALUE 9.5f
 
 /*
  * DIRICHLET_ALPHA_19X19: alpha parameter for Dirichlet noise for 19x19 board, it gets automatically rescaled with board size
  */
-#define DIRICHLET_ALPHA_19X19 0.03f
+#define DIRICHLET_ALPHA_19X19 0.01357f
 
 /*
  * Features
@@ -60,6 +60,7 @@
  * Also used for OpenCL self-checks.
  */
 #define USE_BLAS
+//#define FEATURE_USE_CPU_ONLY
 
 /*
  * We use OpenBLAS by default, except on macOS, which has a fast BLAS
