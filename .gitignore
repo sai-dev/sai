@@ -1,6 +1,7 @@
 leelaz
 *.o
 *.d
+*.gz
 .vscode/settings.json
 training/tf/leelalogs
 training/tf/checkpoint
