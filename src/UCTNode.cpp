@@ -80,9 +80,11 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     const auto raw_netlist = Network::get_scored_moves(
         &state, Network::Ensemble::RANDOM_SYMMETRY);
 
-    // DCNN returns winrate as side to move
-    m_net_eval = raw_netlist.winrate;
     const auto to_move = state.board.get_to_move();
+    const auto komi = state.get_komi();
+
+    // DCNN returns winrate as side to move
+    m_net_eval = sigmoid(raw_netlist.alpha, raw_netlist.beta, state.board.black_to_move() ? -komi : komi);
     // our search functions evaluate from black's point of view
     if (state.board.white_to_move()) {
         m_net_eval = 1.0f - m_net_eval;

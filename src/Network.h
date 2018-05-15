@@ -45,10 +45,13 @@ public:
         // pass
         float policy_pass;
 
-        // winrate
-        float winrate;
+        // sigmoid alpha
+        float alpha;
 
-        Netresult() : policy(BOARD_SQUARES), policy_pass(0.0f), winrate(0.0f) {}
+        // sigmoid beta
+        float beta;
+
+        Netresult() : policy(BOARD_SQUARES), policy_pass(0.0f), alpha(0.0f), beta(0.0f) {}
     };
 
     static Netresult get_scored_moves(const GameState* const state,
@@ -59,7 +62,8 @@ public:
     static constexpr auto INPUT_MOVES = 8;
     static constexpr auto INPUT_CHANNELS = 2 * INPUT_MOVES + 2;
     static constexpr auto OUTPUTS_POLICY = 2;
-    static constexpr auto OUTPUTS_VALUE = 1;
+    static constexpr auto OUTPUTS_VAL = 1;
+    static constexpr auto OUTPUTS_VBE = 1;
 
     // Winograd filter transformation changes 3x3 filters to 4x4
     static constexpr auto WINOGRAD_ALPHA = 4;
@@ -109,9 +113,12 @@ private:
 #if defined(USE_BLAS)
     static void forward_cpu(const std::vector<float>& input,
                             std::vector<float>& output_pol,
-                            std::vector<float>& output_val);
+                            std::vector<float>& output_val,
+                            std::vector<float>& output_vbe);
 
 #endif
 };
+
+float sigmoid(float alpha, float beta, float bonus);
 
 #endif

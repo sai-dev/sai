@@ -34,7 +34,8 @@ public:
     }
     void forward(const std::vector<net_t>& input,
                  std::vector<net_t>& output_pol,
-                 std::vector<net_t>& output_val);
+                 std::vector<net_t>& output_val,
+                 std::vector<net_t>& output_vbe);
 private:
     class ForwardTask {
     public:

@@ -68,6 +68,7 @@ private:
     cl::Buffer m_MBuffer;
     cl::Buffer m_pinnedOutBuffer_pol;
     cl::Buffer m_pinnedOutBuffer_val;
+    cl::Buffer m_pinnedOutBuffer_vbe;
     bool m_buffers_allocated{false};
 };
 
@@ -132,7 +133,8 @@ public:
 
     void forward(const std::vector<net_t>& input,
             std::vector<net_t>& output_pol,
-            std::vector<net_t>& output_val);
+            std::vector<net_t>& output_val,
+            std::vector<net_t>& output_vbe);
 
 private:
     using weight_slice_t = std::vector<cl::Buffer>::const_iterator;

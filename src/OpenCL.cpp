@@ -457,13 +457,15 @@ void OpenCL_Network::add_weights(size_t layer,
 
 void OpenCL_Network::forward(const std::vector<net_t>& input,
                              std::vector<net_t>& output_pol,
-                             std::vector<net_t>& output_val) {
+                             std::vector<net_t>& output_val,
+                             std::vector<net_t>& output_vbe) {
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
     constexpr auto tiles = WINOGRAD_P;
     constexpr auto one_plane = width * height * sizeof(net_t);
-    const auto finalSize_pol = m_layers[m_layers.size()-2].outputs * one_plane;
-    const auto finalSize_val = m_layers.back().outputs * one_plane;
+    const auto finalSize_pol = m_layers[m_layers.size()-3].outputs * one_plane;
+    const auto finalSize_val = m_layers[m_layers.size()-2].outputs * one_plane;
+    const auto finalSize_vbe = m_layers.back().outputs * one_plane;
 
     m_opencl.ensure_thread_initialized();
 
@@ -509,6 +511,9 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
         opencl_thread_data.m_pinnedOutBuffer_val = cl::Buffer(
             m_opencl.m_context,
             CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, finalSize_val);
+        opencl_thread_data.m_pinnedOutBuffer_vbe = cl::Buffer(
+            m_opencl.m_context,
+            CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, finalSize_vbe);
 
         opencl_thread_data.m_buffers_allocated = true;
     }
@@ -584,6 +589,8 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
 
             cl::Buffer out_buffer;
             if (niter == cend(m_layers)) {
+                out_buffer = opencl_thread_data.m_pinnedOutBuffer_vbe;
+            } else if (niter == cend(m_layers) - 1) {
                 out_buffer = opencl_thread_data.m_pinnedOutBuffer_val;
             } else {
                 out_buffer = opencl_thread_data.m_pinnedOutBuffer_pol;
@@ -604,6 +611,9 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
     auto pinnedOutBufferHost_val = queue.enqueueMapBuffer(
         opencl_thread_data.m_pinnedOutBuffer_val, CL_FALSE,
         CL_MAP_READ, 0, finalSize_val);
+    auto pinnedOutBufferHost_vbe = queue.enqueueMapBuffer(
+        opencl_thread_data.m_pinnedOutBuffer_vbe, CL_FALSE,
+        CL_MAP_READ, 0, finalSize_vbe);
 
     {
         // Finish call is usually a busy wait. When using multiple threads
@@ -614,11 +624,14 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
 
     std::memcpy(output_pol.data(), pinnedOutBufferHost_pol, finalSize_pol);
     std::memcpy(output_val.data(), pinnedOutBufferHost_val, finalSize_val);
+    std::memcpy(output_vbe.data(), pinnedOutBufferHost_vbe, finalSize_vbe);
 
     queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_pol,
             pinnedOutBufferHost_pol);
     queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_val,
             pinnedOutBufferHost_val);
+    queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_vbe,
+            pinnedOutBufferHost_vbe);
 
 }
 

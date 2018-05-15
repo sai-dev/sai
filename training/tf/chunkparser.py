@@ -194,11 +194,14 @@ class ChunkParser:
         # and then to a byte string
         planes = np.packbits(planes).tobytes()
 
-        # Get the 'side to move'
-        stm = text_item[16][0]
-        if not(stm == "0" or stm == "1"):
+        # Get the 'side to move' and komi
+        stmkomi = str_items[16].split()
+        if not(len(stmkomi) == 2):
             return False, None
-        stm = int(stm)
+        stm = int(stmkomi[0])
+        if not(stm == 0 or stm == 1):
+            return False, None
+        komi = float(stmkomi[1])
 
         # Load the probabilities.
         probabilities = np.array(text_item[17].split()).astype(np.float32)

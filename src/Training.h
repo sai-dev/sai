@@ -42,6 +42,7 @@ public:
     float root_uct_winrate;
     float child_uct_winrate;
     int bestmove_visits;
+    float komi;
 };
 
 std::ostream& operator<< (std::ostream& stream, const TimeStep& timestep);

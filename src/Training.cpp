@@ -160,7 +160,9 @@ void Training::record(GameState& state, UCTNode& root) {
 
     auto result =
         Network::get_scored_moves(&state, Network::Ensemble::DIRECT, 0);
-    step.net_winrate = result.winrate;
+    const auto komi = state.get_komi();
+    step.komi = komi;
+    step.net_winrate = sigmoid(result.alpha, result.beta, state.board.black_to_move() ? -komi : komi);
 
     const auto& best_node = root.get_best_root_child(step.to_move);
     step.root_uct_winrate = root.get_eval(step.to_move);
@@ -254,7 +256,9 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         }
         // The side to move planes can be compactly encoded into a single
         // bit, 0 = black to move.
-        out << (step.to_move == FastBoard::BLACK ? "0" : "1") << std::endl;
+        out << (step.to_move == FastBoard::BLACK ? "0" : "1")
+	    << " " << step.komi
+	    << std::endl;
         // Then a BOARD_SQUARES + 1 long array of float probabilities
         for (auto it = begin(step.probabilities);
             it != end(step.probabilities); ++it) {
@@ -309,6 +313,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
 
     do {
         auto to_move = state.get_to_move();
+        auto komi = state.get_komi();
         auto move_vertex = tree_moves[counter];
         auto move_idx = size_t{0};
 
@@ -330,6 +335,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
         auto step = TimeStep{};
         step.to_move = to_move;
         step.planes = get_planes(&state);
+        step.komi = komi;
 
         step.probabilities.resize(BOARD_SQUARES + 1);
         step.probabilities[move_idx] = 1.0f;

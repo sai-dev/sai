@@ -77,7 +77,7 @@ static std::array<float, 2> bn_pol_w2;
 static std::array<float, (BOARD_SQUARES + 1) * BOARD_SQUARES * 2> ip_pol_w;
 static std::array<float, BOARD_SQUARES + 1> ip_pol_b;
 
-// Value head
+// Value head alpha (val=Value ALpha)
 static std::vector<float> conv_val_w;
 static std::vector<float> conv_val_b;
 static std::array<float, 1> bn_val_w1;
@@ -92,6 +92,18 @@ static bool value_head_not_stm;
 
 // Symmetry helper
 static std::array<std::array<int, BOARD_SQUARES>, 8> symmetry_nn_idx_table;
+
+// Value head beta (vbe=Value BEta)
+static std::vector<float> conv_vbe_w;
+static std::vector<float> conv_vbe_b;
+static std::array<float, 1> bn_vbe_w1;
+static std::array<float, 1> bn_vbe_w2;
+
+static std::array<float, BOARD_SQUARES * 256> ip1_vbe_w;
+static std::array<float, 256> ip1_vbe_b;
+
+static std::array<float, 256> ip2_vbe_w;
+static std::array<float, 1> ip2_vbe_b;
 
 void Network::benchmark(const GameState* const state, const int iterations) {
     const auto cpus = cfg_num_threads;
@@ -193,6 +205,7 @@ std::vector<float> Network::zeropad_U(const std::vector<float>& U,
     return Upad;
 }
 
+//v1 refers to the actual weight file format, to be changed when/if the weight file format changes
 std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
     // Count size of the network
     myprintf("Detecting residual layers...");
@@ -221,7 +234,7 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
     }
     // 1 format id, 1 input layer (4 x weights), 14 ending weights,
     // the rest are residuals, every residual has 8 x weight lines
-    auto residual_blocks = linecount - (1 + 4 + 14);
+    auto residual_blocks = linecount - (1 + 4 + 22);
     if (residual_blocks % 8 != 0) {
         myprintf("\nInconsistent number of weights in the file.\n");
         return {0, 0};
@@ -292,6 +305,23 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
             std::copy(cbegin(weights), cend(weights), begin(ip2_val_w));
         } else if (linecount == plain_conv_wts + 13) {
             std::copy(cbegin(weights), cend(weights), begin(ip2_val_b));
+        } else if (linecount == plain_conv_wts + 14) {
+            conv_vbe_w = std::move(weights);
+        } else if (linecount == plain_conv_wts + 15) {
+            conv_vbe_b = std::move(weights);
+        } else if (linecount == plain_conv_wts + 16) {
+            std::copy(cbegin(weights), cend(weights), begin(bn_vbe_w1));
+        } else if (linecount == plain_conv_wts + 17) {
+            process_bn_var(weights);
+            std::copy(cbegin(weights), cend(weights), begin(bn_vbe_w2));
+        } else if (linecount == plain_conv_wts + 18) {
+            std::copy(cbegin(weights), cend(weights), begin(ip1_vbe_w));
+        } else if (linecount == plain_conv_wts + 19) {
+            std::copy(cbegin(weights), cend(weights), begin(ip1_vbe_b));
+        } else if (linecount == plain_conv_wts + 20) {
+            std::copy(cbegin(weights), cend(weights), begin(ip2_vbe_w));
+        } else if (linecount == plain_conv_wts + 21) {
+            std::copy(cbegin(weights), cend(weights), begin(ip2_vbe_b));
         }
         linecount++;
     }
@@ -396,6 +426,11 @@ void Network::initialize() {
         conv_val_b[i] = 0.0f;
     }
 
+    for (auto i = size_t{0}; i < bn_vbe_w1.size(); i++) {
+        bn_vbe_w1[i] -= conv_vbe_b[i];
+        conv_vbe_b[i] = 0.0f;
+    }
+
     for (auto i = size_t{0}; i < bn_pol_w1.size(); i++) {
         bn_pol_w1[i] -= conv_pol_b[i];
         conv_pol_b[i] = 0.0f;
@@ -447,7 +482,8 @@ void Network::initialize() {
 
         // Output head convolutions
         opencl_net->push_convolve1(channels, OUTPUTS_POLICY, conv_pol_w);
-        opencl_net->push_convolve1(channels, OUTPUTS_VALUE, conv_val_w);
+        opencl_net->push_convolve1(channels, OUTPUTS_VAL, conv_val_w);
+        opencl_net->push_convolve1(channels, OUTPUTS_VBE, conv_vbe_w);
     }
 #endif
 #ifdef USE_BLAS
@@ -757,9 +793,11 @@ void batchnorm(const size_t channels,
     }
 }
 
+// output_val, output_vbe are the features before the fully connected step
 void Network::forward_cpu(const std::vector<float>& input,
                           std::vector<float>& output_pol,
-                          std::vector<float>& output_val) {
+                          std::vector<float>& output_val,
+                          std::vector<float>& output_vbe) {
     // Input convolution
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
@@ -804,7 +842,8 @@ void Network::forward_cpu(const std::vector<float>& input,
                                  res.data());
     }
     convolve<1>(OUTPUTS_POLICY, conv_out, conv_pol_w, conv_pol_b, output_pol);
-    convolve<1>(OUTPUTS_VALUE, conv_out, conv_val_w, conv_val_b, output_val);
+    convolve<1>(OUTPUTS_VAL, conv_out, conv_val_w, conv_val_b, output_val);
+    convolve<1>(OUTPUTS_VBE, conv_out, conv_vbe_w, conv_vbe_b, output_vbe);
 }
 
 template<typename T>
@@ -871,6 +910,10 @@ std::vector<float> softmax(const std::vector<float>& input,
     return output;
 }
 
+float sigmoid(float alpha, float beta, float bonus) {
+  return 1.0f/(1.0f+std::exp(-beta*(alpha+bonus)));
+}
+
 Network::Netresult Network::get_scored_moves(
     const GameState* const state, const Ensemble ensemble,
     const int symmetry, const bool skip_cache) {
@@ -892,7 +935,6 @@ Network::Netresult Network::get_scored_moves(
     } else if (ensemble == AVERAGE) {
         for (auto sym = 0; sym < 8; ++sym) {
             auto tmpresult = get_scored_moves_internal(state, sym);
-            result.winrate += tmpresult.winrate / 8.0f;
             result.policy_pass += tmpresult.policy_pass / 8.0f;
 
             for (auto idx = size_t{0}; idx < BOARD_SQUARES; idx++) {
@@ -904,13 +946,6 @@ Network::Netresult Network::get_scored_moves(
         assert(symmetry == -1);
         const auto rand_sym = Random::get_Rng().randfix<8>();
         result = get_scored_moves_internal(state, rand_sym);
-    }
-
-    // v2 format (ELF Open Go) returns black value, not stm
-    if (value_head_not_stm) {
-        if (state->board.get_to_move() == FastBoard::WHITE) {
-            result.winrate = 1.0f - result.winrate;
-        }
     }
 
     // Insert result into cache.
@@ -927,7 +962,9 @@ Network::Netresult Network::get_scored_moves_internal(
 
     const auto input_data = gather_features(state, symmetry);
     std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
-    std::vector<float> value_data(OUTPUTS_VALUE * width * height);
+    std::vector<float> val_data(OUTPUTS_VAL * width * height);
+    std::vector<float> vbe_data(OUTPUTS_VBE * width * height);
+
 #ifdef USE_HALF
     std::vector<net_t> policy_data_n(OUTPUTS_POLICY * width * height);
     std::vector<net_t> value_data_n(OUTPUTS_VALUE * width * height);
@@ -938,23 +975,24 @@ Network::Netresult Network::get_scored_moves_internal(
     std::copy(begin(policy_data_n), end(policy_data_n), begin(policy_data));
     std::copy(begin(value_data_n), end(value_data_n), begin(value_data));
 #else
-    opencl.forward(input_data, policy_data, value_data);
+    opencl.forward(input_data, policy_data, val_data, vbe_data);
 #endif
 #elif defined(USE_BLAS) && !defined(USE_OPENCL)
-    forward_cpu(input_data, policy_data, value_data);
+    forward_cpu(input_data, policy_data, val_data, vbe_data);
 #endif
 #ifdef USE_OPENCL_SELFCHECK
     // Both implementations are available, self-check the OpenCL driver by
     // running both with a probability of 1/2000.
     if (Random::get_Rng().randfix<SELFCHECK_PROBABILITY>() == 0) {
         auto cpu_policy_data = std::vector<float>(policy_data.size());
-        auto cpu_value_data = std::vector<float>(value_data.size());
-        forward_cpu(input_data, cpu_policy_data, cpu_value_data);
+        auto cpu_val_data = std::vector<float>(val_data.size());
+        auto cpu_vbe_data = std::vector<float>(vbe_data.size());
+        forward_cpu(input_data, cpu_policy_data, cpu_val_data, cpu_vbe_data);
         compare_net_outputs(policy_data, cpu_policy_data);
-        compare_net_outputs(value_data, cpu_value_data);
+        compare_net_outputs(val_data, cpu_val_data);
+        compare_net_outputs(vbe_data, cpu_vbe_data);
     }
 #endif
-
     // Get the moves
     batchnorm<BOARD_SQUARES>(OUTPUTS_POLICY, policy_data,
         bn_pol_w1.data(), bn_pol_w2.data());
@@ -963,16 +1001,21 @@ Network::Netresult Network::get_scored_moves_internal(
             policy_data, ip_pol_w, ip_pol_b);
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
 
-    // Now get the score
-    batchnorm<BOARD_SQUARES>(OUTPUTS_VALUE, value_data,
+    // Get alpha
+    batchnorm<BOARD_SQUARES>(OUTPUTS_VAL, val_data,
         bn_val_w1.data(), bn_val_w2.data());
-    const auto winrate_data =
-        innerproduct<BOARD_SQUARES, 256, true>(value_data, ip1_val_w, ip1_val_b);
-    const auto winrate_out =
-        innerproduct<256, 1, false>(winrate_data, ip2_val_w, ip2_val_b);
+    const auto alpha_features =
+        innerproduct<BOARD_SQUARES, 256, true>(val_data, ip1_val_w, ip1_val_b);
+    const auto alpha_out =
+        innerproduct<256, 1, false>(alpha_features, ip2_val_w, ip2_val_b);
 
-    // Sigmoid
-    const auto winrate_sig = (1.0f + std::tanh(winrate_out[0])) / 2.0f;
+    // Get beta
+    batchnorm<BOARD_SQUARES>(OUTPUTS_VBE, vbe_data,
+        bn_vbe_w1.data(), bn_vbe_w2.data());
+    const auto beta_features =
+        innerproduct<BOARD_SQUARES, 256, true>(vbe_data, ip1_vbe_w, ip1_vbe_b);
+    const auto beta_out =
+        innerproduct<256, 1, false>(beta_features, ip2_vbe_w, ip2_vbe_b);
 
     Netresult result;
 
@@ -982,8 +1025,10 @@ Network::Netresult Network::get_scored_moves_internal(
     }
 
     result.policy_pass = outputs[BOARD_SQUARES];
-    result.winrate = winrate_sig;
+    result.alpha = alpha_out[0];
+    result.beta = std::exp(beta_out[0]) * 10.0f / BOARD_SQUARES;
 
+//  myprintf("10/SQ=%f, out=%f, exp=%f and res=%f\n", 10.0f / (BOARD_SQUARES), beta_out[0], std::exp(beta_out[0]), std::exp(beta_out[0]) * (1.0f / BOARD_SQUARES));
     return result;
 }
 
@@ -1013,7 +1058,10 @@ void Network::show_heatmap(const FastState* const state,
     }
     const auto pass_score = int(result.policy_pass * 1000);
     myprintf("pass: %d\n", pass_score);
-    myprintf("winrate: %f\n", result.winrate);
+    myprintf("alpha: %f\n", result.alpha);
+    myprintf("beta: %f\n", result.beta);
+    const auto komi = state->get_komi();
+    myprintf("winrate: %f\n", sigmoid(result.alpha, result.beta, state->board.black_to_move() ? -komi : komi));
 
     if (topmoves) {
         std::vector<Network::ScoreVertexPair> moves;
