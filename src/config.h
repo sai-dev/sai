@@ -53,7 +53,7 @@
 // sai7-8: wrong
 // sai10: visits=250 alpha19x19=0.01357f (alpha=0.1f) (low value = high noise)
 // sai11: visits=250 alpha19x19=0.04072f (alpha=0.3f) (high value = low noise)
-#define DIRICHLET_ALPHA_19X19 0.02715f //sai4
+#define DIRICHLET_ALPHA_19X19 0.04072f //sai6
 
 /*
  * Features
