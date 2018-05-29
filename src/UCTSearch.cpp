@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <tuple>
 
 #include "FastBoard.h"
 #include "FastState.h"
@@ -746,8 +747,24 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // display search info
     myprintf("\n");
     dump_stats(m_rootstate, *m_root);
+    myprintf("Writing training info.\n");
     Training::record(m_rootstate, *m_root);
+    myprintf("Saving evaluation for black in current GameState:\n");
+    const auto alpkt = m_root->get_net_alpkt();
+    const auto beta = m_root->get_net_beta();
+    m_rootstate.set_eval(alpkt, beta,
+			 sigmoid(alpkt, beta, 0.0f),
+			 m_root->get_eval(FastBoard::BLACK),
+			 m_root->get_eval_bonus());
 
+    const auto ev = m_rootstate.get_eval();
+    myprintf("alpkt=%.2f, beta=%.3f, pi=%.3f, avg=%.3f, xbar=%.1f\n",
+	     std::get<0>(ev),
+	     std::get<1>(ev),
+	     std::get<2>(ev),
+	     std::get<3>(ev),
+	     std::get<4>(ev));
+    
     Time elapsed;
     int elapsed_centis = Time::timediff_centis(start, elapsed);
     if (elapsed_centis+1 > 0) {
@@ -817,8 +834,16 @@ void UCTSearch::set_visit_limit(int visits) {
 }
 
 float SearchResult::eval_with_bonus(float xbar) {
-    if (std::abs(xbar)>0.001f)
-	return 1-std::log(sigmoid(m_alpkt,m_beta,xbar)/sigmoid(m_alpkt,m_beta,0.0f))/m_beta/xbar;
-    else
+    //    myprintf("Function eval_with_bonus: xbar=%f, alpkt=%f, beta=%f",
+    //	     xbar, m_alpkt, m_beta);
+    if (std::abs(xbar)<0.001f) {
 	return sigmoid(m_alpkt,m_beta,0.0f);
+    }
+    else if ((std::abs(m_alpkt)+std::abs(xbar))*m_beta<10.0f) {
+	return 1-std::log(sigmoid(m_alpkt,m_beta,xbar)/sigmoid(m_alpkt,m_beta,0.0f))/m_beta/xbar;
+    }
+    else if (m_alpkt>0.0f) {
+	return 1;
+    }
+    else return 0;	
 }

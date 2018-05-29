@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <tuple>
 
 #include "FastState.h"
 #include "FullBoard.h"
@@ -64,7 +65,11 @@ public:
     void display_state();
     bool has_resigned() const;
     int who_resigned() const;
+    std::tuple<float,float,float,float,float> get_eval();
+    void set_eval(float alpkt, float beta, float pi,
+		  float avg_eval, float eval_bonus);
 
+    
 private:
     bool valid_handicap(int stones);
 

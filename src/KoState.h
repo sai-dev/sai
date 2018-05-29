@@ -22,6 +22,7 @@
 #include "config.h"
 
 #include <vector>
+#include <tuple>
 
 #include "FastState.h"
 #include "FullBoard.h"
@@ -34,9 +35,16 @@ public:
 
     void play_move(int color, int vertex);
     void play_move(int vertex);
-
+    std::tuple<float,float,float,float,float> get_eval();
+    void set_eval(float alpkt, float beta, float pi,
+		  float avg_eval, float eval_bonus);
 private:
     std::vector<std::uint64_t> m_ko_hash_history;
+    float m_alpkt = 0.0f;
+    float m_beta = 0.0f;
+    float m_pi = 0.0f;
+    float m_avg_eval = 0.0f;
+    float m_eval_bonus = 0.0f;
 };
 
 #endif

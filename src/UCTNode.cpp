@@ -219,6 +219,18 @@ float UCTNode::get_eval_bonus() const {
     return m_eval_bonus;
 }
 
+float UCTNode::get_net_eval() const {
+    return m_net_eval;
+}
+
+float UCTNode::get_net_beta() const {
+    return m_net_beta;
+}
+
+float UCTNode::get_net_alpkt() const {
+    return m_net_alpkt;
+}
+
 void UCTNode::set_score(float score) {
     m_score = score;
 }

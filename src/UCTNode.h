@@ -71,6 +71,9 @@ public:
     float get_eval(int tomove) const;
     float get_net_eval(int tomove) const;
     float get_eval_bonus() const;
+    float get_net_eval() const;
+    float get_net_beta() const;
+    float get_net_alpkt() const;
     void virtual_loss(void);
     void virtual_loss_undo(void);
     void update(float eval);

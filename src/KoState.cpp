@@ -22,6 +22,7 @@
 #include <cassert>
 #include <algorithm>
 #include <iterator>
+#include <tuple>
 
 #include "FastBoard.h"
 #include "FastState.h"
@@ -50,6 +51,7 @@ void KoState::reset_game() {
 
     m_ko_hash_history.clear();
     m_ko_hash_history.push_back(board.get_ko_hash());
+    set_eval(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 void KoState::play_move(int vertex) {
@@ -61,4 +63,20 @@ void KoState::play_move(int color, int vertex) {
         FastState::play_move(color, vertex);
     }
     m_ko_hash_history.push_back(board.get_ko_hash());
+}
+
+std::tuple<float,float,float,float,float> KoState::get_eval() {
+    return std::make_tuple(m_alpkt,m_beta,m_pi,m_avg_eval,m_eval_bonus);
+}
+
+void KoState::set_eval(float alpkt,
+		       float beta,
+		       float pi,
+		       float avg_eval,
+		       float eval_bonus) {
+    m_alpkt = alpkt;
+    m_beta = beta;
+    m_pi = pi;
+    m_avg_eval = avg_eval;
+    m_eval_bonus = eval_bonus;
 }

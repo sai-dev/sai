@@ -26,12 +26,26 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <tuple>
 
 #include "FastBoard.h"
 #include "FastState.h"
 #include "FullBoard.h"
 #include "KoState.h"
 #include "UCTSearch.h"
+
+std::tuple<float,float,float,float,float> GameState::get_eval() {
+    return KoState::get_eval();
+}
+
+void GameState::set_eval(float alpkt,
+		       float beta,
+		       float pi,
+		       float avg_eval,
+		       float eval_bonus) {
+    KoState::set_eval(alpkt, beta, pi, avg_eval, eval_bonus);
+}
+
 
 void GameState::init_game(int size, float komi) {
     KoState::init_game(size, komi);
