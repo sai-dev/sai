@@ -55,6 +55,9 @@ TimeManagement::enabled_t cfg_timemanage;
 int cfg_lagbuffer_cs;
 int cfg_resignpct;
 int cfg_noise;
+float cfg_noise_value;
+float cfg_lambda;
+float cfg_komi;
 int cfg_random_cnt;
 int cfg_random_min_visits;
 float cfg_random_temp;
@@ -87,6 +90,8 @@ void GTP::setup_default_parameters() {
 #endif
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
+    cfg_komi = 7.5f;
+    cfg_lambda = 0.5f;
     cfg_timemanage = TimeManagement::AUTO;
     cfg_lagbuffer_cs = 100;
 #ifdef USE_OPENCL
@@ -101,6 +106,7 @@ void GTP::setup_default_parameters() {
     // if negative, the default is 10%, otherwise, this value % is used
     cfg_resignpct = -1;
     cfg_noise = false;
+    cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
     cfg_random_min_visits = 1;
     cfg_random_temp = 1.0f;
@@ -303,7 +309,7 @@ bool GTP::execute(GameState & game, std::string xinput) {
     } else if (command.find("komi") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
-        float komi = KOMI_VALUE;
+        float komi = cfg_komi;
         float old_komi = game.get_komi();
 
         cmdstream >> tmp;  // eat komi

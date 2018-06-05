@@ -63,6 +63,10 @@ static void parse_commandline(int argc, char *argv[]) {
                        "Requires --noponder.")
         ("visits,v", po::value<int>(),
                      "Weaken engine by limiting the number of visits.")
+        ("komi", po::value<float>()->default_value(cfg_komi),
+                     "Komi")
+        ("lambda", po::value<float>()->default_value(cfg_lambda),
+                     "Lambda value")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
@@ -90,6 +94,8 @@ static void parse_commandline(int argc, char *argv[]) {
     po::options_description selfplay_desc("Self-play options");
     selfplay_desc.add_options()
         ("noise,n", "Enable policy network randomization.")
+        ("noise-value", po::value<float>()->default_value(cfg_noise_value, (boost::format("%g") % cfg_noise_value).str()),
+                     "Dirichilet noise for network randomzation.")
         ("seed,s", po::value<std::uint64_t>(),
                    "Random number generation seed.")
         ("dumbpass,d", "Don't use heuristics for smarter passing.")
@@ -221,6 +227,7 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("noise")) {
         cfg_noise = true;
+        cfg_noise_value = vm["noise-value"].as<float>();
     }
 
     if (vm.count("dumbpass")) {
@@ -250,6 +257,9 @@ static void parse_commandline(int argc, char *argv[]) {
             cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
         }
     }
+
+    cfg_lambda = vm["lambda"].as<float>();
+    cfg_komi = vm["komi"].as<float>();
 
     if (vm.count("resignpct")) {
         cfg_resignpct = vm["resignpct"].as<int>();
@@ -391,7 +401,7 @@ int main(int argc, char *argv[]) {
     auto maingame = std::make_unique<GameState>();
 
     /* set board limits */
-    auto komi = KOMI_VALUE;
+    auto komi = cfg_komi;
     maingame->init_game(BOARD_SIZE, komi);
 
     if (cfg_benchmark) {

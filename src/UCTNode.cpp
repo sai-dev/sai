@@ -90,7 +90,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     alpkt = m_net_alpkt = (state.board.black_to_move() ? raw_netlist.alpha : -raw_netlist.alpha) - komi;
     beta = m_net_beta = raw_netlist.beta;
     const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
-    const auto pi_lambda = (1-LAMBDA)*pi+LAMBDA*0.5f;
+    const auto pi_lambda = (1-cfg_lambda)*pi+cfg_lambda*0.5f;
     m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;
 
     myprintf("alpha=%f, beta=%f, pass=%f\n"
@@ -98,8 +98,8 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
 	     raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
 	     m_net_alpkt, pi, pi_lambda, m_eval_bonus);
 
-    
-    
+
+
     // DCNN returns winrate as side to move
     m_net_eval = pi;
     // our search functions evaluate from black's point of view

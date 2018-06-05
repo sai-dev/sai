@@ -218,7 +218,7 @@ void UCTNode::prepare_root_node(int color,
 
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size
-        auto alpha = DIRICHLET_ALPHA_19X19 * 361.0f / BOARD_SQUARES;
+        auto alpha = cfg_noise_value * 361.0f / BOARD_SQUARES;
 	myprintf("About to call dirichlet_noise.\n");
         dirichlet_noise(0.25f, alpha);
     }

@@ -42,18 +42,6 @@
 #endif
 
 /*
- * KOMI_VALUE: Define the komi value
- */
-#define KOMI_VALUE 9.5f
-
-#define LAMBDA 0.5f
-
-/*
- * DIRICHLET_ALPHA_19X19: alpha parameter for Dirichlet noise for 19x19 board, it gets automatically rescaled with board size
- */
-#define DIRICHLET_ALPHA_19X19 0.01357f
-
-/*
  * Features
  *
  * USE_BLAS: Use a basic linear algebra library.
