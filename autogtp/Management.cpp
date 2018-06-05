@@ -30,7 +30,7 @@
 #include "Management.h"
 #include "Game.h"
 
-const QString server_url = "http://sai.unich.it/sai9/";
+const QString server_url = "http://localhost:8080/";
 constexpr int RETRY_DELAY_MIN_SEC = 30;
 constexpr int RETRY_DELAY_MAX_SEC = 60 * 60;  // 1 hour
 constexpr int MAX_RETRIES = 3;           // Stop retrying after 3 times
@@ -253,6 +253,9 @@ QString Management::getOptionsString(const QJsonObject &opt, const QString &rnd)
     QString options;
     options.append(getOption(opt, "playouts", " -p ", ""));
     options.append(getOption(opt, "visits", " -v ", ""));
+    options.append(getOption(opt, "komi", " --komi ", ""));
+    options.append(getOption(opt, "lambda", " --lambda ", ""));
+    options.append(getOption(opt, "noise_value", " --noise-value ", ""));
     options.append(getOption(opt, "resignation_percent", " -r ", "1"));
     options.append(getOption(opt, "randomcnt", " -m ", "30"));
     options.append(getOption(opt, "threads", " -t ", "1"));
