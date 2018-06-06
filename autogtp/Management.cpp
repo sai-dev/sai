@@ -394,6 +394,8 @@ Order Management::getWorkInternal(bool tuning) {
         fetchNetwork(net);
         o.type(Order::Production);
         parameters["network"] = net;
+        parameters["sgf"] = ob.contains("sgfhash") ? ob.value("sgfhash").toString() : "";
+        parameters["moves"] = ob.contains("movescount") ? ob.value("movescount").toString() : "0";
         o.parameters(parameters);
         if (m_delNetworks &&
             m_fallBack.parameters()["network"] != net) {

@@ -69,6 +69,7 @@ private:
     QString m_network;
     QString m_sgf;
     bool m_debug;
+    bool m_permanent_sgf;
 };
 
 class ValidationJob : public Job {
