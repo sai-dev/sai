@@ -410,9 +410,9 @@ class TFProcess:
         # Policy head
         conv_pol = self.conv_block(flow, filter_size=1,
                                    input_channels=self.RESIDUAL_FILTERS,
-                                   output_channels=2)
-        h_conv_pol_flat = tf.reshape(conv_pol, [-1, 2*BOARD_SQUARES])
-        W_fc1 = weight_variable([2 * BOARD_SQUARES, BOARD_SQUARES + 1])
+                                   output_channels=OUTPUTS_POLICY)
+        h_conv_pol_flat = tf.reshape(conv_pol, [-1, OUTPUTS_POLICY * BOARD_SQUARES])
+        W_fc1 = weight_variable([OUTPUTS_POLICY * BOARD_SQUARES, BOARD_SQUARES + 1])
         b_fc1 = bias_variable([BOARD_SQUARES + 1])
         self.weights.append(W_fc1)
         self.weights.append(b_fc1)
@@ -421,9 +421,9 @@ class TFProcess:
         # Value head
         conv_val = self.conv_block(flow, filter_size=1,
                                    input_channels=self.RESIDUAL_FILTERS,
-                                   output_channels=1)
-        h_conv_val_flat = tf.reshape(conv_val, [-1, BOARD_SQUARES])
-        W_fc2 = weight_variable([BOARD_SQUARES, 256])
+                                   output_channels=OUTPUTS_VALUE)
+        h_conv_val_flat = tf.reshape(conv_val, [-1, OUTPUTS_VALUE * BOARD_SQUARES])
+        W_fc2 = weight_variable([OUTPUTS_VALUE * BOARD_SQUARES, 256])
         b_fc2 = bias_variable([256])
         self.weights.append(W_fc2)
         self.weights.append(b_fc2)

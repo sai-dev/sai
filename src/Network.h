@@ -51,7 +51,7 @@ public:
     static constexpr auto INPUT_MOVES = 8;
     static constexpr auto INPUT_CHANNELS = 2 * INPUT_MOVES + 2;
     static constexpr auto OUTPUTS_POLICY = 2;
-    static constexpr auto OUTPUTS_VALUE = 1;
+    static constexpr auto OUTPUTS_VALUE = 2;
 
     // Winograd filter transformation changes 3x3 filters to 4x4
     static constexpr auto WINOGRAD_ALPHA = 4;

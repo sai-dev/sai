@@ -4,6 +4,10 @@
 BOARD_SIZE = 7
 BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 
+# Channels in 1x1 convolution of heads. Default is 2 for policy and 1 for value
+OUTPUTS_POLICY = 2
+OUTPUTS_VALUE = 1
+
 # Learning rate
 LEARN_RATE = 0.05
 
@@ -17,10 +21,10 @@ BATCH_SIZE = 512
 DOWN_SAMPLE = 16
 
 # Outputs new network after the specified number of training steps
-TRAINING_STEPS = 500 #2000
+TRAINING_STEPS = 2000 #2000 for AGZ, 500 for AZ
 
 # Display intermediate output after the specified number of training steps
-TRAINING_STEPS_VERBOSE = 100
+TRAINING_STEPS_VERBOSE = 500 #500 for AGZ, 100 for AZ
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 500 #16000
+MAX_TRAINING_STEPS = 16000 #16000 for AGZ, 500 for AZ

@@ -70,19 +70,21 @@ static std::vector<std::vector<float>> batchnorm_stddivs;
 // Policy head
 static std::vector<float> conv_pol_w;
 static std::vector<float> conv_pol_b;
-static std::array<float, 2> bn_pol_w1;
-static std::array<float, 2> bn_pol_w2;
+static std::array<float, Network::OUTPUTS_POLICY> bn_pol_w1;
+static std::array<float, Network::OUTPUTS_POLICY> bn_pol_w2;
 
-static std::array<float, (BOARD_SQUARES + 1) * BOARD_SQUARES * 2> ip_pol_w;
+static std::array<float, (BOARD_SQUARES + 1) * BOARD_SQUARES
+		  * Network::OUTPUTS_POLICY> ip_pol_w;
 static std::array<float, BOARD_SQUARES + 1> ip_pol_b;
 
 // Value head
 static std::vector<float> conv_val_w;
 static std::vector<float> conv_val_b;
-static std::array<float, 1> bn_val_w1;
-static std::array<float, 1> bn_val_w2;
+static std::array<float, Network::OUTPUTS_VALUE> bn_val_w1;
+static std::array<float, Network::OUTPUTS_VALUE> bn_val_w2;
 
-static std::array<float, BOARD_SQUARES * 256> ip1_val_w;
+static std::array<float, BOARD_SQUARES * 256
+		  * Network::OUTPUTS_VALUE> ip1_val_w;
 static std::array<float, 256> ip1_val_b;
 
 static std::array<float, 256> ip2_val_w;
@@ -417,8 +419,8 @@ void Network::initialize() {
         }
 
         // Output head convolutions
-        opencl_net->push_convolve1(channels, OUTPUTS_POLICY, conv_pol_w);
-        opencl_net->push_convolve1(channels, OUTPUTS_VALUE, conv_val_w);
+        opencl_net->push_convolve1(channels, Network::OUTPUTS_POLICY, conv_pol_w);
+        opencl_net->push_convolve1(channels, Network::OUTPUTS_VALUE, conv_val_w);
     }
 #endif
 #ifdef USE_BLAS
@@ -772,8 +774,8 @@ void Network::forward_cpu(const std::vector<float>& input,
                                  batchnorm_stddivs[i + 1].data(),
                                  res.data());
     }
-    convolve<1>(OUTPUTS_POLICY, conv_out, conv_pol_w, conv_pol_b, output_pol);
-    convolve<1>(OUTPUTS_VALUE, conv_out, conv_val_w, conv_val_b, output_val);
+    convolve<1>(Network::OUTPUTS_POLICY, conv_out, conv_pol_w, conv_pol_b, output_pol);
+    convolve<1>(Network::OUTPUTS_VALUE, conv_out, conv_val_w, conv_val_b, output_val);
 }
 
 template<typename T>
@@ -881,8 +883,8 @@ Network::Netresult Network::get_scored_moves_internal(
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
     std::vector<net_t> input_data;
-    std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
-    std::vector<float> value_data(OUTPUTS_VALUE * width * height);
+    std::vector<float> policy_data(Network::OUTPUTS_POLICY * width * height);
+    std::vector<float> value_data(Network::OUTPUTS_VALUE * width * height);
     // Data layout is input_data[(c * height + h) * width + w]
     input_data.reserve(INPUT_CHANNELS * width * height);
     for (auto c = 0; c < INPUT_CHANNELS; ++c) {
@@ -911,18 +913,18 @@ Network::Netresult Network::get_scored_moves_internal(
 #endif
 
     // Get the moves
-    batchnorm<BOARD_SQUARES>(OUTPUTS_POLICY, policy_data,
+    batchnorm<BOARD_SQUARES>(Network::OUTPUTS_POLICY, policy_data,
         bn_pol_w1.data(), bn_pol_w2.data());
     const auto policy_out =
-        innerproduct<OUTPUTS_POLICY * BOARD_SQUARES, BOARD_SQUARES + 1, false>(
+        innerproduct<Network::OUTPUTS_POLICY * BOARD_SQUARES, BOARD_SQUARES + 1, false>(
             policy_data, ip_pol_w, ip_pol_b);
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
 
     // Now get the score
-    batchnorm<BOARD_SQUARES>(OUTPUTS_VALUE, value_data,
+    batchnorm<BOARD_SQUARES>(Network::OUTPUTS_VALUE, value_data,
         bn_val_w1.data(), bn_val_w2.data());
     const auto winrate_data =
-        innerproduct<BOARD_SQUARES, 256, true>(value_data, ip1_val_w, ip1_val_b);
+        innerproduct<Network::OUTPUTS_VALUE * BOARD_SQUARES, 256, true>(value_data, ip1_val_w, ip1_val_b);
     const auto winrate_out =
         innerproduct<256, 1, false>(winrate_data, ip2_val_w, ip2_val_b);
 
