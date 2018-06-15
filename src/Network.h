@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 #include <fstream>
+#include <tuple>
 
 #include "FastState.h"
 #include "GameState.h"
@@ -51,7 +52,6 @@ public:
     static constexpr auto INPUT_MOVES = 8;
     static constexpr auto INPUT_CHANNELS = 2 * INPUT_MOVES + 2;
     static constexpr auto OUTPUTS_POLICY = 2;
-    static constexpr auto OUTPUTS_VALUE = 2;
 
     // Winograd filter transformation changes 3x3 filters to 4x4
     static constexpr auto WINOGRAD_ALPHA = 4;
@@ -64,8 +64,8 @@ public:
 
     static void gather_features(const GameState* const state, NNPlanes& planes);
 private:
-    static std::pair<int, int> load_v1_network(std::ifstream& wtfile);
-    static std::pair<int, int> load_network_file(const std::string& filename);
+    static std::tuple<int, int, int> load_v1_network(std::ifstream& wtfile);
+    static std::tuple<int, int, int> load_network_file(const std::string& filename);
     static void process_bn_var(std::vector<float>& weights,
                                const float epsilon=1e-5f);
 

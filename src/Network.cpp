@@ -28,6 +28,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <boost/utility.hpp>
 #include <boost/format.hpp>
 #include <boost/spirit/home/x3.hpp>
@@ -80,11 +81,12 @@ static std::array<float, BOARD_SQUARES + 1> ip_pol_b;
 // Value head
 static std::vector<float> conv_val_w;
 static std::vector<float> conv_val_b;
-static std::array<float, Network::OUTPUTS_VALUE> bn_val_w1;
-static std::array<float, Network::OUTPUTS_VALUE> bn_val_w2;
+static std::vector<float> bn_val_w1; // modificato
+static std::vector<float> bn_val_w2; // modificato
 
-static std::array<float, BOARD_SQUARES * 256
-		  * Network::OUTPUTS_VALUE> ip1_val_w;
+static int outputs_value;
+
+static std::vector<float> ip1_val_w; // modificato
 static std::array<float, 256> ip1_val_b;
 
 static std::array<float, 256> ip2_val_w;
@@ -193,7 +195,7 @@ std::vector<float> Network::zeropad_U(const std::vector<float>& U,
     return Upad;
 }
 
-std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
+std::tuple<int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
     // Count size of the network
     myprintf("Detecting residual layers...");
     // We are version 1
@@ -201,6 +203,7 @@ std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
     // First line was the version number
     auto linecount = size_t{1};
     auto channels = 0;
+    auto outs_value = 0;
     auto line = std::string{};
     while (std::getline(wtfile, line)) {
         auto iss = std::stringstream{line};
@@ -220,10 +223,10 @@ std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
     auto residual_blocks = linecount - (1 + 4 + 14);
     if (residual_blocks % 8 != 0) {
         myprintf("\nInconsistent number of weights in the file.\n");
-        return {0, 0};
+        return std::make_tuple(0, 0, 0);
     }
     residual_blocks /= 8;
-    myprintf("%d blocks.\n", residual_blocks);
+    myprintf("%d blocks...", residual_blocks);
 
     // Re-read file and process
     wtfile.clear();
@@ -243,7 +246,7 @@ std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
         if (!ok || it_line != line.cend()) {
             myprintf("\nFailed to parse weight file. Error on line %d.\n",
                     linecount + 2); //+1 from version line, +1 from 0-indexing
-            return {0,0};
+	    return std::make_tuple(0, 0, 0);
         }
         if (linecount < plain_conv_wts) {
             if (linecount % 4 == 0) {
@@ -276,12 +279,17 @@ std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
         } else if (linecount == plain_conv_wts + 7) {
             conv_val_b = std::move(weights);
         } else if (linecount == plain_conv_wts + 8) {
-            std::copy(cbegin(weights), cend(weights), begin(bn_val_w1));
+	    bn_val_w1 = std::move(weights);
+	    //std::copy(cbegin(weights), cend(weights), begin(bn_val_w1));
         } else if (linecount == plain_conv_wts + 9) {
+	    outs_value = weights.size();
+	    myprintf("%d value head filters.\n", outs_value);
             process_bn_var(weights);
-            std::copy(cbegin(weights), cend(weights), begin(bn_val_w2));
+	    bn_val_w2 = std::move(weights);
+	    //std::copy(cbegin(weights), cend(weights), begin(bn_val_w2));
         } else if (linecount == plain_conv_wts + 10) {
-            std::copy(cbegin(weights), cend(weights), begin(ip1_val_w));
+	    ip1_val_w = std::move(weights);
+            //std::copy(cbegin(weights), cend(weights), begin(ip1_val_w));
         } else if (linecount == plain_conv_wts + 11) {
             std::copy(cbegin(weights), cend(weights), begin(ip1_val_b));
         } else if (linecount == plain_conv_wts + 12) {
@@ -293,14 +301,14 @@ std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
     }
     wtfile.close();
 
-    return {channels, residual_blocks};
+    return std::make_tuple(channels, residual_blocks, outs_value);
 }
 
-std::pair<int, int> Network::load_network_file(const std::string& filename) {
+std::tuple<int, int, int> Network::load_network_file(const std::string& filename) {
     auto wtfile = std::ifstream{filename};
     if (wtfile.fail()) {
         myprintf("Could not open weights file: %s\n", filename.c_str());
-        return {0, 0};
+        return std::make_tuple(0, 0, 0);
     }
 
     // Read format version
@@ -312,14 +320,14 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
         iss >> format_version;
         if (iss.fail() || format_version != FORMAT_VERSION) {
             myprintf("Weights file is the wrong version.\n");
-            return {0, 0};
+	    return std::make_tuple(0, 0, 0);
         } else {
             assert(format_version == FORMAT_VERSION);
             return load_v1_network(wtfile);
         }
     }
 
-    return {0, 0};
+    return std::make_tuple(0, 0, 0);
 }
 
 void Network::initialize() {
@@ -332,7 +340,7 @@ void Network::initialize() {
 
     // Load network from file
     size_t channels, residual_blocks;
-    std::tie(channels, residual_blocks) = load_network_file(cfg_weightsfile);
+    std::tie(channels, residual_blocks, outputs_value) = load_network_file(cfg_weightsfile);
     if (channels == 0) {
         exit(EXIT_FAILURE);
     }
@@ -420,7 +428,8 @@ void Network::initialize() {
 
         // Output head convolutions
         opencl_net->push_convolve1(channels, Network::OUTPUTS_POLICY, conv_pol_w);
-        opencl_net->push_convolve1(channels, Network::OUTPUTS_VALUE, conv_val_w);
+	//myprintf("(channels, outputs_value, conv_val_w) = (%d, %d, %d).\n", channels, outputs_value, conv_val_w);
+        opencl_net->push_convolve1(channels, outputs_value, conv_val_w);
     }
 #endif
 #ifdef USE_BLAS
@@ -698,6 +707,35 @@ std::vector<float> innerproduct(const std::vector<float>& input,
     return output;
 }
 
+template<unsigned int outputs,
+         bool ReLU>
+std::vector<float> innerproduct_val(const std::vector<float>& input,
+                                const std::vector<float>& weights,
+                                const std::array<float, outputs>& biases) {
+    std::vector<float> output(outputs);
+    const unsigned int inputs=input.size();
+    //myprintf("New innerproduct...");
+    cblas_sgemv(CblasRowMajor, CblasNoTrans,
+                // M     K
+                outputs, inputs,
+                1.0f, &weights[0], inputs,
+                &input[0], 1,
+                0.0f, &output[0], 1);
+    //myprintf("Success!\n");
+
+    const auto lambda_ReLU = [](const auto val) { return (val > 0.0f) ?
+                                                          val : 0.0f; };
+    for (unsigned int o = 0; o < outputs; o++) {
+        auto val = biases[o] + output[o];
+        if (ReLU) {
+            val = lambda_ReLU(val);
+        }
+        output[o] = val;
+    }
+
+    return output;
+}
+
 template <size_t spatial_size>
 void batchnorm(const size_t channels,
                std::vector<float>& data,
@@ -775,7 +813,7 @@ void Network::forward_cpu(const std::vector<float>& input,
                                  res.data());
     }
     convolve<1>(Network::OUTPUTS_POLICY, conv_out, conv_pol_w, conv_pol_b, output_pol);
-    convolve<1>(Network::OUTPUTS_VALUE, conv_out, conv_val_w, conv_val_b, output_val);
+    convolve<1>(outputs_value, conv_out, conv_val_w, conv_val_b, output_val);
 }
 
 template<typename T>
@@ -884,7 +922,7 @@ Network::Netresult Network::get_scored_moves_internal(
     constexpr auto height = BOARD_SIZE;
     std::vector<net_t> input_data;
     std::vector<float> policy_data(Network::OUTPUTS_POLICY * width * height);
-    std::vector<float> value_data(Network::OUTPUTS_VALUE * width * height);
+    std::vector<float> value_data(outputs_value * width * height);
     // Data layout is input_data[(c * height + h) * width + w]
     input_data.reserve(INPUT_CHANNELS * width * height);
     for (auto c = 0; c < INPUT_CHANNELS; ++c) {
@@ -921,10 +959,10 @@ Network::Netresult Network::get_scored_moves_internal(
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
 
     // Now get the score
-    batchnorm<BOARD_SQUARES>(Network::OUTPUTS_VALUE, value_data,
+    batchnorm<BOARD_SQUARES>(outputs_value, value_data,
         bn_val_w1.data(), bn_val_w2.data());
     const auto winrate_data =
-        innerproduct<Network::OUTPUTS_VALUE * BOARD_SQUARES, 256, true>(value_data, ip1_val_w, ip1_val_b);
+        innerproduct_val<256, true>(value_data, ip1_val_w, ip1_val_b);
     const auto winrate_out =
         innerproduct<256, 1, false>(winrate_data, ip2_val_w, ip2_val_b);
 
