@@ -68,6 +68,7 @@ public:
 private:
     QString m_network;
     QString m_sgf;
+    QString m_selfplay_id;
     bool m_debug;
     bool m_permanent_sgf;
 };

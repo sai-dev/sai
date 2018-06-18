@@ -394,6 +394,7 @@ Order Management::getWorkInternal(bool tuning) {
         fetchNetwork(net);
         o.type(Order::Production);
         parameters["network"] = net;
+        parameters["selfplay_id"] = ob.value("selfplay_id").toString();
         parameters["sgf"] = ob.contains("sgfhash") ? "sgfs/" + ob.value("sgfhash").toString() : "";
         if (ob.contains("sgfhash")) {
             fetchSgfOrTrain(ob.value("sgfhash").toString() + ".sgf");
@@ -608,7 +609,7 @@ void Management::fetchSgfOrTrain(const QString &sgf) {
     // Use the filename from the server.
     prog_cmdline.append(" -s -J -o " + name);
     prog_cmdline.append(" -w %{filename_effective}");
-    prog_cmdline.append(" "+server_url + "viewgame/" + sgf);
+    prog_cmdline.append(" "+server_url + "view/" + sgf);
         QTextStream(stdout) << prog_cmdline << endl;
 
     QProcess curl;
@@ -836,6 +837,8 @@ void Management::uploadData(const QMap<QString,QString> &r, const QMap<QString,Q
     archiveFiles(r["file"]);
     gzipFile(r["file"] + ".sgf");
     QStringList prog_cmdline;
+    if (l.contains("selfplay_id"))
+        prog_cmdline.append("-F selfplay_id="+l["selfplay_id"]);
     prog_cmdline.append("-F networkhash=" + l["network"]);
     prog_cmdline.append("-F clientversion=" + QString::number(m_version));
     prog_cmdline.append("-F options_hash="+ l["optHash"]);
