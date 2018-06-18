@@ -71,11 +71,12 @@ static std::vector<std::vector<float>> batchnorm_stddivs;
 // Policy head
 static std::vector<float> conv_pol_w;
 static std::vector<float> conv_pol_b;
-static std::array<float, Network::OUTPUTS_POLICY> bn_pol_w1;
-static std::array<float, Network::OUTPUTS_POLICY> bn_pol_w2;
+static std::vector<float> bn_pol_w1;  // modificato
+static std::vector<float> bn_pol_w2;  // modificato
 
-static std::array<float, (BOARD_SQUARES + 1) * BOARD_SQUARES
-		  * Network::OUTPUTS_POLICY> ip_pol_w;
+static int outputs_policy;
+
+static std::vector<float> ip_pol_w;   // modificato
 static std::array<float, BOARD_SQUARES + 1> ip_pol_b;
 
 // Value head
@@ -195,7 +196,7 @@ std::vector<float> Network::zeropad_U(const std::vector<float>& U,
     return Upad;
 }
 
-std::tuple<int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
+std::tuple<int, int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
     // Count size of the network
     myprintf("Detecting residual layers...");
     // We are version 1
@@ -204,6 +205,7 @@ std::tuple<int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
     auto linecount = size_t{1};
     auto channels = 0;
     auto outs_value = 0;
+    auto outs_policy = 0;
     auto line = std::string{};
     while (std::getline(wtfile, line)) {
         auto iss = std::stringstream{line};
@@ -223,7 +225,7 @@ std::tuple<int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
     auto residual_blocks = linecount - (1 + 4 + 14);
     if (residual_blocks % 8 != 0) {
         myprintf("\nInconsistent number of weights in the file.\n");
-        return std::make_tuple(0, 0, 0);
+        return std::make_tuple(0, 0, 0, 0);
     }
     residual_blocks /= 8;
     myprintf("%d blocks...", residual_blocks);
@@ -246,7 +248,7 @@ std::tuple<int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
         if (!ok || it_line != line.cend()) {
             myprintf("\nFailed to parse weight file. Error on line %d.\n",
                     linecount + 2); //+1 from version line, +1 from 0-indexing
-	    return std::make_tuple(0, 0, 0);
+	    return std::make_tuple(0, 0, 0, 0);
         }
         if (linecount < plain_conv_wts) {
             if (linecount % 4 == 0) {
@@ -264,14 +266,19 @@ std::tuple<int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
         } else if (linecount == plain_conv_wts) {
             conv_pol_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 1) {
+	    outs_policy = weights.size();
+	    myprintf("%d policy head filters...", outs_policy);
             conv_pol_b = std::move(weights);
         } else if (linecount == plain_conv_wts + 2) {
-            std::copy(cbegin(weights), cend(weights), begin(bn_pol_w1));
+            bn_pol_w1 = std::move(weights);
+            //std::copy(cbegin(weights), cend(weights), begin(bn_pol_w1));
         } else if (linecount == plain_conv_wts + 3) {
             process_bn_var(weights);
-            std::copy(cbegin(weights), cend(weights), begin(bn_pol_w2));
+            bn_pol_w2 = std::move(weights);
+            //std::copy(cbegin(weights), cend(weights), begin(bn_pol_w2));
         } else if (linecount == plain_conv_wts + 4) {
-            std::copy(cbegin(weights), cend(weights), begin(ip_pol_w));
+            ip_pol_w = std::move(weights);
+            //std::copy(cbegin(weights), cend(weights), begin(ip_pol_w));
         } else if (linecount == plain_conv_wts + 5) {
             std::copy(cbegin(weights), cend(weights), begin(ip_pol_b));
         } else if (linecount == plain_conv_wts + 6) {
@@ -301,14 +308,14 @@ std::tuple<int, int, int> Network::load_v1_network(std::ifstream& wtfile) {
     }
     wtfile.close();
 
-    return std::make_tuple(channels, residual_blocks, outs_value);
+    return std::make_tuple(channels, residual_blocks, outs_policy, outs_value);
 }
 
-std::tuple<int, int, int> Network::load_network_file(const std::string& filename) {
+std::tuple<int, int, int, int> Network::load_network_file(const std::string& filename) {
     auto wtfile = std::ifstream{filename};
     if (wtfile.fail()) {
         myprintf("Could not open weights file: %s\n", filename.c_str());
-        return std::make_tuple(0, 0, 0);
+        return std::make_tuple(0, 0, 0, 0);
     }
 
     // Read format version
@@ -320,14 +327,14 @@ std::tuple<int, int, int> Network::load_network_file(const std::string& filename
         iss >> format_version;
         if (iss.fail() || format_version != FORMAT_VERSION) {
             myprintf("Weights file is the wrong version.\n");
-	    return std::make_tuple(0, 0, 0);
+	    return std::make_tuple(0, 0, 0, 0);
         } else {
             assert(format_version == FORMAT_VERSION);
             return load_v1_network(wtfile);
         }
     }
 
-    return std::make_tuple(0, 0, 0);
+    return std::make_tuple(0, 0, 0, 0);
 }
 
 void Network::initialize() {
@@ -340,7 +347,8 @@ void Network::initialize() {
 
     // Load network from file
     size_t channels, residual_blocks;
-    std::tie(channels, residual_blocks, outputs_value) = load_network_file(cfg_weightsfile);
+    std::tie(channels, residual_blocks, outputs_policy, outputs_value)
+	= load_network_file(cfg_weightsfile);
     if (channels == 0) {
         exit(EXIT_FAILURE);
     }
@@ -427,7 +435,7 @@ void Network::initialize() {
         }
 
         // Output head convolutions
-        opencl_net->push_convolve1(channels, Network::OUTPUTS_POLICY, conv_pol_w);
+        opencl_net->push_convolve1(channels, outputs_policy, conv_pol_w);
 	//myprintf("(channels, outputs_value, conv_val_w) = (%d, %d, %d).\n", channels, outputs_value, conv_val_w);
         opencl_net->push_convolve1(channels, outputs_value, conv_val_w);
     }
@@ -812,7 +820,7 @@ void Network::forward_cpu(const std::vector<float>& input,
                                  batchnorm_stddivs[i + 1].data(),
                                  res.data());
     }
-    convolve<1>(Network::OUTPUTS_POLICY, conv_out, conv_pol_w, conv_pol_b, output_pol);
+    convolve<1>(outputs_policy, conv_out, conv_pol_w, conv_pol_b, output_pol);
     convolve<1>(outputs_value, conv_out, conv_val_w, conv_val_b, output_val);
 }
 
@@ -921,7 +929,7 @@ Network::Netresult Network::get_scored_moves_internal(
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
     std::vector<net_t> input_data;
-    std::vector<float> policy_data(Network::OUTPUTS_POLICY * width * height);
+    std::vector<float> policy_data(outputs_policy * width * height);
     std::vector<float> value_data(outputs_value * width * height);
     // Data layout is input_data[(c * height + h) * width + w]
     input_data.reserve(INPUT_CHANNELS * width * height);
@@ -951,10 +959,10 @@ Network::Netresult Network::get_scored_moves_internal(
 #endif
 
     // Get the moves
-    batchnorm<BOARD_SQUARES>(Network::OUTPUTS_POLICY, policy_data,
+    batchnorm<BOARD_SQUARES>(outputs_policy, policy_data,
         bn_pol_w1.data(), bn_pol_w2.data());
     const auto policy_out =
-        innerproduct<Network::OUTPUTS_POLICY * BOARD_SQUARES, BOARD_SQUARES + 1, false>(
+        innerproduct_val<BOARD_SQUARES + 1, false>(
             policy_data, ip_pol_w, ip_pol_b);
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
 
