@@ -147,19 +147,21 @@ class ChunkParser:
         # BOARD_SQUARES+1 float32 probabilities (1448 bytes on a 19x19)
         # BOARD_SQUARES*16 packed bit planes (722 bytes on a 19x19)
         # uint8 side_to_move (1 byte)
+        # int8 2*komi (1 byte)
         # uint8 is_winner (1 byte)
         s1 = (BOARD_SQUARES+1)*4
         s2 = BOARD_SQUARES*2
-        self.v2_struct = struct.Struct('4s'+str(s1)+'s'+str(s2)+'sBB')
+        self.v2_struct = struct.Struct('4s'+str(s1)+'s'+str(s2)+'sBbB')
 
         # Struct used to return data from child workers.
         # float32 winner
         # float32*(BOARD_SQUARE+1) probs
+        # int8 2*komi
         # uint8*BOARD_SQUARE*18 planes
         # (order is to ensure that no padding is required to
         #  make float32 be 32-bit aligned)
         s3 = BOARD_SQUARES * 18
-        self.raw_struct = struct.Struct('4s'+str(s1)+'s'+str(s3)+'s')
+        self.raw_struct = struct.Struct('4s'+str(s1)+'sb'+str(s3)+'s')
 
     def convert_v1_to_v2(self, text_item):
         """
@@ -195,13 +197,15 @@ class ChunkParser:
         planes = np.packbits(planes).tobytes()
 
         # Get the 'side to move' and komi
-        stmkomi = str_items[16].split()
+        stmkomi = text_item[16].split()
         if not(len(stmkomi) == 2):
             return False, None
         stm = int(stmkomi[0])
         if not(stm == 0 or stm == 1):
             return False, None
-        komi = float(stmkomi[1])
+        komi = int(2*float(stmkomi[1]))
+        if (stm == 0):
+            komi = -komi
 
         # Load the probabilities.
         probabilities = np.array(text_item[17].split()).astype(np.float32)
@@ -224,7 +228,7 @@ class ChunkParser:
 
         version = struct.pack('i', 1)
 
-        return True, self.v2_struct.pack(version, probs, planes, stm, winner)
+        return True, self.v2_struct.pack(version, probs, planes, stm, komi, winner)
 
     def v2_apply_symmetry(self, symmetry, content):
         """
@@ -233,7 +237,7 @@ class ChunkParser:
         assert symmetry >= 0 and symmetry < 8
 
         # unpack the record.
-        (ver, probs, planes, to_move, winner) = self.v2_struct.unpack(content)
+        (ver, probs, planes, to_move, komi, winner) = self.v2_struct.unpack(content)
 
         planes = np.unpackbits(np.frombuffer(planes, dtype=np.uint8))
         # We use the full length reflection tables to apply symmetry
@@ -250,7 +254,7 @@ class ChunkParser:
         probs = probs.tobytes()
 
         # repack record.
-        return self.v2_struct.pack(ver, probs, planes, to_move, winner)
+        return self.v2_struct.pack(ver, probs, planes, to_move, komi, winner)
 
 
     def convert_v2_to_tuple(self, content):
@@ -262,14 +266,16 @@ class ChunkParser:
                 float probs[BOARD_SQUARES+1]
                 byte planes[BOARD_SQUARES*16/8]
                 byte to_move
+                byte komi
                 byte winner
 
             packed tensor formats are
                 float32 winner
                 float32*(BOARD_SQUARES+1) probs
+                byte komi
                 uint8*(BOARD_SQUARES*18) planes
         """
-        (ver, probs, planes, to_move, winner) = self.v2_struct.unpack(content)
+        (ver, probs, planes, to_move, komi, winner) = self.v2_struct.unpack(content)
         # Unpack planes.
         planes = np.unpackbits(np.frombuffer(planes, dtype=np.uint8))
         assert len(planes) == BOARD_SQUARES*16
@@ -280,11 +286,14 @@ class ChunkParser:
         planes = planes.tobytes() + self.flat_planes[stm]
         assert len(planes) == (18 * BOARD_SQUARES), len(planes)
 
+        komi = float(komi/2)
+        komi = struct.pack('f', komi)
+        
         winner = float(winner * 2 - 1)
         assert winner == 1.0 or winner == -1.0, winner
         winner = struct.pack('f', winner)
 
-        return (planes, probs, winner)
+        return (planes, probs, komi, winner)
 
     def convert_chunkdata_to_v2(self, chunkdata):
         """
@@ -377,7 +386,8 @@ class ChunkParser:
                 return
             yield ( b''.join([x[0] for x in s]),
                     b''.join([x[1] for x in s]),
-                    b''.join([x[2] for x in s]) )
+                    b''.join([x[2] for x in s]),
+                    b''.join([x[3] for x in s]) )
 
     def parse(self):
         """
