@@ -30,7 +30,7 @@
 #include "Management.h"
 #include "Game.h"
 
-const QString server_url = "http://localhost:8080/";
+const QString server_url = "http://sai.unich.it/sai20/";
 constexpr int RETRY_DELAY_MIN_SEC = 30;
 constexpr int RETRY_DELAY_MAX_SEC = 60 * 60;  // 1 hour
 constexpr int MAX_RETRIES = 3;           // Stop retrying after 3 times
