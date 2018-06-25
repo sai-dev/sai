@@ -43,7 +43,7 @@ Game::Game(const QString& weights, const QString& opt, const QString& binary) :
 bool Game::checkGameEnd() {
     return (m_resignation ||
             m_passes > 1 ||
-            m_moveNum > (19 * 19 * 2));
+            m_moveNum > (BOARD_SIZE * BOARD_SIZE * 2));
 }
 
 void Game::error(int errnum) {

@@ -22,6 +22,8 @@
 #include <QProcess>
 #include <tuple>
 
+#define BOARD_SIZE 7
+
 using VersionTuple = std::tuple<int, int, int>;
 
 class Game : QProcess {
