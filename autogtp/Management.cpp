@@ -610,7 +610,6 @@ void Management::fetchSgfOrTrain(const QString &sgf) {
     prog_cmdline.append(" -s -J -o " + name);
     prog_cmdline.append(" -w %{filename_effective}");
     prog_cmdline.append(" "+server_url + "view/" + sgf);
-        QTextStream(stdout) << prog_cmdline << endl;
 
     QProcess curl;
     curl.start(prog_cmdline);
