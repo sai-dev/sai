@@ -41,6 +41,7 @@ public:
     bool loadSgf(const QString &fileName);
     bool loadSgf(const QString &fileName, int moves);
     bool writeSgf();
+    bool komi(float komi);
     bool loadTraining(const QString &fileName);
     bool saveTraining();
     bool fixSgf(QString& weightFile, bool resignation);

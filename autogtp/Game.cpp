@@ -347,6 +347,11 @@ bool Game::loadSgf(const QString &fileName, int moves) {
     return sendGtpCommand(qPrintable("loadsgf " + fileName + ".sgf " + QString::number(moves)));
 }
 
+bool Game::komi(float komi) {
+    QTextStream(stdout) << "Setting komi " << komi << endl;
+    return sendGtpCommand(qPrintable("komi " + QString::number(komi)));
+}
+
 bool Game::fixSgf(QString& weightFile, bool resignation) {
     QFile sgfFile(m_fileName + ".sgf");
     if (!sgfFile.open(QIODevice::Text | QIODevice::ReadOnly)) {

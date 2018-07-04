@@ -79,7 +79,14 @@ Result ProductionJob::execute(){
             QFile::remove(m_sgf + ".sgf");
             QFile::remove(m_sgf + ".train");
         } else {
+            // find komi from options... not very elegant, but in this way
+            // we do not need to modify the Job and Order classes.
+            QRegExp rx("--komi ([-+.0-9]+)");
+            rx.indexIn(m_option);
+            QStringList list = rx.capturedTexts();
+            float komi = list.at(1).toFloat();
             game.loadSgf(m_sgf, m_moves+1);
+            game.komi(komi);
             game.setMovesCount(m_moves);
         }
     }
