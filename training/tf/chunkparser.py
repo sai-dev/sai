@@ -147,21 +147,21 @@ class ChunkParser:
         # BOARD_SQUARES+1 float32 probabilities (1448 bytes on a 19x19)
         # BOARD_SQUARES*16 packed bit planes (722 bytes on a 19x19)
         # uint8 side_to_move (1 byte)
-        # int8 2*komi (1 byte)
+        # int32 2*komi (4 byte)
         # uint8 is_winner (1 byte)
         s1 = (BOARD_SQUARES+1)*4
         s2 = BOARD_SQUARES*2
-        self.v2_struct = struct.Struct('4s'+str(s1)+'s'+str(s2)+'sBbB')
+        self.v2_struct = struct.Struct('4s'+str(s1)+'s'+str(s2)+'sBiB')
 
         # Struct used to return data from child workers.
         # float32 winner
         # float32*(BOARD_SQUARE+1) probs
-        # int8 2*komi
+        # int32 2*komi
         # uint8*BOARD_SQUARE*18 planes
         # (order is to ensure that no padding is required to
         #  make float32 be 32-bit aligned)
         s3 = BOARD_SQUARES * 18
-        self.raw_struct = struct.Struct('4s'+str(s1)+'sb'+str(s3)+'s')
+        self.raw_struct = struct.Struct('4s'+str(s1)+'si'+str(s3)+'s')
 
     def convert_v1_to_v2(self, text_item):
         """
@@ -206,7 +206,8 @@ class ChunkParser:
         komi = int(2*float(stmkomi[1]))
         if (stm == 0):
             komi = -komi
-
+#        komi = struct.pack('i',komi)
+            
         # Load the probabilities.
         probabilities = np.array(text_item[17].split()).astype(np.float32)
         if np.any(np.isnan(probabilities)):
@@ -231,7 +232,7 @@ class ChunkParser:
         return True, self.v2_struct.pack(version, probs, planes, stm, komi, winner)
 
     def v2_apply_symmetry(self, symmetry, content):
-        """
+        """<
             Apply a random symmetry to a v2 record.
         """
         assert symmetry >= 0 and symmetry < 8
@@ -266,13 +267,13 @@ class ChunkParser:
                 float probs[BOARD_SQUARES+1]
                 byte planes[BOARD_SQUARES*16/8]
                 byte to_move
-                byte komi
+                int32 komi
                 byte winner
 
             packed tensor formats are
                 float32 winner
                 float32*(BOARD_SQUARES+1) probs
-                byte komi
+                int32 komi
                 uint8*(BOARD_SQUARES*18) planes
         """
         (ver, probs, planes, to_move, komi, winner) = self.v2_struct.unpack(content)
@@ -286,6 +287,7 @@ class ChunkParser:
         planes = planes.tobytes() + self.flat_planes[stm]
         assert len(planes) == (18 * BOARD_SQUARES), len(planes)
 
+#        komi = struct.unpack('i', komi)
         komi = float(komi/2)
         komi = struct.pack('f', komi)
         
