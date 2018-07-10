@@ -117,7 +117,7 @@ void OutputChunker::flush_chunks() {
         memcpy(in_buff.get(), m_buffer.data(), in_buff_size);
 
         auto comp_size = gzwrite(out, in_buff.get(), in_buff_size);
-        if (!comp_size) {
+        if (in_buff_size && !comp_size) {
             throw std::runtime_error("Error in gzip output");
         }
         Utils::myprintf("Writing chunk %d\n",  m_chunk_count);
