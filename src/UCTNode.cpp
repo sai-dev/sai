@@ -53,6 +53,7 @@ SMP::Mutex& UCTNode::get_mutex() {
 
 bool UCTNode::create_children(std::atomic<int>& nodecount,
                               GameState& state,
+			      float& value,
                               float& alpkt,
 			      float& beta,
                               float min_psa_ratio) {
@@ -89,6 +90,8 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     //	(state.board.black_to_move() ? -komi : komi);
     alpkt = m_net_alpkt = (state.board.black_to_move() ? raw_netlist.alpha : -raw_netlist.alpha) - komi;
     beta = m_net_beta = raw_netlist.beta;
+    value = m_net_value = raw_netlist.value;
+    
     const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
     const auto pi_lambda = (1-cfg_lambda)*pi+cfg_lambda*0.5f;
     m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;
@@ -99,9 +102,9 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
 	     m_net_alpkt, pi, pi_lambda, m_eval_bonus);
 
 
-
+    extern bool is_mult_komi_net;
     // DCNN returns winrate as side to move
-    m_net_eval = pi;
+    m_net_eval = is_mult_komi_net ? value : pi;
     // our search functions evaluate from black's point of view
     if (state.board.white_to_move()) {
         m_net_eval = 1.0f - m_net_eval;

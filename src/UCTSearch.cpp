@@ -176,7 +176,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     auto result = SearchResult{};
 
     const auto lastmove = currstate.get_last_move();
-    const std::string tmp = currstate.move_to_text(lastmove);
+    const std::string tmp = lastmove ? currstate.move_to_text(lastmove)
+	: "empty";
     
     node->virtual_loss();
 
@@ -198,13 +199,13 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 	    const int n = m_nodes;
 	    myprintf("m_nodes=%i < MTS=%i.\n", n, MAX_TREE_SIZE);
 	    //            float eval;
-	    float alpkt, beta;
+	    float value, alpkt, beta;
             const auto had_children = node->has_children();
 	    myprintf("has_children() returned %i.\n", had_children);
 	    myprintf("About to call create_children(). minpsa_r=%f.\n",
 		     get_min_psa_ratio());
             const auto success =
-                node->create_children(m_nodes, currstate, alpkt, beta,
+                node->create_children(m_nodes, currstate, value, alpkt, beta,
                                       get_min_psa_ratio());
 	    myprintf("Function create_children() returned %i, alpkt=%f, beta=%f.\n",
 		     success, alpkt, beta);
@@ -219,7 +220,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 		     node->get_net_eval(color));
             if (!had_children && success) {
 		myprintf("Success and no had_children. alpkt=%f, beta=%f.\n", alpkt, beta);
-                result = SearchResult::from_eval(alpkt, beta);
+                result = SearchResult::from_eval(value, alpkt, beta);
 		myprintf("Result validity is %i.\n"
 			 "eval=%f, eval_with_bonus=%f\n"
 			 "Move choices by policy: ",
@@ -250,9 +251,10 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         }
     }
 
-    
+    extern bool is_mult_komi_net;
     if (result.valid()) {
-	const auto eval = result.eval_with_bonus(node->get_eval_bonus());
+	const auto eval = is_mult_komi_net ?
+	    result.eval_with_bonus(node->get_eval_bonus()) : result.eval();
 	myprintf("About to update blackevals with %f\n", eval);
         node->update(eval);
     }

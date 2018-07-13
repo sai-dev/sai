@@ -31,6 +31,32 @@
 #include "FastState.h"
 #include "GameState.h"
 
+
+
+float sigmoid(float alpha, float beta, float bonus);
+
+static constexpr int SINGLE = 1;
+static constexpr int DOUBLE_V = 2;
+static constexpr int DOUBLE_Y = 3;
+static constexpr int DOUBLE_T = 4;
+static constexpr int DOUBLE_I = 5;
+
+
+struct netarch {
+  int value_head_type = SINGLE;
+  size_t residual_blocks = size_t{3};
+  size_t channels = size_t{128};
+  size_t input_planes = size_t{18};
+  size_t policy_outputs = size_t{2};
+  size_t val_outputs = size_t{1};
+  size_t vbe_outputs = size_t{0};
+  size_t val_chans = size_t{256};
+  size_t vbe_chans = size_t{0};
+  size_t value_head_rets = size_t{1};
+};
+
+
+
 class Network {
 public:
     enum Ensemble {
@@ -44,6 +70,9 @@ public:
 
         // pass
         float policy_pass;
+
+        // winrate
+        float value;
 
         // sigmoid alpha
         float alpha;
@@ -61,9 +90,9 @@ public:
 
     static constexpr auto INPUT_MOVES = 8;
     static constexpr auto INPUT_CHANNELS = 2 * INPUT_MOVES + 2;
-    static constexpr auto OUTPUTS_POLICY = 2;
-    static constexpr auto OUTPUTS_VAL = 1;
-    static constexpr auto OUTPUTS_VBE = 1;
+  //static constexpr auto OUTPUTS_POLICY = 2;
+  //static constexpr auto OUTPUTS_VAL = 1;
+  //static constexpr auto OUTPUTS_VBE = 1;
 
     // Winograd filter transformation changes 3x3 filters to 4x4
     static constexpr auto WINOGRAD_ALPHA = 4;
@@ -78,8 +107,8 @@ public:
     static std::vector<net_t> gather_features(const GameState* const state,
                                               const int symmetry);
 private:
-    static std::pair<int, int> load_v1_network(std::istream& wtfile);
-    static std::pair<int, int> load_network_file(const std::string& filename);
+    static int load_v1_network(std::istream& wtfile);
+    static int load_network_file(const std::string& filename);
     static void process_bn_var(std::vector<float>& weights,
                                const float epsilon = 1e-5f);
 
@@ -119,6 +148,5 @@ private:
 #endif
 };
 
-float sigmoid(float alpha, float beta, float bonus);
 
 #endif

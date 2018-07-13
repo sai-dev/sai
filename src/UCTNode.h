@@ -44,7 +44,7 @@ public:
     ~UCTNode() = default;
 
     bool create_children(std::atomic<int>& nodecount,
-                         GameState& state, float& alpkt,
+                         GameState& state, float& value, float& alpkt,
 			 float& beta,
                          float min_psa_ratio = 0.0f);
 
@@ -116,6 +116,7 @@ private:
     float m_score;
     // Original net eval for this node (not children).
     float m_net_eval{0.0f};
+    float m_net_value{0.0f};
     float m_net_alpkt{0.0f}; // alpha + \tilde k
     float m_net_beta{0.0f};
     float m_eval_bonus{0.0f}; // x bar

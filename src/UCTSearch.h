@@ -37,30 +37,25 @@ class SearchResult {
 public:
     SearchResult() = default;
     bool valid() const { return m_valid;  }
-    //    float eval() const { return m_eval;  }
+    float eval() const { return m_value;  }
     float eval_with_bonus(float bonus);
-    static SearchResult from_eval(float alpkt, float beta) {
-        return SearchResult(alpkt, beta);
+    static SearchResult from_eval(float value, float alpkt, float beta) {
+        return SearchResult(value, alpkt, beta);
     }
     static SearchResult from_score(float board_score) {
-	return SearchResult(board_score, 10.0f);
+        if (board_score > 0.0f) {
+            return SearchResult(1.0f, board_score, 10.0f);
+        } else if (board_score < 0.0f) {
+            return SearchResult(0.0f, board_score, 10.0f);
+        } else {
+            return SearchResult(0.5f, board_score, 10.0f);
+        }
     }
-
-    
-    /* static SearchResult from_score(float board_score) { */
-    /*     if (board_score > 0.0f) { */
-    /*         return SearchResult(1.0f); */
-    /*     } else if (board_score < 0.0f) { */
-    /*         return SearchResult(0.0f); */
-    /*     } else { */
-    /*         return SearchResult(0.5f); */
-    /*     } */
-    /* } */
 private:
-    explicit SearchResult(float alpkt, float beta)
-        : m_valid(true), m_alpkt(alpkt), m_beta(beta) {}
+    explicit SearchResult(float value, float alpkt, float beta)
+        : m_valid(true), m_value(value), m_alpkt(alpkt), m_beta(beta) {}
     bool m_valid{false};
-    //    float m_eval{0.0f};
+    float m_value{0.0f};
     float m_alpkt{0.0f};
     float m_beta{0.0f};
 };

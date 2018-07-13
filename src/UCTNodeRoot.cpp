@@ -183,14 +183,16 @@ void UCTNode::inflate_all_children() {
 void UCTNode::prepare_root_node(int color,
                                 std::atomic<int>& nodes,
                                 GameState& root_state) {
-    float root_eval, root_alpkt, root_beta;
+    float root_eval, root_value, root_alpkt, root_beta;
+    extern bool is_mult_komi_net;
+    
     const int n=nodes;
     myprintf("Function prepare_root_node() called. nodes=%i\n", n);
     const auto had_children = has_children();
     myprintf("has_children() returned %i\n", had_children);
     if (expandable()) {
         myprintf("Function expandable() returned true. About to call create_children().\n");
-        create_children(nodes, root_state, root_alpkt, root_beta);
+        create_children(nodes, root_state, root_value, root_alpkt, root_beta);
 	myprintf("Function create_children() set root_alpkt=%f "
 		 "and root_beta=%f.\n", root_alpkt, root_beta);
     }
@@ -199,7 +201,8 @@ void UCTNode::prepare_root_node(int color,
       root_eval = get_eval(color);
       myprintf("Function get_eval() returned %f.\n", root_eval);
     } else {
-	root_eval = eval_with_bonus(get_eval_bonus());
+	root_eval = is_mult_komi_net ?
+	    eval_with_bonus(get_eval_bonus()) : root_value;
         myprintf("had_children=false. Updating eval with %f.\n", root_eval);
         update(root_eval);
         root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);

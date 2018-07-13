@@ -407,6 +407,8 @@ std::string FastBoard::move_to_text(int move) const {
     column--;
     row--;
 
+    // myprintf("Move: %d, m_squaresize: %d, row: %d.\n",
+    // 	     move, m_squaresize,); 
     assert(move == FastBoard::PASS
            || move == FastBoard::RESIGN
            || (row >= 0 && row < m_boardsize));
