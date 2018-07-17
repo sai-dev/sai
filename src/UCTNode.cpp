@@ -104,7 +104,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
 
     extern bool is_mult_komi_net;
     // DCNN returns winrate as side to move
-    m_net_eval = is_mult_komi_net ? value : pi;
+    m_net_eval = is_mult_komi_net ? pi : value;
     // our search functions evaluate from black's point of view
     if (state.board.white_to_move()) {
         m_net_eval = 1.0f - m_net_eval;
@@ -322,7 +322,13 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         if (value > best_value) {
             best_value = value;
             best = &child;
+	    //	    myprintf("Select_child: new best: value=%f, winrate=%f, puct=%f, psa=%f, denom=%f, fpu_eval=%f, fpu_red=%f, parentv=%d.\n",
+	    //		     value, winrate, puct, psa, denom, fpu_eval, fpu_reduction, parentvisits);
         }
+	//	else
+	//	    myprintf("Select_child: lesser: value=%f, winrate=%f, puct=%f, psa=%f, denom=%f, fpu_eval=%f, fpu_red=%f, parentv=%d.\n",
+	//		     value, winrate, puct, psa, denom, fpu_eval, fpu_reduction, parentvisits);
+	    
     }
 
     assert(best != nullptr);

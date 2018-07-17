@@ -111,6 +111,7 @@ void UCTNode::randomize_first_proportionally() {
 
     for (const auto& child : m_children) {
         auto visits = child->get_visits();
+	//	myprintf("Rnd_first: norm=%f, visits=%d\n", norm_factor, visits);
         if (norm_factor == 0.0) {
             norm_factor = visits;
             // Nonsensical options? End of game?
@@ -134,6 +135,7 @@ void UCTNode::randomize_first_proportionally() {
             break;
         }
     }
+    myprintf("Rnd_first: accum=%f, pick=%f, index=%d.\n", accum, pick, index);
 
     // Take the early out
     if (index == 0) {
