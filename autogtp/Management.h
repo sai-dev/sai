@@ -94,8 +94,7 @@ private:
     QFileInfo getNextStored();
     bool networkExists(const QString &name);
     void fetchNetwork(const QString &net);
-    bool sgfOrTrainExists(const QString &fiename);
-    void fetchSgfOrTrain(const QString &name);
+    void fetchGameData(const QString &name);
     void printTimingInfo(float duration);
     void runTuningProcess(const QString &tuneCmdLine);
     void gzipFile(const QString &fileName);

@@ -70,7 +70,7 @@ private:
     QString m_sgf;
     QString m_selfplay_id;
     bool m_debug;
-    bool m_permanent_sgf;
+    bool m_restore;
 };
 
 class ValidationJob : public Job {
