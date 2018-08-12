@@ -85,6 +85,7 @@ void FastState::play_move(int color, int vertex) {
 
     m_lastmove = vertex;
     m_movenum++;
+    m_blunder_chosen = false;
 
     if (board.m_tomove == color) {
         board.m_hash ^= Zobrist::zobrist_blacktomove;
@@ -163,10 +164,18 @@ int FastState::get_handicap() const {
     return m_handicap;
 }
 
-void FastState::set_last_rnd_move_num(size_t num) {
-    m_lastrndmovenum = num;
+// void FastState::set_last_rnd_move_num(size_t num) {
+//     m_lastrndmovenum = num;
+// }
+
+// size_t FastState::get_last_rnd_move_num() {
+//     return m_lastrndmovenum;
+// }
+
+void FastState::set_blunder_state(bool state) {
+    m_blunder_chosen = state;
 }
 
-size_t FastState::get_last_rnd_move_num() {
-    return m_lastrndmovenum;
+bool FastState::is_blunder() {
+    return m_blunder_chosen;
 }

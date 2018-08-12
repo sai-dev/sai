@@ -162,15 +162,7 @@ void Training::record(GameState& state, UCTNode& root) {
         Network::get_scored_moves(&state, Network::Ensemble::DIRECT, 0);
     const auto komi = state.get_komi();
     step.komi = komi;
-    const int goodmoves = state.get_movenum()-state.get_last_rnd_move_num();
-    if (goodmoves >= 0) {
-	step.good_moves = (size_t)goodmoves;
-    }
-    else {
-	Utils::myprintf("Something is wrong: last dumb move is in the future!\n");
-	step.good_moves = 0;
-    }
-
+    step.is_blunder = state.is_blunder();
     step.net_winrate = sigmoid(result.alpha, result.beta,
 			       state.board.black_to_move() ? -komi : komi);
 
@@ -248,12 +240,12 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
 
     auto it = m_data.end()-1;
     for ( ; it!=m_data.begin() ; --it ) {
-	if (it->good_moves == 0) {
+	if (it->is_blunder) {
 	    break;
 	}
     }
     
-    for ( ; it!=m_data.end() ; ++it ) {
+    for ( ++it ; it!=m_data.end() ; ++it ) {
         auto out = std::stringstream{};
         // First output 16 times an input feature plane
         for (auto p = size_t{0}; p < 16; p++) {

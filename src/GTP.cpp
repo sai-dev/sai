@@ -104,7 +104,7 @@ void GTP::setup_default_parameters() {
     cfg_tune_only = false;
 #endif
     cfg_puct = 0.8f;
-    cfg_softmax_temp = 1.0f;
+    cfg_softmax_temp = 2.0f; // was 1.0f
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign
     // if negative, the default is 10%, otherwise, this value % is used
@@ -113,12 +113,12 @@ void GTP::setup_default_parameters() {
     cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
     cfg_random_min_visits = 1;
-    cfg_random_temp = 1.0f;
+    cfg_random_temp = 0.5f;  // was 1.0f
     cfg_dumbpass = false;
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
-    cfg_dumbmove_thr = 0.0f;
+    cfg_dumbmove_thr = 0.25f;
     
     // C++11 doesn't guarantee *anything* about how random this is,
     // and in MinGW it isn't random at all. But we can mix it in, which
@@ -513,19 +513,28 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
         return true;
     } else if (command.find("auto") == 0) {
+	int blunders=0, last=-1;
+	int movenum = game.get_movenum();
         do {
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
+	    if (game.is_blunder()) {
+		blunders++;
+		last=movenum;
+	    }
             game.play_move(move);
             game.display_state();
-
+	    movenum = game.get_movenum();
         } while (game.get_passes() < 2 && !game.has_resigned());
+	myprintf("Game ended. There where %d blunders in a total of %d moves.\n"
+		 "The last blunder was on move %d, for %d training moves available.\n",
+		 blunders, movenum, last, movenum-last);
 
         return true;
     } else if (command.find("go") == 0) {
       myprintf("'go' command received, invoking think\n");
         int move = search->think(game.get_to_move());
 	myprintf("Thought move %i", move);
-	if (game.get_last_rnd_move_num()==game.get_movenum()) {
+	if (game.is_blunder()) {
 	    myprintf("       --- a blunder\n");
 	}
 	else myprintf("\n");

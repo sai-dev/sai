@@ -68,7 +68,7 @@ public:
     std::tuple<float,float,float,float,float> get_eval();
     void set_eval(float alpkt, float beta, float pi,
 		  float avg_eval, float eval_bonus);
-    void copy_last_rnd_move_num ();
+    //    void copy_last_rnd_move_num ();
 
     
 private:

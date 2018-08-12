@@ -53,8 +53,11 @@ public:
     void display_state();
     std::string move_to_text(int move);
 
-    size_t get_last_rnd_move_num();
-    void set_last_rnd_move_num(size_t num);
+    void set_blunder_state(bool state);
+    bool is_blunder();
+    
+    //    size_t get_last_rnd_move_num();
+    //    void set_last_rnd_move_num(size_t num);
 
     FullBoard board;
 
@@ -67,7 +70,7 @@ public:
     
     // last rndly chosen move with low probability
     // we don't save training info before that point
-    size_t m_lastrndmovenum; 
+    bool m_blunder_chosen = false;
 
 protected:
     void play_move(int color, int vertex);

@@ -151,6 +151,8 @@ bool UCTNode::randomize_first_proportionally() {
     std::iter_swap(begin(m_children), begin(m_children) + index);
 
     const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_dumbmove_thr);
+    myprintf("Randomize_first: p=%f over p0=%f, move is %s\n",
+	     prb_vector[index], prb_vector[0], (is_dumb_move ? "blunder" : "ok") );
     
     return is_dumb_move;
 }

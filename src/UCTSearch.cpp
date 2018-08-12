@@ -407,19 +407,23 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     // Check whether to randomize the best move proportional
     // to the playout counts, early game only.
     auto movenum = int(m_rootstate.get_movenum());
-    m_rootstate.copy_last_rnd_move_num();
+    myprintf("Check: this move is %s.\n", (m_rootstate.is_blunder() ? "blunder" : "ok") );	
+    //m_rootstate.copy_last_rnd_move_num();
     if (movenum < cfg_random_cnt) {
+	myprintf("About to call rnd_first...\n");
         const auto dumb_move_chosen = m_root->randomize_first_proportionally();
+	myprintf("Done. Chosen move is %s.\n", (dumb_move_chosen ? "blunder" : "ok") );	
 	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
 	    myprintf("Random move would lead to immediate resignation... \n"
 		     "Reverting to best move.\n");	    
 	    m_root->sort_children(color);
 	} else if (dumb_move_chosen) {
 	    myprintf("Dumb move chosen.\n");
-	    m_rootstate.set_last_rnd_move_num(movenum);
+	    m_rootstate.set_blunder_state(true);
 	}
     }
-
+    myprintf("Check: last move is %s.\n", (m_rootstate.is_blunder() ? "blunder" : "ok") );	
+    
     auto first_child = m_root->get_first_child();
     assert(first_child != nullptr);
 

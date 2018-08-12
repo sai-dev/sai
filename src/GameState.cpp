@@ -353,7 +353,7 @@ const FullBoard& GameState::get_past_board(int moves_ago) const {
     return game_history[m_movenum - moves_ago]->board;
 }
 
-void GameState::copy_last_rnd_move_num () {
-    const auto num = game_history[m_movenum - 1]->m_lastrndmovenum;
-    m_lastrndmovenum = num;
-}
+// void GameState::copy_last_rnd_move_num () {
+//     const auto num = game_history[m_movenum - 1]->m_lastrndmovenum;
+//     m_lastrndmovenum = num;
+// }
