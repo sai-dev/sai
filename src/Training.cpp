@@ -238,6 +238,10 @@ void Training::load_training(std::ifstream& in) {
 void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     auto training_str = std::string{};
 
+    if (m_data.size()==0) {
+	return;
+    }
+    
     auto it = m_data.end()-1;
     for ( ; it!=m_data.begin() ; --it ) {
 	if (it->is_blunder) {
