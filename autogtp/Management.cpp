@@ -265,6 +265,7 @@ QString Management::getOptionsString(const QJsonObject &opt, const QString &rnd)
     if (rnd != "") {
         options.append(" -s " + rnd + " ");
     }
+    options.append(getOption(opt, "other_options", " ", ""));
     return options;
 }
 
