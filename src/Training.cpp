@@ -249,7 +249,7 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
 	}
     }
     
-    for ( ++it ; it!=m_data.end() ; ++it ) {
+    for ( ; it!=m_data.end() ; ++it ) {
         auto out = std::stringstream{};
         // First output 16 times an input feature plane
         for (auto p = size_t{0}; p < 16; p++) {
