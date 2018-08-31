@@ -107,8 +107,8 @@ class Timer:
 class TFProcess:
     def __init__(self):
         # Network structure
-        self.RESIDUAL_FILTERS = 128
-        self.RESIDUAL_BLOCKS = 3
+        self.RESIDUAL_FILTERS = RESIDUAL_FILTERS
+        self.RESIDUAL_BLOCKS = RESIDUAL_BLOCKS
 
         # For exporting
         self.weights = []
@@ -514,9 +514,9 @@ class TFProcess:
         # Policy head
         conv_pol = self.conv_block(flow, filter_size=1,
                                    input_channels=self.RESIDUAL_FILTERS,
-                                   output_channels=2)
-        h_conv_pol_flat = tf.reshape(conv_pol, [-1, 2*BOARD_SQUARES])
-        W_fc1 = weight_variable([2 * BOARD_SQUARES, BOARD_SQUARES + 1])
+                                   output_channels=POLICY_OUTPUTS)
+        h_conv_pol_flat = tf.reshape(conv_pol, [-1, POLICY_OUTPUTS * BOARD_SQUARES])
+        W_fc1 = weight_variable([POLICY_OUTPUTS * BOARD_SQUARES, BOARD_SQUARES + 1])
         b_fc1 = bias_variable([BOARD_SQUARES + 1])
         self.weights.append(W_fc1)
         self.weights.append(b_fc1)
@@ -525,41 +525,80 @@ class TFProcess:
         # Value head - alpha
         conv_val = self.conv_block(flow, filter_size=1,
                                    input_channels=self.RESIDUAL_FILTERS,
-                                   output_channels=1)
-        h_conv_val_flat = tf.reshape(conv_val, [-1, 1*BOARD_SQUARES])
+                                   output_channels=VAL_OUTPUTS)
+        h_conv_val_flat = tf.reshape(conv_val, [-1, VAL_OUTPUTS * BOARD_SQUARES])
 
-        W_fc2 = weight_variable([1*BOARD_SQUARES, 256])
-        b_fc2 = bias_variable([256])
+        W_fc2 = weight_variable([VAL_OUTPUTS * BOARD_SQUARES, VAL_CHANS])
+        b_fc2 = bias_variable([VAL_CHANS])
         self.weights.append(W_fc2)
         self.weights.append(b_fc2)
         h_fc2 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc2), b_fc2))
 
-        W_fc3 = weight_variable([256, 1])
-        b_fc3 = bias_variable([1])
+        if VALUE_HEAD_TYPE == DOUBLE_I:
+            value_head_rets = 2
+        else:
+            value_head_rets = 1
+            
+        W_fc3 = weight_variable([VAL_CHANS, value_head_rets])
+        b_fc3 = bias_variable([value_head_rets])
         self.weights.append(W_fc3)
         self.weights.append(b_fc3)
         h_fc3 = tf.add(tf.matmul(h_fc2, W_fc3), b_fc3)
 
-        # Value head - beta
-        conv_vbe = self.conv_block(flow, filter_size=1,
-                                   input_channels=self.RESIDUAL_FILTERS,
-                                   output_channels=1)
-        h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, 1*BOARD_SQUARES])
-
-        W_fc4 = weight_variable([1*BOARD_SQUARES, 256])
-        b_fc4 = bias_variable([256])
-        self.weights.append(W_fc4)
-        self.weights.append(b_fc4)
-        h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_vbe_flat, W_fc4), b_fc4))
-
-        W_fc5 = weight_variable([256, 1])
-        b_fc5 = bias_variable([1])
-        self.weights.append(W_fc5)
-        self.weights.append(b_fc5)
         scale_factor = tf.constant(10.0 / BOARD_SQUARES / 2)
-        h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
+        
+        if VALUE_HEAD_TYPE == SINGLE:
+            h_fc6 = tf.nn.tanh(h_fc3)
+            
+            # Value head - beta
 
-        h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi))) # here!
+        elif VALUE_HEAD_TYPE == DOUBLE_I:
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(h_fc3[1])) # correct? wrong?
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3[0], x_komi))) # correct? wrong?
+            
+        elif VALUE_HEAD_TYPE == DOUBLE_T:
+            W_fc5 = weight_variable([VAL_CHANS, 1])
+            b_fc5 = bias_variable([1])
+            self.weights.append(W_fc5)
+            self.weights.append(b_fc5)
+
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc2, W_fc5), b_fc5)))
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
+
+        elif VALUE_HEAD_TYPE == DOUBLE_Y:
+            W_fc4 = weight_variable([VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS])
+            b_fc4 = bias_variable([VBE_CHANS])
+            self.weights.append(W_fc4)
+            self.weights.append(b_fc4)
+            h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
+            
+            W_fc5 = weight_variable([VBE_CHANS, 1])
+            b_fc5 = bias_variable([1])
+            self.weights.append(W_fc5)
+            self.weights.append(b_fc5)
+
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
+            
+        elif VALUE_HEAD_TYPE == DOUBLE_V:
+            conv_vbe = self.conv_block(flow, filter_size=1,
+                                       input_channels=self.RESIDUAL_FILTERS,
+                                       output_channels=VBE_OUTPUTS)
+            h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, VBE_OUTPUTS * BOARD_SQUARES])
+            
+            W_fc4 = weight_variable([VBE_OUTPUTS * BOARD_SQUARES, VBE_CHANS])
+            b_fc4 = bias_variable([VBE_CHANS])
+            self.weights.append(W_fc4)
+            self.weights.append(b_fc4)
+            h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_vbe_flat, W_fc4), b_fc4))
+            
+            W_fc5 = weight_variable([VBE_CHANS, 1])
+            b_fc5 = bias_variable([1])
+            self.weights.append(W_fc5)
+            self.weights.append(b_fc5)
+
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi))) # here!
 
         return h_fc1, h_fc6
 
