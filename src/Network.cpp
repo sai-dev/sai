@@ -1040,13 +1040,11 @@ Network::Netresult Network::get_scored_moves(
 
     if (!skip_cache) {
         // See if we already have this in the cache.
-	myprintf("About to call cache lookup.\n");
         if (NNCache::get_NNCache().lookup(state->board.get_hash(), result)) {
             return result;
         }
     }
 
-    myprintf("About to call get_scored_moves_internal().\n");
     if (ensemble == DIRECT) {
         assert(symmetry >= 0 && symmetry <= 7);
         result = get_scored_moves_internal(state, symmetry);
@@ -1119,19 +1117,12 @@ Network::Netresult Network::get_scored_moves_internal(
     // Get the moves
     batchnorm<BOARD_SQUARES>(arch.policy_outputs, policy_data,
         bn_pol_w1.data(), bn_pol_w2.data());
-    //    myprintf("policy_data:");
-    //    for (int i=0 ; i<OUTPUTS_POLICY * width * height ; ++i) {
-    //	if (policy_data[i]!=0.0f)
-    //	    myprintf(" %0.3f", policy_data[i]);
-    //    }
-    //    myprintf(".\n");
+
     const auto policy_out =
         innerproduct<false>(
             policy_data, ip_pol_w, ip_pol_b);
-    //    myprintf("About to call softmax(). temp=%f, pass=%f\n",
-    //	     cfg_softmax_temp, policy_out[BOARD_SQUARES]);
+
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
-    //    myprintf("After softmax(), pass=%f\n", outputs[BOARD_SQUARES]);
 
     // Get alpha or value 
     batchnorm<BOARD_SQUARES>(arch.val_outputs, val_data,
@@ -1193,7 +1184,6 @@ Network::Netresult Network::get_scored_moves_internal(
 
     result.policy_pass = outputs[BOARD_SQUARES];
 
-//  myprintf("10/SQ=%f, out=%f, exp=%f and res=%f\n", 10.0f / (BOARD_SQUARES), vbe_output[0], std::exp(vbe_output[0]), std::exp(vbe_output[0]) * (1.0f / BOARD_SQUARES));
     return result;
 }
 

@@ -515,35 +515,42 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
         return true;
     } else if (command.find("auto") == 0) {
-	int blunders=0, last=-1;
+#ifndef NDEBUG
+	int blunders=0, last=0;
 	int movenum = game.get_movenum();
+#endif
         do {
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
+#ifndef NDEBUG
 	    if (game.is_blunder()) {
 		blunders++;
 		last=movenum;
 	    }
+#endif
             game.play_move(move);
             game.display_state();
+#ifndef NDEBUG
 	    movenum = game.get_movenum();
+#endif
         } while (game.get_passes() < 2 && !game.has_resigned());
+#ifndef NDEBUG
 	myprintf("Game ended. There where %d blunders in a total of %d moves.\n"
 		 "The last blunder was on move %d, for %d training moves available.\n",
 		 blunders, movenum, last, movenum-last);
-
+#endif
         return true;
     } else if (command.find("go") == 0) {
-      myprintf("'go' command received, invoking think\n");
         int move = search->think(game.get_to_move());
-	myprintf("Thought move %i", move);
-	if (game.is_blunder()) {
-	    myprintf("       --- a blunder\n");
-	}
-	else myprintf("\n");
         game.play_move(move);
 
         std::string vertex = game.move_to_text(move);
-        myprintf("%s\n", vertex.c_str());
+        myprintf("%s", vertex.c_str());
+#ifndef NDEBUG
+	if (game.is_blunder()) {
+	    myprintf("       --- a blunder");
+	}
+#endif
+        myprintf("\n");
         return true;
     } else if (command.find("heatmap") == 0) {
         std::istringstream cmdstream(command);

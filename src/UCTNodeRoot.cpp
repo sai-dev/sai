@@ -113,7 +113,6 @@ bool UCTNode::randomize_first_proportionally() {
     for (const auto& child : m_children) {
         auto visits = child->get_visits();
 	
-	//	myprintf("Rnd_first: norm=%f, visits=%d\n", norm_factor, visits);
         if (norm_factor == 0.0) {
             norm_factor = visits;
             // Nonsensical options? End of game?
@@ -138,7 +137,10 @@ bool UCTNode::randomize_first_proportionally() {
             break;
         }
     }
+
+#ifndef NDEBUG
     myprintf("Rnd_first: accum=%f, pick=%f, index=%d.\n", accum, pick, index);
+#endif
 
     // Take the early out
     if (index == 0) {
@@ -151,8 +153,11 @@ bool UCTNode::randomize_first_proportionally() {
     std::iter_swap(begin(m_children), begin(m_children) + index);
 
     const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_blunder_thr);
+
+#ifndef NDEBUG
     myprintf("Randomize_first: p=%f over p0=%f, move is %s\n",
 	     prb_vector[index], prb_vector[0], (is_dumb_move ? "blunder" : "ok") );
+#endif
     
     return is_dumb_move;
 }
@@ -197,45 +202,31 @@ void UCTNode::prepare_root_node(int color,
     float root_eval, root_value, root_alpkt, root_beta;
     //    extern bool is_mult_komi_net;
     
-    const int n=nodes;
-    myprintf("Function prepare_root_node() called. nodes=%i\n", n);
     const auto had_children = has_children();
-    myprintf("has_children() returned %i\n", had_children);
     if (expandable()) {
-        myprintf("Function expandable() returned true. About to call create_children().\n");
         create_children(nodes, root_state, root_value, root_alpkt, root_beta);
-	myprintf("Function create_children() set root_alpkt=%f, "
-		 "root_beta=%f and root_value=%f.\n",
-		 root_alpkt, root_beta, root_value);
     }
     if (had_children) {
-      myprintf("had_children=true. About to call get_eval().\n");
       root_eval = get_eval(color);
-      myprintf("Function get_eval() returned %f.\n", root_eval);
     } else {
 	root_eval = is_mult_komi_net ?
 	    eval_with_bonus(get_eval_bonus()) : root_value;
-        myprintf("had_children=false. Multikomi=%d Updating eval with %f.\n",
-		 is_mult_komi_net, root_eval);
         update(root_eval);
         root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
     }
-    Utils::myprintf("NN eval=%f\n", root_eval);
+    myprintf("NN eval=%f\n", root_eval);
 
     // There are a lot of special cases where code assumes
     // all children of the root are inflated, so do that.
-    myprintf("About to inflate all children.\n");
     inflate_all_children();
 
     // Remove illegal moves, so the root move list is correct.
     // This also removes a lot of special cases.
-    myprintf("About to kill superkos.\n");
     kill_superkos(root_state);
 
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size
         auto alpha = cfg_noise_value * 361.0f / BOARD_SQUARES;
-	myprintf("About to call dirichlet_noise.\n");
         dirichlet_noise(0.25f, alpha);
     }
 }

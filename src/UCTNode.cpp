@@ -78,7 +78,6 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     // We'll be the one queueing this node for expansion, stop others
     m_is_expanding = true;
     lock.unlock();
-    myprintf("No impediments. About to call get_scored_moves().\n");
 
     const auto raw_netlist = Network::get_scored_moves(
         &state, Network::Ensemble::RANDOM_SYMMETRY);
@@ -96,10 +95,12 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     const auto pi_lambda = (1-cfg_lambda)*pi+cfg_lambda*0.5f;
     m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;
 
+#ifndef NDEBUG
     myprintf("alpha=%f, beta=%f, pass=%f\n"
 	     "alpkt=%f, pi=%f, pi_lambda=%f, x_bar=%f\n",
 	     raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
 	     m_net_alpkt, pi, pi_lambda, m_eval_bonus);
+#endif
 
 
     //    extern bool is_mult_komi_net;
@@ -326,13 +327,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         if (value > best_value) {
             best_value = value;
             best = &child;
-	    //	    myprintf("Select_child: new best: value=%f, winrate=%f, puct=%f, psa=%f, denom=%f, fpu_eval=%f, fpu_red=%f, parentv=%d.\n",
-	    //		     value, winrate, puct, psa, denom, fpu_eval, fpu_reduction, parentvisits);
         }
-	//	else
-	//	    myprintf("Select_child: lesser: value=%f, winrate=%f, puct=%f, psa=%f, denom=%f, fpu_eval=%f, fpu_red=%f, parentv=%d.\n",
-	//		     value, winrate, puct, psa, denom, fpu_eval, fpu_reduction, parentvisits);
-	    
     }
 
     assert(best != nullptr);
