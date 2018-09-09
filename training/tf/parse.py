@@ -2,6 +2,7 @@
 #
 #    This file is part of Leela Zero.
 #    Copyright (C) 2017-2018 Gian-Carlo Pascutto
+#    Copyright (C) 2018 SAI Team
 #
 #    Leela Zero is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -159,7 +160,7 @@ def main(args):
         n += 1
     print("Finished.")
     os._exit(0)
-    
+
 if __name__ == "__main__":
     mp.set_start_method('spawn')
     main(sys.argv[1:])
