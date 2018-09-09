@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -61,7 +62,7 @@ bool UCTSearch::advance_to_new_rootstate() {
 
     auto depth =
         int(m_rootstate.get_movenum() - m_last_rootstate->get_movenum());
-    
+
     if (depth < 0) {
         return false;
     }
@@ -168,7 +169,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     const auto lastmove = currstate.get_last_move();
     const std::string tmp = lastmove ? currstate.move_to_text(lastmove)
 	: "empty";
-    
+
     myprintf("Last move was %i, or %s. Simulation begins.\n"
 	     "Visits=%i, blackevals=%f, net_eval=%f.\n",
 	     lastmove, tmp.c_str(),
@@ -176,7 +177,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 	     node->get_blackevals(),
 	     node->get_net_eval(color));
 #endif
-    
+
     node->virtual_loss();
 
     if (node->expandable()) {
@@ -390,23 +391,23 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     // Check whether to randomize the best move proportional
     // to the playout counts, early game only.
     auto movenum = int(m_rootstate.get_movenum());
-    
+
     if (movenum < cfg_random_cnt) {
         const auto dumb_move_chosen = m_root->randomize_first_proportionally();
 
 #ifndef NDEBUG
-	myprintf("Done. Chosen move is %s.\n", (dumb_move_chosen ? "blunder" : "ok") );	
+	myprintf("Done. Chosen move is %s.\n", (dumb_move_chosen ? "blunder" : "ok") );
 #endif
 
 	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
 	    myprintf("Random move would lead to immediate resignation... \n"
-		     "Reverting to best move.\n");	    
+		     "Reverting to best move.\n");
 	    m_root->sort_children(color);
 	} else if (dumb_move_chosen) {
 	    m_rootstate.set_blunder_state(true);
 	}
     }
-    
+
     auto first_child = m_root->get_first_child();
     assert(first_child != nullptr);
 
@@ -686,7 +687,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
     print_move_choices_by_policy(m_rootstate, *m_root, 5, 0.01f);
     myprintf("\n");
 #endif
-    
+
     m_run = true;
     int cpus = cfg_num_threads;
     myprintf("cpus=%i\n", cpus);
@@ -757,7 +758,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 	     std::get<3>(ev),
 	     std::get<4>(ev));
 #endif
-    
+
     Time elapsed;
     int elapsed_centis = Time::timediff_centis(start, elapsed);
     if (elapsed_centis+1 > 0) {
@@ -834,5 +835,5 @@ float SearchResult::eval_with_bonus(float xbar) {
     else if (m_alpkt>0.0f) {
 	return 1;
     }
-    else return 0;	
+    else return 0;
 }

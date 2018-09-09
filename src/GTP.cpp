@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -121,7 +122,7 @@ void GTP::setup_default_parameters() {
     cfg_quiet = false;
     cfg_benchmark = false;
     cfg_blunder_thr = 0.0f;
-    
+
     // C++11 doesn't guarantee *anything* about how random this is,
     // and in MinGW it isn't random at all. But we can mix it in, which
     // helps when it *is* high quality (Linux, MSVC).
@@ -590,12 +591,12 @@ bool GTP::execute(GameState & game, std::string xinput) {
 					&game, Network::Ensemble::DIRECT, 0, true);
 
 	Network::show_heatmap(&game, vec, false, true);
-	
+
 	// const auto komi = game.get_komi();
 	// const auto winrate = sigmoid( vec.alpha,
 	// 			      vec.beta,
 	// 			      game.board.black_to_move() ? -komi : komi );
-	
+
 	// std::cout << (is_mult_komi_net ? winrate : vec.value) << std::endl
 	// 	  << vec.alpha << std::endl
 	// 	  << vec.beta << std::endl;

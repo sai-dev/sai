@@ -2,6 +2,7 @@
 #
 #    This file is part of Leela Zero.
 #    Copyright (C) 2017-2018 Gian-Carlo Pascutto
+#    Copyright (C) 2018 SAI Team
 #
 #    Leela Zero is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -502,7 +503,7 @@ class TFProcess:
         # batch, 18 channels, BOARD_SIZE x BOARD_SIZE
         x_planes = tf.reshape(planes, [-1, 18, BOARD_SIZE, BOARD_SIZE])
         x_komi = tf.reshape(komi, [-1, 1])
-        
+
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
                                input_channels=18,
@@ -538,7 +539,7 @@ class TFProcess:
             value_head_rets = 2
         else:
             value_head_rets = 1
-            
+
         W_fc3 = weight_variable([VAL_CHANS, value_head_rets])
         b_fc3 = bias_variable([value_head_rets])
         self.weights.append(W_fc3)
@@ -546,16 +547,16 @@ class TFProcess:
         h_fc3 = tf.add(tf.matmul(h_fc2, W_fc3), b_fc3)
 
         scale_factor = tf.constant(10.0 / BOARD_SQUARES / 2)
-        
+
         if VALUE_HEAD_TYPE == SINGLE:
             h_fc6 = tf.nn.tanh(h_fc3)
-            
+
             # Value head - beta
 
         elif VALUE_HEAD_TYPE == DOUBLE_I:
             h_fc5 = tf.scalar_mul(scale_factor, tf.exp(h_fc3[1])) # correct? wrong?
             h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3[0], x_komi))) # correct? wrong?
-            
+
         elif VALUE_HEAD_TYPE == DOUBLE_T:
             W_fc5 = weight_variable([VAL_CHANS, 1])
             b_fc5 = bias_variable([1])
@@ -571,7 +572,7 @@ class TFProcess:
             self.weights.append(W_fc4)
             self.weights.append(b_fc4)
             h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
-            
+
             W_fc5 = weight_variable([VBE_CHANS, 1])
             b_fc5 = bias_variable([1])
             self.weights.append(W_fc5)
@@ -579,19 +580,19 @@ class TFProcess:
 
             h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
             h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
-            
+
         elif VALUE_HEAD_TYPE == DOUBLE_V:
             conv_vbe = self.conv_block(flow, filter_size=1,
                                        input_channels=self.RESIDUAL_FILTERS,
                                        output_channels=VBE_OUTPUTS)
             h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, VBE_OUTPUTS * BOARD_SQUARES])
-            
+
             W_fc4 = weight_variable([VBE_OUTPUTS * BOARD_SQUARES, VBE_CHANS])
             b_fc4 = bias_variable([VBE_CHANS])
             self.weights.append(W_fc4)
             self.weights.append(b_fc4)
             h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_vbe_flat, W_fc4), b_fc4))
-            
+
             W_fc5 = weight_variable([VBE_CHANS, 1])
             b_fc5 = bias_variable([1])
             self.weights.append(W_fc5)

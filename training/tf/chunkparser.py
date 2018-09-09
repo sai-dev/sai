@@ -2,6 +2,7 @@
 #
 #    This file is part of Leela Zero.
 #    Copyright (C) 2017-2018 Gian-Carlo Pascutto
+#    Copyright (C) 2018 SAI Team
 #
 #    Leela Zero is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -207,7 +208,7 @@ class ChunkParser:
         if (stm == 0):
             komi = -komi
 #        komi = struct.pack('i',komi)
-            
+
         # Load the probabilities.
         probabilities = np.array(text_item[17].split()).astype(np.float32)
         if np.any(np.isnan(probabilities)):
@@ -290,7 +291,7 @@ class ChunkParser:
 #        komi = struct.unpack('i', komi)
         komi = float(komi/2)
         komi = struct.pack('f', komi)
-        
+
         winner = float(winner * 2 - 1)
         assert winner == 1.0 or winner == -1.0, winner
         winner = struct.pack('f', winner)

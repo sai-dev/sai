@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -479,7 +480,7 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
     }
 
     m_opencl.ensure_thread_initialized();
-    
+
     if (!opencl_thread_data.m_buffers_allocated) {
         auto max_channels = unsigned{0};
         for (const auto& layer : m_layers) {
@@ -527,7 +528,7 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
 	      m_opencl.m_context,
               CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, finalSize_vbe);
 	}
-	
+
         opencl_thread_data.m_buffers_allocated = true;
     }
 
@@ -649,11 +650,11 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
         std::lock_guard<std::mutex> lock(m_queue_finish_mutex);
         queue.finish();
       }
-      
+
       std::memcpy(output_pol.data(), pinnedOutBufferHost_pol, finalSize_pol);
       std::memcpy(output_val.data(), pinnedOutBufferHost_val, finalSize_val);
       std::memcpy(output_vbe.data(), pinnedOutBufferHost_vbe, finalSize_vbe);
-      
+
       queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_pol,
 				  pinnedOutBufferHost_pol);
       queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_val,
@@ -672,25 +673,25 @@ void OpenCL_Network::forward(const std::vector<net_t>& input,
       //      auto pinnedOutBufferHost_vbe = queue.enqueueMapBuffer(
       //        opencl_thread_data.m_pinnedOutBuffer_vbe, CL_FALSE,
       //        CL_MAP_READ, 0, finalSize_vbe);
-      
+
       {
         // Finish call is usually a busy wait. When using multiple threads
         // use the lock to avoid busy waiting with all threads.
         std::lock_guard<std::mutex> lock(m_queue_finish_mutex);
         queue.finish();
       }
-      
+
       std::memcpy(output_pol.data(), pinnedOutBufferHost_pol, finalSize_pol);
       std::memcpy(output_val.data(), pinnedOutBufferHost_val, finalSize_val);
       //    std::memcpy(output_vbe.data(), pinnedOutBufferHost_vbe, finalSize_vbe);
-      
+
       queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_pol,
 				  pinnedOutBufferHost_pol);
       queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_val,
 				  pinnedOutBufferHost_val);
       //    queue.enqueueUnmapMemObject(opencl_thread_data.m_pinnedOutBuffer_vbe,
       //            pinnedOutBufferHost_vbe);
-      
+
     }
 }
 

@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -109,10 +110,10 @@ bool UCTNode::randomize_first_proportionally() {
     auto accum_vector = std::vector<double>{};
     auto prb_vector = std::vector<float>{};
 
-    
+
     for (const auto& child : m_children) {
         auto visits = child->get_visits();
-	
+
         if (norm_factor == 0.0) {
             norm_factor = visits;
             // Nonsensical options? End of game?
@@ -158,7 +159,7 @@ bool UCTNode::randomize_first_proportionally() {
     myprintf("Randomize_first: p=%f over p0=%f, move is %s\n",
 	     prb_vector[index], prb_vector[0], (is_dumb_move ? "blunder" : "ok") );
 #endif
-    
+
     return is_dumb_move;
 }
 
@@ -201,7 +202,7 @@ void UCTNode::prepare_root_node(int color,
                                 GameState& root_state) {
     float root_eval, root_value, root_alpkt, root_beta;
     //    extern bool is_mult_komi_net;
-    
+
     const auto had_children = has_children();
     if (expandable()) {
         create_children(nodes, root_state, root_value, root_alpkt, root_beta);

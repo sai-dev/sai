@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -90,7 +91,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     alpkt = m_net_alpkt = (state.board.black_to_move() ? raw_netlist.alpha : -raw_netlist.alpha) - komi;
     beta = m_net_beta = raw_netlist.beta;
     value = m_net_value = raw_netlist.value;
-    
+
     const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
     const auto pi_lambda = (1-cfg_lambda)*pi+cfg_lambda*0.5f;
     m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;

@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -300,7 +301,7 @@ int Network::load_v1_network(std::istream& wtfile) {
         } else if (linecount == plain_conv_wts + 5) {
 	    assert (n_wts == BOARD_SQUARES+1);
             ip_pol_b = std::move(weights);
-	    
+
         } else if (linecount == plain_conv_wts + 6) {
 	    arch.val_outputs = n_wts/arch.channels;
 	    assert (n_wts == arch.channels*arch.val_outputs);
@@ -331,7 +332,7 @@ int Network::load_v1_network(std::istream& wtfile) {
         } else if (linecount == plain_conv_wts + 13) {
 	    assert (n_wts == arch.value_head_rets);
             ip2_val_b = std::move(weights);
-	    
+
         } else if (linecount >= plain_conv_wts + 14) {
 	    auto i = lastlines;
 	    assert (i>=0 && i<8);
@@ -440,7 +441,7 @@ int Network::load_v1_network(std::istream& wtfile) {
       myprintf ("\nFailed to parse weight file.\n");
       return 1;
     }
-    
+
     return 0;
 }
 
@@ -508,7 +509,7 @@ void Network::initialize() {
     }
 
     is_mult_komi_net = (arch.value_head_type != SINGLE);
-    
+
     auto weight_index = size_t{0};
     // Input convolution
     // Winograd transform convolution weights
@@ -1087,7 +1088,7 @@ Network::Netresult Network::get_scored_moves_internal(
     std::vector<net_t> vbe_data_n(arch.vbe_outputs * width * height);
 #endif
 
-    
+
 #ifdef USE_OPENCL
 #ifdef USE_HALF
     opencl.forward(input_data, policy_data_n, val_data_n, vbe_data_n);
@@ -1124,7 +1125,7 @@ Network::Netresult Network::get_scored_moves_internal(
 
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
 
-    // Get alpha or value 
+    // Get alpha or value
     batchnorm<BOARD_SQUARES>(arch.val_outputs, val_data,
         bn_val_w1.data(), bn_val_w2.data());
     const auto val_channels =

@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -70,7 +71,7 @@ public:
 		  float avg_eval, float eval_bonus);
     //    void copy_last_rnd_move_num ();
 
-    
+
 private:
     bool valid_handicap(int stones);
 

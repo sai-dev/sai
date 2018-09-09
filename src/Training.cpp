@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -241,14 +242,14 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     if (m_data.size()==0) {
 	return;
     }
-    
+
     auto it = m_data.end()-1;
     for ( ; it!=m_data.begin() ; --it ) {
 	if (it->is_blunder) {
 	    break;
 	}
     }
-    
+
     for ( ; it!=m_data.end() ; ++it ) {
         auto out = std::stringstream{};
         // First output 16 times an input feature plane
