@@ -31,7 +31,6 @@
 #include "Management.h"
 #include "Game.h"
 
-const QString server_url = "http://sai.unich.it/sai23/";
 constexpr int RETRY_DELAY_MIN_SEC = 30;
 constexpr int RETRY_DELAY_MAX_SEC = 60 * 60;  // 1 hour
 constexpr int MAX_RETRIES = 3;           // Stop retrying after 3 times
@@ -45,7 +44,9 @@ Management::Management(const int gpus,
                        const int maxGames,
                        const bool delNetworks,
                        const QString& keep,
-                       const QString& debug)
+                       const QString& debug,
+                       const QString& serverUrl,
+                       const QString& publicAuthKey)
 
     : m_syncMutex(),
     m_gamesThreads(gpus * games),
@@ -57,6 +58,8 @@ Management::Management(const int gpus,
     m_gamesPlayed(0),
     m_keepPath(keep),
     m_debugPath(debug),
+    m_serverUrl(serverUrl),
+    m_publicAuthKey(publicAuthKey),
     m_version(ver),
     m_fallBack(Order::Error),
     m_lastMatch(Order::Error),
@@ -317,7 +320,7 @@ Order Management::getWorkInternal(bool tuning) {
     prog_cmdline.append(".exe");
 #endif
     prog_cmdline.append(" -s -J");
-    prog_cmdline.append(" "+server_url+"get-task/");
+    prog_cmdline.append(" "+m_serverUrl+"get-task/");
     if (tuning) {
         prog_cmdline.append("0");
     } else {
@@ -527,7 +530,7 @@ void Management::fetchNetwork(const QString &net) {
     // Use the filename from the server.
     prog_cmdline.append(" -s -J -o " + name + ".gz ");
     prog_cmdline.append(" -w %{filename_effective}");
-    prog_cmdline.append(" "+server_url + name + ".gz");
+    prog_cmdline.append(" "+m_serverUrl + name + ".gz");
 
     QProcess curl;
     curl.start(prog_cmdline);
@@ -572,7 +575,7 @@ QString Management::fetchGameData(const QString &name, const QString &extension)
     // Use the filename from the server.
     prog_cmdline.append(" -s -J -o " + fileName + "." + extension);
     prog_cmdline.append(" -w %{filename_effective}");
-    prog_cmdline.append(" "+server_url + "view/" + name + "." + extension);
+    prog_cmdline.append(" "+m_serverUrl + "view/" + name + "." + extension);
 
     QProcess curl;
     curl.start(prog_cmdline);
@@ -700,6 +703,8 @@ bool Management::sendCurl(const QStringList &lines) {
 #ifdef WIN32
     prog_cmdline.append(".exe");
 #endif
+    prog_cmdline.append(" -f");
+    prog_cmdline.append(" -F key=\"" + m_publicAuthKey + "\"");
     QStringList::ConstIterator it = lines.constBegin();
     while (it != lines.constEnd()) {
         prog_cmdline.append(" " + *it);
@@ -753,7 +758,7 @@ void Management::uploadResult(const QMap<QString,QString> &r, const QMap<QString
     prog_cmdline.append("-F options_hash="+ l["optHash"]);
     prog_cmdline.append("-F random_seed="+ l["rndSeed"]);
     prog_cmdline.append("-F sgf=@"+ r["file"] + ".sgf.gz");
-    prog_cmdline.append(server_url+"submit-match");
+    prog_cmdline.append(m_serverUrl+"submit-match");
 
     bool sent = false;
     for (auto retries = 0; retries < MAX_RETRIES; retries++) {
@@ -807,7 +812,7 @@ void Management::uploadData(const QMap<QString,QString> &r, const QMap<QString,Q
     prog_cmdline.append("-F random_seed="+ l["rndSeed"]);
     prog_cmdline.append("-F sgf=@" + r["file"] + ".sgf.gz");
     prog_cmdline.append("-F trainingdata=@" + r["file"] + ".txt.0.gz");
-    prog_cmdline.append(server_url+"submit");
+    prog_cmdline.append(m_serverUrl+"submit");
 
     bool sent = false;
     for (auto retries = 0; retries < MAX_RETRIES; retries++) {
@@ -829,6 +834,7 @@ void Management::uploadData(const QMap<QString,QString> &r, const QMap<QString,Q
         }
     }
     if (!sent) {
+        QTextStream(stdout) << "PROVA\n";
         saveCurlCmdLine(prog_cmdline, r["file"]);
         return;
     }
