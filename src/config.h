@@ -45,6 +45,12 @@
 #endif
 
 /*
+ * DIRICHLET_ALPHA_19X19: alpha parameter for Dirichlet noise for 19x19 board, it gets automatically rescaled with board size
+ */
+
+#define DIRICHLET_ALPHA_19X19 0.03f
+
+/*
  * Features
  *
  * USE_BLAS: Use a basic linear algebra library.
