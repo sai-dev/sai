@@ -8,10 +8,10 @@ BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 LEARN_RATE = 0.01
 
 # Outputs new network after the specified number of training steps
-TRAINING_STEPS = 500
+TRAINING_STEPS = 1000
 
 # Display intermediate output after the specified number of training steps
 INFO_STEPS = 100
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 8000
+MAX_TRAINING_STEPS = 1000
