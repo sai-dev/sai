@@ -5,7 +5,7 @@ BOARD_SIZE = 7
 BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 
 # Learning rate
-LEARN_RATE = 0.01
+LEARN_RATE = 0.005
 
 # Outputs new network after the specified number of training steps
 TRAINING_STEPS = 1000
@@ -14,4 +14,4 @@ TRAINING_STEPS = 1000
 INFO_STEPS = 100
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 12000
+MAX_TRAINING_STEPS = 8000
