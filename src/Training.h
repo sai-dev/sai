@@ -43,6 +43,7 @@ public:
     float child_uct_winrate;
     int bestmove_visits;
     float komi;
+    size_t good_moves; // number of good moves since last dumb rndly chosen
 };
 
 std::ostream& operator<< (std::ostream& stream, const TimeStep& timestep);

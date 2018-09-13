@@ -45,6 +45,8 @@
 
 using namespace Utils;
 
+extern bool is_mult_komi_net;
+
 // Configuration flags
 bool cfg_gtp_mode;
 bool cfg_allow_pondering;
@@ -78,6 +80,7 @@ FILE* cfg_logfile_handle;
 bool cfg_quiet;
 std::string cfg_options_str;
 bool cfg_benchmark;
+float cfg_dumbmove_thr;
 
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
@@ -115,7 +118,8 @@ void GTP::setup_default_parameters() {
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
-
+    cfg_dumbmove_thr = 0.0f;
+    
     // C++11 doesn't guarantee *anything* about how random this is,
     // and in MinGW it isn't random at all. But we can mix it in, which
     // helps when it *is* high quality (Linux, MSVC).
@@ -520,7 +524,11 @@ bool GTP::execute(GameState & game, std::string xinput) {
     } else if (command.find("go") == 0) {
       myprintf("'go' command received, invoking think\n");
         int move = search->think(game.get_to_move());
-	myprintf("Thought move %i\n", move);
+	myprintf("Thought move %i", move);
+	if (game.get_last_rnd_move_num()==game.get_movenum()) {
+	    myprintf("       --- a blunder\n");
+	}
+	else myprintf("\n");
         game.play_move(move);
 
         std::string vertex = game.move_to_text(move);
@@ -543,7 +551,7 @@ bool GTP::execute(GameState & game, std::string xinput) {
             for (auto r = 0; r < 8; r++) {
                 vec = Network::get_scored_moves(
                     &game, Network::Ensemble::DIRECT, r, true);
-                Network::show_heatmap(&game, vec, false);
+                Network::show_heatmap(&game, vec, false, false);
             }
         } else if (symmetry == "average" || symmetry == "avg") {
             vec = Network::get_scored_moves(
@@ -554,7 +562,7 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
 
         if (symmetry != "all") {
-            Network::show_heatmap(&game, vec, false);
+            Network::show_heatmap(&game, vec, false, false);
         }
 
         gtp_printf(id, "");
@@ -563,7 +571,16 @@ bool GTP::execute(GameState & game, std::string xinput) {
         const Network::Netresult vec = Network::get_scored_moves(
 					&game, Network::Ensemble::DIRECT, 0, true);
 
-	std::cout << vec.alpha << std::endl << vec.beta << std::endl;
+	Network::show_heatmap(&game, vec, false, true);
+	
+	// const auto komi = game.get_komi();
+	// const auto winrate = sigmoid( vec.alpha,
+	// 			      vec.beta,
+	// 			      game.board.black_to_move() ? -komi : komi );
+	
+	// std::cout << (is_mult_komi_net ? winrate : vec.value) << std::endl
+	// 	  << vec.alpha << std::endl
+	// 	  << vec.beta << std::endl;
 
 
         return true;

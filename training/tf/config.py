@@ -14,4 +14,4 @@ TRAINING_STEPS = 1000
 INFO_STEPS = 100
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 1000
+MAX_TRAINING_STEPS = 12000

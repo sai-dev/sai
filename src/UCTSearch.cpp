@@ -407,8 +407,17 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     // Check whether to randomize the best move proportional
     // to the playout counts, early game only.
     auto movenum = int(m_rootstate.get_movenum());
+    m_rootstate.copy_last_rnd_move_num();
     if (movenum < cfg_random_cnt) {
-        m_root->randomize_first_proportionally();
+        const auto dumb_move_chosen = m_root->randomize_first_proportionally();
+	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
+	    myprintf("Random move would lead to immediate resignation... \n"
+		     "Reverting to best move.\n");	    
+	    m_root->sort_children(color);
+	} else if (dumb_move_chosen) {
+	    myprintf("Dumb move chosen.\n");
+	    m_rootstate.set_last_rnd_move_num(movenum);
+	}
     }
 
     auto first_child = m_root->get_first_child();
@@ -749,8 +758,13 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // display search info
     myprintf("\n");
     dump_stats(m_rootstate, *m_root);
+
+    myprintf("About to call get_best_move.\n");	
+    int bestmove = get_best_move(passflag);
+
     myprintf("Writing training info.\n");
     Training::record(m_rootstate, *m_root);
+
     myprintf("Saving evaluation for black in current GameState:\n");
     const auto alpkt = m_root->get_net_alpkt();
     const auto beta = m_root->get_net_beta();
@@ -776,8 +790,6 @@ int UCTSearch::think(int color, passflag_t passflag) {
                  static_cast<int>(m_playouts),
                  (m_playouts * 100.0) / (elapsed_centis+1));
     }
-    myprintf("About to all get_best_move.\n");	
-    int bestmove = get_best_move(passflag);
 
     // Copy the root state. Use to check for tree re-use in future calls.
     m_last_rootstate = std::make_unique<GameState>(m_rootstate);

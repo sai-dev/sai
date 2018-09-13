@@ -162,7 +162,17 @@ void Training::record(GameState& state, UCTNode& root) {
         Network::get_scored_moves(&state, Network::Ensemble::DIRECT, 0);
     const auto komi = state.get_komi();
     step.komi = komi;
-    step.net_winrate = sigmoid(result.alpha, result.beta, state.board.black_to_move() ? -komi : komi);
+    const int goodmoves = state.get_movenum()-state.get_last_rnd_move_num();
+    if (goodmoves >= 0) {
+	step.good_moves = (size_t)goodmoves;
+    }
+    else {
+	Utils::myprintf("Something is wrong: last dumb move is in the future!\n");
+	step.good_moves = 0;
+    }
+
+    step.net_winrate = sigmoid(result.alpha, result.beta,
+			       state.board.black_to_move() ? -komi : komi);
 
     const auto& best_node = root.get_best_root_child(step.to_move);
     step.root_uct_winrate = root.get_eval(step.to_move);
@@ -235,11 +245,19 @@ void Training::load_training(std::ifstream& in) {
 
 void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     auto training_str = std::string{};
-    for (const auto& step : m_data) {
+
+    auto it = m_data.end()-1;
+    for ( ; it!=m_data.begin() ; --it ) {
+	if (it->good_moves == 0) {
+	    break;
+	}
+    }
+    
+    for ( ; it!=m_data.end() ; ++it ) {
         auto out = std::stringstream{};
         // First output 16 times an input feature plane
         for (auto p = size_t{0}; p < 16; p++) {
-            const auto& plane = step.planes[p];
+            const auto& plane = it->planes[p];
             // Write it out as a string of hex characters
             for (auto bit = size_t{0}; bit + 3 < plane.size(); bit += 4) {
                 auto hexbyte =  plane[bit]     << 3
@@ -256,20 +274,20 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         }
         // The side to move planes can be compactly encoded into a single
         // bit, 0 = black to move.
-        out << (step.to_move == FastBoard::BLACK ? "0" : "1")
-	    << " " << step.komi
+        out << (it->to_move == FastBoard::BLACK ? "0" : "1")
+	    << " " << it->komi
 	    << std::endl;
         // Then a BOARD_SQUARES + 1 long array of float probabilities
-        for (auto it = begin(step.probabilities);
-            it != end(step.probabilities); ++it) {
-            out << *it;
-            if (next(it) != end(step.probabilities)) {
+        for (auto its = begin(it->probabilities);
+            its != end(it->probabilities); ++its) {
+            out << *its;
+            if (next(its) != end(it->probabilities)) {
                 out << " ";
             }
         }
         out << std::endl;
         // And the game result for the side to move
-        if (step.to_move == winner_color) {
+        if (it->to_move == winner_color) {
             out << "1";
         } else {
             out << "-1";

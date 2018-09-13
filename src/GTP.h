@@ -60,6 +60,7 @@ extern FILE* cfg_logfile_handle;
 extern bool cfg_quiet;
 extern std::string cfg_options_str;
 extern bool cfg_benchmark;
+extern float cfg_dumbmove_thr;
 
 /*
     A list of all valid GTP2 commands is defined here:

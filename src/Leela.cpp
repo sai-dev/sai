@@ -95,7 +95,7 @@ static void parse_commandline(int argc, char *argv[]) {
     selfplay_desc.add_options()
         ("noise,n", "Enable policy network randomization.")
         ("noise-value", po::value<float>()->default_value(cfg_noise_value, (boost::format("%g") % cfg_noise_value).str()),
-                     "Dirichilet noise for network randomzation.")
+                     "Dirichilet noise for network randomization.")
         ("seed,s", po::value<std::uint64_t>(),
                    "Random number generation seed.")
         ("dumbpass,d", "Don't use heuristics for smarter passing.")
@@ -107,6 +107,9 @@ static void parse_commandline(int argc, char *argv[]) {
         ("randomtemp",
             po::value<float>()->default_value(cfg_random_temp),
             "Temperature to use for random move selection.")
+        ("blunderthr",
+	 po::value<float>()->default_value(cfg_dumbmove_thr),
+            "If visits ratio with best is less than this, it's a blunder.\nDon't save training data for moves before last blunder.")
         ;
 #ifdef USE_TUNER
     po::options_description tuner_desc("Tuning options");
@@ -277,6 +280,13 @@ static void parse_commandline(int argc, char *argv[]) {
         cfg_random_temp = vm["randomtemp"].as<float>();
     }
 
+    if (vm.count("blunderthr")) {
+        cfg_dumbmove_thr = vm["blunderthr"].as<float>();
+    }
+
+
+
+    
     if (vm.count("timemanage")) {
         auto tm = vm["timemanage"].as<std::string>();
         if (tm == "auto") {

@@ -26,7 +26,6 @@
 #include <utility>
 #include <vector>
 
-#include "UCTNode.h"
 #include "FastBoard.h"
 #include "FastState.h"
 #include "KoState.h"
@@ -104,25 +103,29 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
     }
 }
 
-void UCTNode::randomize_first_proportionally() {
+bool UCTNode::randomize_first_proportionally() {
     auto accum = 0.0;
     auto norm_factor = 0.0;
     auto accum_vector = std::vector<double>{};
+    auto prb_vector = std::vector<float>{};
 
+    
     for (const auto& child : m_children) {
         auto visits = child->get_visits();
+	
 	//	myprintf("Rnd_first: norm=%f, visits=%d\n", norm_factor, visits);
         if (norm_factor == 0.0) {
             norm_factor = visits;
             // Nonsensical options? End of game?
             if (visits <= cfg_random_min_visits) {
-                return;
+                return false;
             }
         }
         if (visits > cfg_random_min_visits) {
             accum += std::pow(visits / norm_factor,
                               1.0 / cfg_random_temp);
             accum_vector.emplace_back(accum);
+	    prb_vector.emplace_back(visits);
         }
     }
 
@@ -139,13 +142,17 @@ void UCTNode::randomize_first_proportionally() {
 
     // Take the early out
     if (index == 0) {
-        return;
+        return false;
     }
 
     assert(m_children.size() > index);
 
     // Now swap the child at index with the first child
     std::iter_swap(begin(m_children), begin(m_children) + index);
+
+    const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_dumbmove_thr);
+    
+    return is_dumb_move;
 }
 
 UCTNode* UCTNode::get_nopass_child(FastState& state) const {

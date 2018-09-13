@@ -53,6 +53,9 @@ public:
     void display_state();
     std::string move_to_text(int move);
 
+    size_t get_last_rnd_move_num();
+    void set_last_rnd_move_num(size_t num);
+
     FullBoard board;
 
     float m_komi;
@@ -61,6 +64,10 @@ public:
     int m_komove;
     size_t m_movenum;
     int m_lastmove;
+    
+    // last rndly chosen move with low probability
+    // we don't save training info before that point
+    size_t m_lastrndmovenum; 
 
 protected:
     void play_move(int color, int vertex);

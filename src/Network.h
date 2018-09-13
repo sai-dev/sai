@@ -102,7 +102,8 @@ public:
     static void benchmark(const GameState * const state,
                           const int iterations = 1600);
     static void show_heatmap(const FastState * const state,
-                             const Netresult & netres, const bool topmoves);
+                             const Netresult & netres, const bool topmoves,
+			     const bool stdout);
 
     static std::vector<net_t> gather_features(const GameState* const state,
                                               const int symmetry);

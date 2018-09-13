@@ -24,6 +24,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <sstream>
@@ -1198,7 +1199,8 @@ Network::Netresult Network::get_scored_moves_internal(
 
 void Network::show_heatmap(const FastState* const state,
                            const Netresult& result,
-                           const bool topmoves) {
+                           const bool topmoves,
+			   const bool stdout = false) {
     std::vector<std::string> display_map;
     std::string line;
 
@@ -1218,15 +1220,30 @@ void Network::show_heatmap(const FastState* const state,
     }
 
     for (int i = display_map.size() - 1; i >= 0; --i) {
-        myprintf("%s\n", display_map[i].c_str());
+	if (stdout) {
+	    std::cout << display_map[i] << std::endl;
+	}
+	else {
+	    myprintf("%s\n", display_map[i].c_str());
+	}
     }
     const auto pass_score = int(result.policy_pass * 1000);
-    myprintf("pass: %d\n", pass_score);
-    myprintf("alpha: %f\n", result.alpha);
-    myprintf("beta: %f\n", result.beta);
-    myprintf("value: %f\n", result.value);
     const auto komi = state->get_komi();
-    myprintf("winrate: %f\n", sigmoid(result.alpha, result.beta, state->board.black_to_move() ? -komi : komi));
+    const auto winrate = sigmoid(result.alpha, result.beta, state->board.black_to_move() ? -komi : komi);
+    if (stdout) {
+	std::cout << "pass: " << pass_score << std::endl
+		  << "value: " << result.value << std::endl
+		  << "winrate: " << winrate << std::endl
+		  << "alpha: " << result.alpha << std::endl
+		  << "beta: " << result.beta << std::endl;
+    }
+    else {
+	myprintf("pass: %d\n", pass_score);
+	myprintf("alpha: %f\n", result.alpha);
+	myprintf("beta: %f\n", result.beta);
+	myprintf("value: %f\n", result.value);
+	myprintf("winrate: %f\n", winrate);
+    }
 
     if (topmoves) {
         std::vector<Network::ScoreVertexPair> moves;

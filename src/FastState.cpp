@@ -162,3 +162,11 @@ void FastState::set_handicap(int hcap) {
 int FastState::get_handicap() const {
     return m_handicap;
 }
+
+void FastState::set_last_rnd_move_num(size_t num) {
+    m_lastrndmovenum = num;
+}
+
+size_t FastState::get_last_rnd_move_num() {
+    return m_lastrndmovenum;
+}
