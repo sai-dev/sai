@@ -58,6 +58,7 @@ TimeManagement::enabled_t cfg_timemanage;
 int cfg_lagbuffer_cs;
 int cfg_resignpct;
 int cfg_noise;
+bool cfg_fpuzero;
 float cfg_noise_value;
 float cfg_lambda;
 float cfg_komi;
@@ -109,6 +110,7 @@ void GTP::setup_default_parameters() {
     // see UCTSearch::should_resign
     // if negative, the default is 10%, otherwise, this value % is used
     cfg_resignpct = -1;
+    cfg_fpuzero = true;
     cfg_noise = false;
     cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
