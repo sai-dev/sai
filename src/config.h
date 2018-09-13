@@ -46,6 +46,8 @@
  */
 #define KOMI_VALUE 9.5f
 
+#define LAMBDA 0.5f
+
 /*
  * DIRICHLET_ALPHA_19X19: alpha parameter for Dirichlet noise for 19x19 board, it gets automatically rescaled with board size
  */

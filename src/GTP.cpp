@@ -511,7 +511,9 @@ bool GTP::execute(GameState & game, std::string xinput) {
 
         return true;
     } else if (command.find("go") == 0) {
+      myprintf("'go' command received, invoking think\n");
         int move = search->think(game.get_to_move());
+	myprintf("Thought move %i\n", move);
         game.play_move(move);
 
         std::string vertex = game.move_to_text(move);

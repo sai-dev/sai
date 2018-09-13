@@ -44,7 +44,8 @@ public:
     ~UCTNode() = default;
 
     bool create_children(std::atomic<int>& nodecount,
-                         GameState& state, float& eval,
+                         GameState& state, float& alpkt,
+			 float& beta,
                          float min_psa_ratio = 0.0f);
 
     const std::vector<UCTNodePointer>& get_children() const;
@@ -62,12 +63,14 @@ public:
     void set_active(const bool active);
     bool valid() const;
     bool active() const;
+    double get_blackevals() const;
     int get_move() const;
     int get_visits() const;
     float get_score() const;
     void set_score(float score);
     float get_eval(int tomove) const;
     float get_net_eval(int tomove) const;
+    float get_eval_bonus() const;
     void virtual_loss(void);
     void virtual_loss_undo(void);
     void update(float eval);
@@ -77,6 +80,7 @@ public:
     void prepare_root_node(int color,
                            std::atomic<int>& nodecount,
                            GameState& state);
+    float eval_with_bonus(float xbar);
 
     UCTNode* get_first_child() const;
     UCTNode* get_nopass_child(FastState& state) const;
@@ -92,7 +96,6 @@ private:
     void link_nodelist(std::atomic<int>& nodecount,
                        std::vector<Network::ScoreVertexPair>& nodelist,
                        float min_psa_ratio);
-    double get_blackevals() const;
     void accumulate_eval(float eval);
     void kill_superkos(const KoState& state);
     void dirichlet_noise(float epsilon, float alpha);
@@ -110,6 +113,9 @@ private:
     float m_score;
     // Original net eval for this node (not children).
     float m_net_eval{0.0f};
+    float m_net_alpkt{0.0f}; // alpha + \tilde k
+    float m_net_beta{0.0f};
+    float m_eval_bonus{0.0f}; // x bar
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
     // Is someone adding scores to this node?

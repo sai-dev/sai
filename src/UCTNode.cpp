@@ -53,7 +53,8 @@ SMP::Mutex& UCTNode::get_mutex() {
 
 bool UCTNode::create_children(std::atomic<int>& nodecount,
                               GameState& state,
-                              float& eval,
+                              float& alpkt,
+			      float& beta,
                               float min_psa_ratio) {
     // check whether somebody beat us to it (atomic)
     if (!expandable(min_psa_ratio)) {
@@ -76,6 +77,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     // We'll be the one queueing this node for expansion, stop others
     m_is_expanding = true;
     lock.unlock();
+    myprintf("No impediments. About to call get_scored_moves().\n");
 
     const auto raw_netlist = Network::get_scored_moves(
         &state, Network::Ensemble::RANDOM_SYMMETRY);
@@ -83,13 +85,28 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     const auto to_move = state.board.get_to_move();
     const auto komi = state.get_komi();
 
+    //    alpkt = m_net_alpkt = raw_netlist.alpha +
+    //	(state.board.black_to_move() ? -komi : komi);
+    alpkt = m_net_alpkt = (state.board.black_to_move() ? raw_netlist.alpha : -raw_netlist.alpha) - komi;
+    beta = m_net_beta = raw_netlist.beta;
+    const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
+    const auto pi_lambda = (1-LAMBDA)*pi+LAMBDA*0.5f;
+    m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;
+
+    myprintf("alpha=%f, beta=%f, pass=%f\n"
+	     "alpkt=%f, pi=%f, pi_lambda=%f, x_bar=%f\n",
+	     raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
+	     m_net_alpkt, pi, pi_lambda, m_eval_bonus);
+
+    
+    
     // DCNN returns winrate as side to move
-    m_net_eval = sigmoid(raw_netlist.alpha, raw_netlist.beta, state.board.black_to_move() ? -komi : komi);
+    m_net_eval = pi;
     // our search functions evaluate from black's point of view
     if (state.board.white_to_move()) {
         m_net_eval = 1.0f - m_net_eval;
     }
-    eval = m_net_eval;
+    // eval = m_net_eval;
 
     std::vector<Network::ScoreVertexPair> nodelist;
 
@@ -196,6 +213,10 @@ bool UCTNode::expandable(const float min_psa_ratio) const {
 
 float UCTNode::get_score() const {
     return m_score;
+}
+
+float UCTNode::get_eval_bonus() const {
+    return m_eval_bonus;
 }
 
 void UCTNode::set_score(float score) {

@@ -34,11 +34,14 @@
 #include "UCTNode.h"
 #include "Utils.h"
 #include "GTP.h"
+#include "Network.h"
 
 /*
  * These functions belong to UCTNode but should only be called on the root node
  * of UCTSearch and have been seperated to increase code clarity.
  */
+
+using Utils::myprintf;
 
 UCTNode* UCTNode::get_first_child() const {
     if (m_children.empty()) {
@@ -180,14 +183,24 @@ void UCTNode::inflate_all_children() {
 void UCTNode::prepare_root_node(int color,
                                 std::atomic<int>& nodes,
                                 GameState& root_state) {
-    float root_eval;
+    float root_eval, root_alpkt, root_beta;
+    const int n=nodes;
+    myprintf("Function prepare_root_node() called. nodes=%i\n", n);
     const auto had_children = has_children();
+    myprintf("has_children() returned %i\n", had_children);
     if (expandable()) {
-        create_children(nodes, root_state, root_eval);
+        myprintf("Function expandable() returned true. About to call create_children().\n");
+        create_children(nodes, root_state, root_alpkt, root_beta);
+	myprintf("Function create_children() set root_alpkt=%f "
+		 "and root_beta=%f.\n", root_alpkt, root_beta);
     }
     if (had_children) {
-        root_eval = get_eval(color);
+      myprintf("had_children=true. About to call get_eval().\n");
+      root_eval = get_eval(color);
+      myprintf("Function get_eval() returned %f.\n", root_eval);
     } else {
+	root_eval = eval_with_bonus(get_eval_bonus());
+        myprintf("had_children=false. Updating eval with %f.\n", root_eval);
         update(root_eval);
         root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
     }
@@ -195,15 +208,25 @@ void UCTNode::prepare_root_node(int color,
 
     // There are a lot of special cases where code assumes
     // all children of the root are inflated, so do that.
+    myprintf("About to inflate all children.\n");
     inflate_all_children();
 
     // Remove illegal moves, so the root move list is correct.
     // This also removes a lot of special cases.
+    myprintf("About to kill superkos.\n");
     kill_superkos(root_state);
 
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size
         auto alpha = DIRICHLET_ALPHA_19X19 * 361.0f / BOARD_SQUARES;
+	myprintf("About to call dirichlet_noise.\n");
         dirichlet_noise(0.25f, alpha);
     }
+}
+
+float UCTNode::eval_with_bonus(float xbar) {
+    if (std::abs(xbar)>0.001f)
+	return 1-std::log(sigmoid(m_net_alpkt,m_net_beta,xbar)/sigmoid(m_net_alpkt,m_net_beta,0.0f))/m_net_beta/xbar;
+    else
+	return sigmoid(m_net_alpkt,m_net_beta,0.0f);
 }
