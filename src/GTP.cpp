@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
@@ -557,6 +558,14 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
 
         gtp_printf(id, "");
+        return true;
+    } else if (command.find("hm") == 0) {
+        const Network::Netresult vec = Network::get_scored_moves(
+					&game, Network::Ensemble::DIRECT, 0, true);
+
+	std::cout << vec.alpha << std::endl << vec.beta << std::endl;
+
+
         return true;
     } else if (command.find("fixed_handicap") == 0) {
         std::istringstream cmdstream(command);
