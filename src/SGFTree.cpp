@@ -459,11 +459,11 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
 	const auto ev = state->get_eval();
         auto comstr = std::stringstream{};
 	comstr << std::setprecision(3)
-	       << std::get<0>(ev) << ", "
-	       << std::get<1>(ev) << ", "
-	       << std::get<2>(ev) << ", "
-	       << std::get<3>(ev) << ", "
-	       << std::get<4>(ev);
+	       << std::get<0>(ev) << ", " // alpkt
+	       << std::get<1>(ev) << ", " // beta
+	       << std::get<2>(ev) << ", " // pi
+	       << std::get<3>(ev) << ", " // avg_eval
+	       << std::get<4>(ev);        // eval_bonus
 	moves.append("C[" + comstr.str() + "]");
         if (++counter % 10 == 0) {
             moves.append("\n");
