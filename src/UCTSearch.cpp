@@ -251,7 +251,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         }
     }
 
-    extern bool is_mult_komi_net;
+    //    extern bool is_mult_komi_net;
     if (result.valid()) {
 	const auto eval = is_mult_komi_net ?
 	    result.eval_with_bonus(node->get_eval_bonus()) : result.eval();

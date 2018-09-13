@@ -108,8 +108,9 @@ static void parse_commandline(int argc, char *argv[]) {
             po::value<float>()->default_value(cfg_random_temp),
             "Temperature to use for random move selection.")
         ("blunderthr",
-	 po::value<float>()->default_value(cfg_dumbmove_thr),
-            "If visits ratio with best is less than this, it's a blunder.\nDon't save training data for moves before last blunder.")
+	    po::value<float>()->default_value(cfg_blunder_thr),
+	    "If visits ratio with best is less than this, it's a blunder. "
+	    "Don't save training data for moves before last blunder.")
         ;
 #ifdef USE_TUNER
     po::options_description tuner_desc("Tuning options");
@@ -117,6 +118,8 @@ static void parse_commandline(int argc, char *argv[]) {
         ("puct", po::value<float>())
         ("softmax_temp", po::value<float>())
         ("fpu_reduction", po::value<float>())
+        ("fpu_zero", "Use constant fpu=0.5 (AlphaGoZero). "
+	 "The default is reduced parent's value (LeelaZero).")
         ;
 #endif
     // These won't be shown, we use them to catch incorrect usage of the
@@ -186,6 +189,10 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("fpu_reduction")) {
         cfg_fpu_reduction = vm["fpu_reduction"].as<float>();
     }
+    if (vm.count("fpu_zero")) {
+        cfg_fpuzero = true;
+    }
+
 #endif
 
     if (vm.count("logfile")) {
@@ -281,7 +288,7 @@ static void parse_commandline(int argc, char *argv[]) {
     }
 
     if (vm.count("blunderthr")) {
-        cfg_dumbmove_thr = vm["blunderthr"].as<float>();
+        cfg_blunder_thr = vm["blunderthr"].as<float>();
     }
 
 

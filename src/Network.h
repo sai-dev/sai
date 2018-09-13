@@ -41,6 +41,7 @@ static constexpr int DOUBLE_Y = 3;
 static constexpr int DOUBLE_T = 4;
 static constexpr int DOUBLE_I = 5;
 
+extern bool is_mult_komi_net;
 
 struct netarch {
   int value_head_type = SINGLE;

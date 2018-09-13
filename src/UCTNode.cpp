@@ -102,7 +102,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
 	     m_net_alpkt, pi, pi_lambda, m_eval_bonus);
 
 
-    extern bool is_mult_komi_net;
+    //    extern bool is_mult_komi_net;
     // DCNN returns winrate as side to move
     m_net_eval = is_mult_komi_net ? pi : value;
     // our search functions evaluate from black's point of view

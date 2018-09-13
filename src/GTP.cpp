@@ -45,7 +45,7 @@
 
 using namespace Utils;
 
-extern bool is_mult_komi_net;
+//extern bool is_mult_komi_net;
 
 // Configuration flags
 bool cfg_gtp_mode;
@@ -81,7 +81,7 @@ FILE* cfg_logfile_handle;
 bool cfg_quiet;
 std::string cfg_options_str;
 bool cfg_benchmark;
-float cfg_dumbmove_thr;
+float cfg_blunder_thr;
 
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
@@ -110,7 +110,7 @@ void GTP::setup_default_parameters() {
     // see UCTSearch::should_resign
     // if negative, the default is 10%, otherwise, this value % is used
     cfg_resignpct = -1;
-    cfg_fpuzero = true;
+    cfg_fpuzero = false;
     cfg_noise = false;
     cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
@@ -120,7 +120,7 @@ void GTP::setup_default_parameters() {
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
-    cfg_dumbmove_thr = 0.0f;
+    cfg_blunder_thr = 0.0f;
     
     // C++11 doesn't guarantee *anything* about how random this is,
     // and in MinGW it isn't random at all. But we can mix it in, which

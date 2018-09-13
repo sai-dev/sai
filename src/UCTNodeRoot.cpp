@@ -150,7 +150,7 @@ bool UCTNode::randomize_first_proportionally() {
     // Now swap the child at index with the first child
     std::iter_swap(begin(m_children), begin(m_children) + index);
 
-    const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_dumbmove_thr);
+    const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_blunder_thr);
     myprintf("Randomize_first: p=%f over p0=%f, move is %s\n",
 	     prb_vector[index], prb_vector[0], (is_dumb_move ? "blunder" : "ok") );
     
@@ -195,7 +195,7 @@ void UCTNode::prepare_root_node(int color,
                                 std::atomic<int>& nodes,
                                 GameState& root_state) {
     float root_eval, root_value, root_alpkt, root_beta;
-    extern bool is_mult_komi_net;
+    //    extern bool is_mult_komi_net;
     
     const int n=nodes;
     myprintf("Function prepare_root_node() called. nodes=%i\n", n);
