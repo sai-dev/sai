@@ -527,14 +527,14 @@ class TFProcess:
                                    input_channels=self.RESIDUAL_FILTERS,
                                    output_channels=2)
         h_conv_val_flat = tf.reshape(conv_val, [-1, 2*BOARD_SQUARES])
-
-        # Value head - alpha
-        W_fc2 = weight_variable([2*BOARD_SQUARES, 128])
-        b_fc2 = bias_variable([128])
+        W_fc2 = weight_variable([2*BOARD_SQUARES, 256])
+        b_fc2 = bias_variable([256])
         self.weights.append(W_fc2)
         self.weights.append(b_fc2)
         h_fc2 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc2), b_fc2))
-        W_fc3 = weight_variable([128, 1])
+
+        # Value head - alpha
+        W_fc3 = weight_variable([256, 1])
         b_fc3 = bias_variable([1])
         self.weights.append(W_fc3)
         self.weights.append(b_fc3)
@@ -545,17 +545,19 @@ class TFProcess:
         #                           input_channels=self.RESIDUAL_FILTERS,
         #                           output_channels=1)
         #h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, BOARD_SQUARES])
-        W_fc4 = weight_variable([2*BOARD_SQUARES, 128])
-        b_fc4 = bias_variable([128])
-        self.weights.append(W_fc4)
-        self.weights.append(b_fc4)
-        h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
-        W_fc5 = weight_variable([128, 1])
+
+        # W_fc4 = weight_variable([2*BOARD_SQUARES, 128])
+        # b_fc4 = bias_variable([128])
+        # self.weights.append(W_fc4)
+        # self.weights.append(b_fc4)
+        # h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
+
+        W_fc5 = weight_variable([256, 1])
         b_fc5 = bias_variable([1])
         self.weights.append(W_fc5)
         self.weights.append(b_fc5)
         scale_factor = tf.constant(10.0 / BOARD_SQUARES / 2)
-        h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
+        h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc2, W_fc5), b_fc5)))
 
         h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi))) # here!
 
