@@ -108,6 +108,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     // our search functions evaluate from black's point of view
     if (state.board.white_to_move()) {
         m_net_eval = 1.0f - m_net_eval;
+	value = 1.0f - value;
     }
     // eval = m_net_eval;
 

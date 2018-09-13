@@ -195,8 +195,9 @@ void UCTNode::prepare_root_node(int color,
     if (expandable()) {
         myprintf("Function expandable() returned true. About to call create_children().\n");
         create_children(nodes, root_state, root_value, root_alpkt, root_beta);
-	myprintf("Function create_children() set root_alpkt=%f "
-		 "and root_beta=%f.\n", root_alpkt, root_beta);
+	myprintf("Function create_children() set root_alpkt=%f, "
+		 "root_beta=%f and root_value=%f.\n",
+		 root_alpkt, root_beta, root_value);
     }
     if (had_children) {
       myprintf("had_children=true. About to call get_eval().\n");
@@ -205,7 +206,8 @@ void UCTNode::prepare_root_node(int color,
     } else {
 	root_eval = is_mult_komi_net ?
 	    eval_with_bonus(get_eval_bonus()) : root_value;
-        myprintf("had_children=false. Updating eval with %f.\n", root_eval);
+        myprintf("had_children=false. Multikomi=%d Updating eval with %f.\n",
+		 is_mult_komi_net, root_eval);
         update(root_eval);
         root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
     }
