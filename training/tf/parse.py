@@ -146,12 +146,12 @@ def main():
         len(training), len(test)))
 
     train_parser = ChunkParser(FileDataSrc(training),
-                               shuffle_size=1<<20, # 2.2GB of RAM.
+                               shuffle_size=1<<19, # was 20 -- 2.2GB of RAM.
                                sample=args.sample,
                                batch_size=RAM_BATCH_SIZE).parse()
 
     test_parser = ChunkParser(FileDataSrc(test),
-                              shuffle_size=1<<19,
+                              shuffle_size=1<<15,  # was 19
                               sample=args.sample,
                               batch_size=RAM_BATCH_SIZE).parse()
 
