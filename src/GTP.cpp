@@ -105,7 +105,7 @@ void GTP::setup_default_parameters() {
     cfg_tune_only = false;
 #endif
     cfg_puct = 0.8f;
-    cfg_softmax_temp = 2.0f; // was 1.0f
+    cfg_softmax_temp = 1.0f;
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign
     // if negative, the default is 10%, otherwise, this value % is used
@@ -115,12 +115,12 @@ void GTP::setup_default_parameters() {
     cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
     cfg_random_min_visits = 1;
-    cfg_random_temp = 0.5f;  // was 1.0f
+    cfg_random_temp = 1.0f;
     cfg_dumbpass = false;
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
-    cfg_dumbmove_thr = 0.25f;
+    cfg_dumbmove_thr = 0.0f;
     
     // C++11 doesn't guarantee *anything* about how random this is,
     // and in MinGW it isn't random at all. But we can mix it in, which
