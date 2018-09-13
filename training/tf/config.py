@@ -17,20 +17,20 @@ DOUBLE_Y = 3
 DOUBLE_T = 4
 DOUBLE_I = 5
 
-VALUE_HEAD_TYPE = DOUBLE_V
-VAL_OUTPUTS = 1
-VBE_OUTPUTS = 1
+VALUE_HEAD_TYPE = DOUBLE_Y
+VAL_OUTPUTS = 2
+VBE_OUTPUTS = 1 # only for double W
 VAL_CHANS = 256
-VBE_CHANS = 256
+VBE_CHANS = 128 # only for double W and Y
 
 # Learning rate
-LEARN_RATE = 0.01
+LEARN_RATE = 0.005
 
 # Outputs new network after the specified number of training steps
-TRAINING_STEPS = 1000
+TRAINING_STEPS = 2000
 
 # Display intermediate output after the specified number of training steps
-INFO_STEPS = 100
+INFO_STEPS = 400
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 1000
+MAX_TRAINING_STEPS = 2000
