@@ -95,6 +95,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
     const auto pi_lambda = (1-cfg_lambda)*pi+cfg_lambda*0.5f;
     m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;
+	
 
 #ifndef NDEBUG
     myprintf("alpha=%f, beta=%f, pass=%f\n"
@@ -225,6 +226,14 @@ float UCTNode::get_eval_bonus() const {
     return m_eval_bonus;
 }
 
+float UCTNode::get_eval_bonus_father() const {
+    return m_eval_bonus_father;
+}
+
+void UCTNode::set_eval_bonus_father(float bonus) {
+    m_eval_bonus_father = bonus;
+}
+
 float UCTNode::get_net_eval() const {
     return m_net_eval;
 }
@@ -328,7 +337,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         if (value > best_value) {
             best_value = value;
             best = &child;
-        }
+	}
     }
 
     assert(best != nullptr);

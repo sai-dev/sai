@@ -72,6 +72,8 @@ public:
     float get_eval(int tomove) const;
     float get_net_eval(int tomove) const;
     float get_eval_bonus() const;
+    float get_eval_bonus_father() const;
+    void set_eval_bonus_father(float bonus);
     float get_net_eval() const;
     float get_net_beta() const;
     float get_net_alpkt() const;
@@ -121,6 +123,7 @@ private:
     float m_net_alpkt{0.0f}; // alpha + \tilde k
     float m_net_beta{0.0f};
     float m_eval_bonus{0.0f}; // x bar
+    float m_eval_bonus_father{0.0f}; // x bar of father node
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
     // Is someone adding scores to this node?

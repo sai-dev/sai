@@ -171,11 +171,12 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 	: "empty";
 
     myprintf("Last move was %i, or %s. Simulation begins.\n"
-	     "Visits=%i, blackevals=%f, net_eval=%f.\n",
+	     "Visits=%i, blackevals=%f, net_eval=%f, x_bar=%f.\n",
 	     lastmove, tmp.c_str(),
 	     node->get_visits(),
 	     node->get_blackevals(),
-	     node->get_net_eval(color));
+	     node->get_net_eval(color),
+	     node->get_eval_bonus());
 #endif
 
     node->virtual_loss();
@@ -220,6 +221,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     if (node->has_children() && !result.valid()) {
         auto next = node->uct_select_child(color, node == m_root.get());
         auto move = next->get_move();
+	next->set_eval_bonus_father(node->get_eval_bonus());
 
         currstate.play_move(move);
         if (move != FastBoard::PASS && currstate.superko()) {
@@ -235,9 +237,11 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 
     if (result.valid()) {
 	const auto eval = is_mult_komi_net ?
-	    result.eval_with_bonus(node->get_eval_bonus()) : result.eval();
+	    result.eval_with_bonus(node->get_eval_bonus_father()) : result.eval();
 #ifndef NDEBUG
-	myprintf("About to update blackevals with %f\n", eval);
+	myprintf("is_mult_komi_net=%d, bonus=%f, eval_with_bonus=%f, eval=%f.\n"
+		 "About to update blackevals with %f\n", is_mult_komi_net, node->get_eval_bonus(), 
+		 result.eval_with_bonus(node->get_eval_bonus()), result.eval(), eval);
 #endif
         node->update(eval);
     }
@@ -829,11 +833,12 @@ float SearchResult::eval_with_bonus(float xbar) {
     if (std::abs(xbar)<0.001f) {
 	return sigmoid(m_alpkt,m_beta,0.0f);
     }
-    else if ((std::abs(m_alpkt)+std::abs(xbar))*m_beta<10.0f) {
-	return 1-std::log(sigmoid(m_alpkt,m_beta,xbar)/sigmoid(m_alpkt,m_beta,0.0f))/m_beta/xbar;
-    }
-    else if (m_alpkt>0.0f) {
-	return 1;
-    }
-    else return 0;
+
+    auto a = std::abs(m_alpkt+xbar);
+    auto b = std::abs(m_alpkt);
+
+    auto aa = std::log(sigmoid(b,m_beta,0.0f))/m_beta/xbar;
+    auto bb = std::log(sigmoid(a,m_beta,0.0f))/m_beta/xbar;
+    
+    return 0.5f + 0.5f*(a-b)/xbar + aa - bb;
 }
