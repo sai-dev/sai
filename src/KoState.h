@@ -42,9 +42,9 @@ public:
 private:
     std::vector<std::uint64_t> m_ko_hash_history;
     float m_alpkt = 0.0f;
-    float m_beta = 0.0f;
-    float m_pi = 0.0f;
-    float m_avg_eval = 0.0f;
+    float m_beta = 1.0f;
+    float m_pi = 0.5f;
+    float m_avg_eval = 0.5f;
     float m_eval_bonus = 0.0f;
 };
 

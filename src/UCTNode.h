@@ -86,7 +86,6 @@ public:
     void prepare_root_node(int color,
                            std::atomic<int>& nodecount,
                            GameState& state);
-    float eval_with_bonus(float xbar);
 
     UCTNode* get_first_child() const;
     UCTNode* get_nopass_child(FastState& state) const;
@@ -118,10 +117,10 @@ private:
     // UCT eval
     float m_score;
     // Original net eval for this node (not children).
-    float m_net_eval{0.0f};
-    float m_net_value{0.0f};
+    float m_net_eval{0.5f};
+    //    float m_net_value{0.5f};
     float m_net_alpkt{0.0f}; // alpha + \tilde k
-    float m_net_beta{0.0f};
+    float m_net_beta{1.0f};
     float m_eval_bonus{0.0f}; // x bar
     float m_eval_bonus_father{0.0f}; // x bar of father node
     std::atomic<double> m_blackevals{0.0};

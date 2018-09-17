@@ -56,9 +56,9 @@ private:
     explicit SearchResult(float value, float alpkt, float beta)
         : m_valid(true), m_value(value), m_alpkt(alpkt), m_beta(beta) {}
     bool m_valid{false};
-    float m_value{0.0f};
+    float m_value{0.5f};
     float m_alpkt{0.0f};
-    float m_beta{0.0f};
+    float m_beta{1.0f};
 };
 
 namespace TimeManagement {

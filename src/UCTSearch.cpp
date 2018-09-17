@@ -207,10 +207,9 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             if (!had_children && success) {
                 result = SearchResult::from_eval(value, alpkt, beta);
 #ifndef NDEBUG
-		myprintf("Result validity is %i.\n"
-			 "eval=%f, eval_with_bonus=%f\n"
+		myprintf("Result from eval: eval=%f, eval_with_bonus=%f\n"
 			 "Move choices by policy: ",
-			 result.valid(), result.eval_with_bonus(0.0f),
+			 result.eval_with_bonus(0.0f),
 			 result.eval_with_bonus(node->get_eval_bonus()));
 		print_move_choices_by_policy(currstate, *node, 3, 0.01f);
 #endif
@@ -830,10 +829,24 @@ void UCTSearch::set_visit_limit(int visits) {
 }
 
 float SearchResult::eval_with_bonus(float xbar) {
-    if (std::abs(xbar)<0.001f) {
+    if (std::abs(xbar) < 0.001f) {
 	return sigmoid(m_alpkt,m_beta,0.0f);
     }
 
+#ifndef NDEBUG
+    if (std::abs(xbar) > 1000.0f) {
+	myprintf("Warning: xbar out of bound: %f.\n", xbar);
+    }
+#endif
+
+    if (xbar > 1000.0f) {
+	return 1.0f;
+    }
+
+    if (xbar < -1000.0f) {
+	return 0.0f;
+    }
+    
     auto a = std::abs(m_alpkt+xbar);
     auto b = std::abs(m_alpkt);
 

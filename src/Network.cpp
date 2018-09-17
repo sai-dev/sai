@@ -1144,7 +1144,7 @@ Network::Netresult Network::get_scored_moves_internal(
 	const auto vbe_output =
 	    innerproduct<false>(vbe_channels, ip2_vbe_w, ip2_vbe_b);
 
-	result.value = 0;
+	result.value = 0.5f;
 	result.alpha = val_output[0];
 	result.beta = std::exp(vbe_output[0]) * 10.0f / BOARD_SQUARES;
 
@@ -1154,7 +1154,7 @@ Network::Netresult Network::get_scored_moves_internal(
 	const auto vbe_output =
 	    innerproduct<false>(vbe_channels, ip2_vbe_w, ip2_vbe_b);
 
-	result.value = 0;
+	result.value = 0.5f;
 	result.alpha = val_output[0];
 	result.beta = std::exp(vbe_output[0]) * 10.0f / BOARD_SQUARES;
 
@@ -1162,19 +1162,19 @@ Network::Netresult Network::get_scored_moves_internal(
 	const auto vbe_output =
 	    innerproduct<false>(val_channels, ip2_vbe_w, ip2_vbe_b);
 
-	result.value = 0;
+	result.value = 0.5f;
 	result.alpha = val_output[0];
 	result.beta = std::exp(vbe_output[0]) * 10.0f / BOARD_SQUARES;
 
     } else if (arch.value_head_type==DOUBLE_I) {
-	result.value = 0;
+	result.value = 0.5f;
 	result.alpha = val_output[0];
 	result.beta = std::exp(val_output[1]) * 10.0f / BOARD_SQUARES;
 
     } else if (arch.value_head_type==SINGLE) {
 	result.value = (1.0f + std::tanh(val_output[0])) / 2.0f;
-	result.alpha = 0;
-	result.beta = 0;
+	result.alpha = 0.0f;
+	result.beta = 1.0f;
     }
 
 

@@ -52,7 +52,7 @@ void KoState::reset_game() {
 
     m_ko_hash_history.clear();
     m_ko_hash_history.push_back(board.get_ko_hash());
-    set_eval(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    set_eval(0.0f, 1.0f, 0.5f, 0.5f, 0.0f);
 }
 
 void KoState::play_move(int vertex) {

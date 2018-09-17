@@ -203,18 +203,22 @@ void UCTNode::prepare_root_node(int color,
     float root_eval, root_value, root_alpkt, root_beta;
     //    extern bool is_mult_komi_net;
 
-    const auto had_children = has_children();
+    //    const auto had_children = has_children();
     if (expandable()) {
         create_children(nodes, root_state, root_value, root_alpkt, root_beta);
     }
-    if (had_children) {
-      root_eval = get_eval(color);
-    } else {
-	root_eval = is_mult_komi_net ?
-	    eval_with_bonus(get_eval_bonus()) : root_value;
-        update(root_eval);
-        root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
-    }
+    //    if (had_children) {
+    //      root_eval = get_eval(color);
+    //    } else {
+    //	root_eval = m_net_eval;
+    //        update(root_eval);
+    // this is completely pointless: at root we only need
+    // blackevals of children to be up to date
+
+    root_eval = get_net_eval();
+    root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
+
+    //    }
     myprintf("NN eval=%f\n", root_eval);
 
     // There are a lot of special cases where code assumes
@@ -232,9 +236,3 @@ void UCTNode::prepare_root_node(int color,
     }
 }
 
-float UCTNode::eval_with_bonus(float xbar) {
-    if (std::abs(xbar)>0.001f)
-	return 1-std::log(sigmoid(m_net_alpkt,m_net_beta,xbar)/sigmoid(m_net_alpkt,m_net_beta,0.0f))/m_net_beta/xbar;
-    else
-	return sigmoid(m_net_alpkt,m_net_beta,0.0f);
-}
