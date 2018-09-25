@@ -115,7 +115,9 @@ class ChunkParser:
         self.full_reflection_table = [
             np.array(x, dtype=np.int64) for x in self.full_reflection_table ]
         # Build the all-zeros and all-ones flat planes, used for color-to-move.
-        self.flat_planes = [ b'\1'*BOARD_SQUARES + b'\0'*BOARD_SQUARES, b'\0'*BOARD_SQUARES + b'\1'*BOARD_SQUARES ]
+        self.flat_planes = [ b'\1'*BOARD_SQUARES + b'\0'*BOARD_SQUARES,
+                             b'\0'*BOARD_SQUARES + b'\1'*BOARD_SQUARES,
+                             b'\1'*BOARD_SQUARES ]
 
         # set the down-sampling rate
         self.sample = sample
@@ -161,7 +163,7 @@ class ChunkParser:
         # uint8*BOARD_SQUARE*18 planes
         # (order is to ensure that no padding is required to
         #  make float32 be 32-bit aligned)
-        s3 = BOARD_SQUARES * 18
+        s3 = BOARD_SQUARES * (17 + INPUT_STM)
         self.raw_struct = struct.Struct('4s'+str(s1)+'si'+str(s3)+'s')
 
     def convert_v1_to_v2(self, text_item):
@@ -284,13 +286,17 @@ class ChunkParser:
         # Now we add the two final planes, being the 'color to move' planes.
         stm = to_move
         assert stm == 0 or stm == 1
-        # Flattern all planes to a single byte string
-        planes = planes.tobytes() + self.flat_planes[stm]
-        assert len(planes) == (18 * BOARD_SQUARES), len(planes)
 
-#        komi = struct.unpack('i', komi)
+        #        komi = struct.unpack('i', komi)
         komi = float(komi/2)
         komi = struct.pack('f', komi)
+
+        if (INPUT_STM == 0):
+            stm = 2
+            
+        # Flattern all planes to a single byte string
+        planes = planes.tobytes() + self.flat_planes[stm]
+        assert len(planes) == ((17 + INPUT_STM) * BOARD_SQUARES), len(planes)
 
         winner = float(winner * 2 - 1)
         assert winner == 1.0 or winner == -1.0, winner

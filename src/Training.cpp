@@ -144,9 +144,10 @@ TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
     const auto input_data = Network::gather_features(state, 0);
 
     auto planes = TimeStep::NNPlanes{};
-    planes.resize(Network::INPUT_CHANNELS);
+    const auto moves_planes = 2 * Network::INPUT_MOVES;
+    planes.resize(moves_planes);
 
-    for (auto c = size_t{0}; c < Network::INPUT_CHANNELS; c++) {
+    for (auto c = size_t{0}; c < moves_planes; c++) {
         for (auto idx = 0; idx < BOARD_SQUARES; idx++) {
             planes[c][idx] = bool(input_data[c * BOARD_SQUARES + idx]);
         }

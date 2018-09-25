@@ -267,7 +267,8 @@ int Network::load_v1_network(std::istream& wtfile) {
 	      if (linecount == 1) {
 		arch.channels = n_wts;
 		arch.input_planes = n_wts_1st_layer/9/arch.channels;
-		assert (arch.input_planes == INPUT_CHANNELS);
+		assert ( arch.input_planes == COLOR_INPUT_PLANES ||
+			 arch.input_planes == NOCOL_INPUT_PLANES );
 		assert (n_wts_1st_layer == arch.input_planes*9*arch.channels);
 		myprintf("%d input planes...%d channels...", arch.input_planes, arch.channels);
 		}
@@ -1294,7 +1295,8 @@ std::vector<net_t> Network::gather_features(const GameState* const state,
     const auto white_it = blacks_move ?
                           begin(input_data) + INPUT_MOVES * BOARD_SQUARES :
                           begin(input_data);
-    const auto to_move_it = blacks_move ?
+    const auto to_move_it = blacks_move ||
+	(arch.input_planes == 2 * INPUT_MOVES + 1) ?
         begin(input_data) + 2 * INPUT_MOVES * BOARD_SQUARES :
         begin(input_data) + (2 * INPUT_MOVES + 1) * BOARD_SQUARES;
 
