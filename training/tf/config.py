@@ -25,7 +25,7 @@ BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 RESIDUAL_FILTERS = 128
 RESIDUAL_BLOCKS = 3
 POLICY_OUTPUTS = 2
-INPUT_STM = 1 # 1: both side to move and komi in input (18 input planes)
+INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
               # 0: only komi in input (17 input planes)
 
 # Network structure -- Sai value head

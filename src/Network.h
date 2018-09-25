@@ -42,21 +42,8 @@ static constexpr int DOUBLE_Y = 3;
 static constexpr int DOUBLE_T = 4;
 static constexpr int DOUBLE_I = 5;
 
-struct netarch {
-  int value_head_type = SINGLE;
-  size_t residual_blocks = size_t{3};
-  size_t channels = size_t{128};
-  size_t input_planes = size_t{COLOR_INPUT_PLANES};
-  size_t policy_outputs = size_t{2};
-  size_t val_outputs = size_t{1};
-  size_t vbe_outputs = size_t{0};
-  size_t val_chans = size_t{256};
-  size_t vbe_chans = size_t{0};
-  size_t value_head_rets = size_t{1};
-};
 
 extern bool is_mult_komi_net;
-extern netarch arch;
 
 
 class Network {
@@ -151,6 +138,22 @@ private:
 
 #endif
 };
+
+
+struct netarch {
+  int value_head_type = SINGLE;
+  size_t residual_blocks = size_t{3};
+  size_t channels = size_t{128};
+    size_t input_planes = size_t{Network::COLOR_INPUT_PLANES};
+  size_t policy_outputs = size_t{2};
+  size_t val_outputs = size_t{1};
+  size_t vbe_outputs = size_t{0};
+  size_t val_chans = size_t{256};
+  size_t vbe_chans = size_t{0};
+  size_t value_head_rets = size_t{1};
+};
+
+extern netarch arch;
 
 
 #endif

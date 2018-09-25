@@ -64,7 +64,7 @@
 namespace x3 = boost::spirit::x3;
 using namespace Utils;
 
-static netarch arch;
+netarch arch;
 bool is_mult_komi_net = false;
 
 // Input + residual block tower
