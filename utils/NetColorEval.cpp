@@ -11,7 +11,17 @@ std::array<float, 15> weightsblk = {0.001, 0.00597199, 0.02775871, 0.10541281, 0
 				    0.16795283, 0.12024328, 0.20015829, 0.60185867, 0.22877867};
 
 
-int main() {
+
+int main(int argc, char* argv[]) {
+    bool as_black_too=true;
+
+    if(argc >= 2) {
+	std::string arg = argv[1];
+	if(0 == arg.compare(std::string{"-w"})) {
+	    as_black_too=false;
+	}
+    }
+    
     std::string buf;
     std::cin >> buf >> buf;
     
@@ -20,15 +30,17 @@ int main() {
 	float winswht, losswht, winsblk, lossblk;
 	std::cin >> winsblk >> winswht >> lossblk >> losswht;
 	auto wrwht = 0.5f;
-	auto wrblk = 0.5f;
 	if (winswht+losswht>=1.0f) {
 	    wrwht = winswht/(winswht+losswht);
 	}
-	if (winsblk+lossblk>=1.0f) {
-	    wrblk = winsblk/(winsblk+lossblk);
-	}
 	val += wrwht*weightswht[i];
-	val += wrblk*weightsblk[i];
+	if (as_black_too) {
+	    auto wrblk = 0.5f;
+	    if (winsblk+lossblk>=1.0f) {
+		wrblk = winsblk/(winsblk+lossblk);
+	    }
+	    val += wrblk*weightsblk[i];
+	}
     }
 
     std::cout << val << std::endl;

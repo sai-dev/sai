@@ -47,9 +47,9 @@ int main (int argc, char* argv[]) {
 	    - std::lround(n/(1.0f+std::exp(-beta*COEFF*(std::floor(komi)-SHIFT-alpha))))
 	    + (komi==OFFICIAL_KOMI ? N-n : 0);
 	if (games>0) {
-	    std::cout << "curl -F priority=1 -F number_to_play=" << games * MULT
+	    std::cout << "curl -F number_to_play=" << games * MULT
 		      << " -F komi=" << komi
-		      << " -F lambda=${SAI_LAMBDA} -F visits=${SAI_VISITS} -F other_options=\"${SAI_OTHEROPTIONS}\" ${SAI_SERVER}/request-selfplay"
+		      << " -F other_options=\"${SAI_OTHEROPTIONS}\" $KOMIS_CMD_STRING"
 		      << std::endl;
 	}
     }

@@ -51,7 +51,7 @@
  * Also used for OpenCL self-checks.
  */
 #define USE_BLAS
-//#define FEATURE_USE_CPU_ONLY
+//#define USE_CPU_ONLY
 
 /*
  * We use OpenBLAS by default, except on macOS, which has a fast BLAS

@@ -34,23 +34,6 @@ import unittest
 
 from config import *
 
-# 16 planes, 1 side to move, 1 x BOARD_SQUARES probs, 1 winner = 19 lines
-DATA_ITEM_LINES = 16 + 1 + 1 + 1
-
-# Sane values are from 4096 to 64 or so.
-# You need to adjust the learning rate if you change this. Should be
-# a multiple of RAM_BATCH_SIZE. NB: It's rare that large batch sizes are
-# actually required.
-BATCH_SIZE = 512
-# Number of examples in a GPU batch. Higher values are more efficient.
-# The maximum depends on the amount of RAM in your GPU and the network size.
-# Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 128
-
-# Use a random sample input data read. This helps improve the spread of
-# games in the shuffle buffer.
-DOWN_SAMPLE = 16
-
 def get_chunks(data_prefix):
     return glob.glob(data_prefix + "*.gz")
 
@@ -147,12 +130,12 @@ def main():
         len(training), len(test)))
 
     train_parser = ChunkParser(FileDataSrc(training),
-                               shuffle_size=1<<19, # was 20 -- 2.2GB of RAM.
+                               shuffle_size=1<<TRAIN_SHUFFLE_BITS, # was 20 -- 2.2GB of RAM.
                                sample=args.sample,
                                batch_size=RAM_BATCH_SIZE).parse()
 
     test_parser = ChunkParser(FileDataSrc(test),
-                              shuffle_size=1<<15,  # was 19
+                              shuffle_size=1<<TEST_SHUFFLE_BITS,  # was 19
                               sample=args.sample,
                               batch_size=RAM_BATCH_SIZE).parse()
 
