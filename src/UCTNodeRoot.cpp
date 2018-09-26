@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "UCTNode.h"
 #include "FastBoard.h"
 #include "FastState.h"
 #include "KoState.h"
@@ -34,11 +34,14 @@
 #include "UCTNode.h"
 #include "Utils.h"
 #include "GTP.h"
+#include "Network.h"
 
 /*
  * These functions belong to UCTNode but should only be called on the root node
  * of UCTSearch and have been seperated to increase code clarity.
  */
+
+using Utils::myprintf;
 
 UCTNode* UCTNode::get_first_child() const {
     if (m_children.empty()) {
@@ -101,24 +104,28 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
     }
 }
 
-void UCTNode::randomize_first_proportionally() {
+bool UCTNode::randomize_first_proportionally() {
     auto accum = 0.0;
     auto norm_factor = 0.0;
     auto accum_vector = std::vector<double>{};
+    auto prb_vector = std::vector<float>{};
+
 
     for (const auto& child : m_children) {
         auto visits = child->get_visits();
+
         if (norm_factor == 0.0) {
             norm_factor = visits;
             // Nonsensical options? End of game?
             if (visits <= cfg_random_min_visits) {
-                return;
+                return false;
             }
         }
         if (visits > cfg_random_min_visits) {
             accum += std::pow(visits / norm_factor,
                               1.0 / cfg_random_temp);
             accum_vector.emplace_back(accum);
+	    prb_vector.emplace_back(visits);
         }
     }
 
@@ -132,15 +139,28 @@ void UCTNode::randomize_first_proportionally() {
         }
     }
 
+#ifndef NDEBUG
+    myprintf("Rnd_first: accum=%f, pick=%f, index=%d.\n", accum, pick, index);
+#endif
+
     // Take the early out
     if (index == 0) {
-        return;
+        return false;
     }
 
     assert(m_children.size() > index);
 
     // Now swap the child at index with the first child
     std::iter_swap(begin(m_children), begin(m_children) + index);
+
+    const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_blunder_thr);
+
+#ifndef NDEBUG
+    myprintf("Randomize_first: p=%f over p0=%f, move is %s\n",
+	     prb_vector[index], prb_vector[0], (is_dumb_move ? "blunder" : "ok") );
+#endif
+
+    return is_dumb_move;
 }
 
 UCTNode* UCTNode::get_nopass_child(FastState& state) const {
@@ -180,18 +200,26 @@ void UCTNode::inflate_all_children() {
 void UCTNode::prepare_root_node(int color,
                                 std::atomic<int>& nodes,
                                 GameState& root_state) {
-    float root_eval;
-    const auto had_children = has_children();
+    float root_eval, root_value, root_alpkt, root_beta;
+    //    extern bool is_mult_komi_net;
+
+    //    const auto had_children = has_children();
     if (expandable()) {
-        create_children(nodes, root_state, root_eval);
+        create_children(nodes, root_state, root_value, root_alpkt, root_beta);
     }
-    if (had_children) {
-        root_eval = get_eval(color);
-    } else {
-        update(root_eval);
-        root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
-    }
-    Utils::myprintf("NN eval=%f\n", root_eval);
+    //    if (had_children) {
+    //      root_eval = get_eval(color);
+    //    } else {
+    //	root_eval = m_net_eval;
+    //        update(root_eval);
+    // this is completely pointless: at root we only need
+    // blackevals of children to be up to date
+
+    root_eval = get_net_eval();
+    root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
+
+    //    }
+    myprintf("NN eval=%f\n", root_eval);
 
     // There are a lot of special cases where code assumes
     // all children of the root are inflated, so do that.
@@ -203,7 +231,8 @@ void UCTNode::prepare_root_node(int color,
 
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size
-        auto alpha = 0.03f * 361.0f / BOARD_SQUARES;
+        auto alpha = cfg_noise_value * 361.0f / BOARD_SQUARES;
         dirichlet_noise(0.25f, alpha);
     }
 }
+

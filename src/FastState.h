@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -53,6 +54,12 @@ public:
     void display_state();
     std::string move_to_text(int move);
 
+    void set_blunder_state(bool state);
+    bool is_blunder();
+
+    //    size_t get_last_rnd_move_num();
+    //    void set_last_rnd_move_num(size_t num);
+
     FullBoard board;
 
     float m_komi;
@@ -61,6 +68,10 @@ public:
     int m_komove;
     size_t m_movenum;
     int m_lastmove;
+
+    // last rndly chosen move with low probability
+    // we don't save training info before that point
+    bool m_blunder_chosen = false;
 
 protected:
     void play_move(int color, int vertex);

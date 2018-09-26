@@ -2,6 +2,7 @@
 #
 #    This file is part of Leela Zero.
 #    Copyright (C) 2017-2018 Gian-Carlo Pascutto
+#    Copyright (C) 2018 SAI Team
 #
 #    Leela Zero is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -22,6 +23,8 @@ import random
 import tensorflow as tf
 import time
 import unittest
+
+from config import *
 
 def weight_variable(shape):
     """Xavier initialization"""
@@ -105,14 +108,14 @@ class Timer:
 class TFProcess:
     def __init__(self):
         # Network structure
-        self.RESIDUAL_FILTERS = 128
-        self.RESIDUAL_BLOCKS = 6
+        self.RESIDUAL_FILTERS = RESIDUAL_FILTERS
+        self.RESIDUAL_BLOCKS = RESIDUAL_BLOCKS
 
         # For exporting
         self.weights = []
 
         # Output weight file with averaged weights
-        self.swa_enabled = True
+        self.swa_enabled = False
 
         # Net sampling rate (e.g 2 == every 2nd network).
         self.swa_c = 1
@@ -123,7 +126,7 @@ class TFProcess:
         self.swa_max_n = 16
 
         # Recalculate SWA weight batchnorm means and variances
-        self.swa_recalc_bn = True
+        self.swa_recalc_bn = False
 
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
         config = tf.ConfigProto(gpu_options=gpu_options)
@@ -139,28 +142,32 @@ class TFProcess:
         # Input batch placeholders
         self.planes = tf.placeholder(tf.string, name='in_planes')
         self.probs = tf.placeholder(tf.string, name='in_probs')
+        self.komi = tf.placeholder(tf.string, name='in_komi')
         self.winner = tf.placeholder(tf.string, name='in_winner')
 
         # Mini-batches come as raw packed strings. Decode
         # into tensors to feed into network.
         planes = tf.decode_raw(self.planes, tf.uint8)
         probs = tf.decode_raw(self.probs, tf.float32)
+        komi = tf.decode_raw(self.komi, tf.float32)
         winner = tf.decode_raw(self.winner, tf.float32)
 
         planes = tf.to_float(planes)
 
-        planes = tf.reshape(planes, (batch_size, 18, 19*19))
-        probs = tf.reshape(probs, (batch_size, 19*19 + 1))
+        planes = tf.reshape(planes, (batch_size, 18, BOARD_SQUARES))
+        probs = tf.reshape(probs, (batch_size, BOARD_SQUARES + 1))
+        komi = tf.reshape(komi, (batch_size, 1))
         winner = tf.reshape(winner, (batch_size, 1))
 
-        self.init_net(planes, probs, winner)
+        self.init_net(planes, probs, komi, winner)
 
-    def init_net(self, planes, probs, winner):
-        self.x = planes  # (tf.float32, [None, 18, 19 * 19])
-        self.y_ = probs  # (tf.float32, [None, 362])
+    def init_net(self, planes, probs, komi, winner):
+        self.x = planes  # (tf.float32, [None, 18, BOARD_SQUARES])
+        self.k = komi   # (tf.float32, [None, 1])
+        self.y_ = probs  # (tf.float32, [None, BOARD_SQUARE + 1])
         self.z_ = winner # (tf.float32, [None, 1])
         self.batch_norm_count = 0
-        self.y_conv, self.z_conv = self.construct_net(self.x)
+        self.y_conv, self.z_conv = self.construct_net(self.x, self.k)
 
         if self.swa_enabled == True:
             # Count of networks accumulated into SWA
@@ -206,7 +213,7 @@ class TFProcess:
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt = tf.train.MomentumOptimizer(
-            learning_rate=0.05, momentum=0.9, use_nesterov=True)
+            learning_rate=LEARN_RATE, momentum=0.9, use_nesterov=True)
 
         # Compute and accumulate gradients
         self.update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -323,16 +330,19 @@ class TFProcess:
         r = self.session.run(ops, feed_dict={self.training: training,
                            self.planes: batch[0],
                            self.probs: batch[1],
-                           self.winner: batch[2]})
+                           self.komi: batch[2],
+                           self.winner: batch[3]})
         # Google's paper scales mse by 1/4 to a [0,1] range, so we do the same here
         return {'policy': r[0], 'mse': r[1]/4., 'reg': r[2],
                 'accuracy': r[3], 'total': r[0]+r[1]+r[2] }
 
     def process(self, train_data, test_data):
-        info_steps=1000
+        info_steps = INFO_STEPS
         stats = Stats()
         timer = Timer()
-        while True:
+        n = 0
+        while n < MAX_TRAINING_STEPS or MAX_TRAINING_STEPS == 0:
+            n += 1
             batch = next(train_data)
             # Measure losses and compute gradients for this batch.
             losses = self.measure_loss(batch, training=True)
@@ -356,7 +366,7 @@ class TFProcess:
                     tf.Summary(value=summaries), steps)
                 stats.clear()
 
-            if steps % 8000 == 0:
+            if steps % TRAINING_STEPS == 0:
                 test_stats = Stats()
                 test_batches = 800 # reduce sample mean variance by ~28x
                 for _ in range(0, test_batches):
@@ -389,6 +399,8 @@ class TFProcess:
                 save_path = self.saver.save(self.session, path,
                                             global_step=steps)
                 print("Model saved in file: {}".format(save_path))
+        print("Finished.")
+        os._exit(0)
 
     def save_leelaz_weights(self, filename):
         with open(filename, "w") as file:
@@ -486,10 +498,11 @@ class TFProcess:
 
         return net
 
-    def construct_net(self, planes):
+    def construct_net(self, planes, komi):
         # NCHW format
-        # batch, 18 channels, 19 x 19
-        x_planes = tf.reshape(planes, [-1, 18, 19, 19])
+        # batch, 18 channels, BOARD_SIZE x BOARD_SIZE
+        x_planes = tf.reshape(planes, [-1, 18, BOARD_SIZE, BOARD_SIZE])
+        x_komi = tf.reshape(komi, [-1, 1])
 
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
@@ -502,31 +515,93 @@ class TFProcess:
         # Policy head
         conv_pol = self.conv_block(flow, filter_size=1,
                                    input_channels=self.RESIDUAL_FILTERS,
-                                   output_channels=2)
-        h_conv_pol_flat = tf.reshape(conv_pol, [-1, 2*19*19])
-        W_fc1 = weight_variable([2 * 19 * 19, (19 * 19) + 1])
-        b_fc1 = bias_variable([(19 * 19) + 1])
+                                   output_channels=POLICY_OUTPUTS)
+        h_conv_pol_flat = tf.reshape(conv_pol, [-1, POLICY_OUTPUTS * BOARD_SQUARES])
+        W_fc1 = weight_variable([POLICY_OUTPUTS * BOARD_SQUARES, BOARD_SQUARES + 1])
+        b_fc1 = bias_variable([BOARD_SQUARES + 1])
         self.weights.append(W_fc1)
         self.weights.append(b_fc1)
         h_fc1 = tf.add(tf.matmul(h_conv_pol_flat, W_fc1), b_fc1)
 
-        # Value head
+        # Value head - alpha
         conv_val = self.conv_block(flow, filter_size=1,
                                    input_channels=self.RESIDUAL_FILTERS,
-                                   output_channels=1)
-        h_conv_val_flat = tf.reshape(conv_val, [-1, 19*19])
-        W_fc2 = weight_variable([19 * 19, 256])
-        b_fc2 = bias_variable([256])
+                                   output_channels=VAL_OUTPUTS)
+        h_conv_val_flat = tf.reshape(conv_val, [-1, VAL_OUTPUTS * BOARD_SQUARES])
+
+        W_fc2 = weight_variable([VAL_OUTPUTS * BOARD_SQUARES, VAL_CHANS])
+        b_fc2 = bias_variable([VAL_CHANS])
         self.weights.append(W_fc2)
         self.weights.append(b_fc2)
         h_fc2 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc2), b_fc2))
-        W_fc3 = weight_variable([256, 1])
-        b_fc3 = bias_variable([1])
+
+        if VALUE_HEAD_TYPE == DOUBLE_I:
+            value_head_rets = 2
+        else:
+            value_head_rets = 1
+
+        W_fc3 = weight_variable([VAL_CHANS, value_head_rets])
+        b_fc3 = bias_variable([value_head_rets])
         self.weights.append(W_fc3)
         self.weights.append(b_fc3)
-        h_fc3 = tf.nn.tanh(tf.add(tf.matmul(h_fc2, W_fc3), b_fc3))
+        h_fc3 = tf.add(tf.matmul(h_fc2, W_fc3), b_fc3)
 
-        return h_fc1, h_fc3
+        scale_factor = tf.constant(10.0 / BOARD_SQUARES / 2)
+
+        if VALUE_HEAD_TYPE == SINGLE:
+            h_fc6 = tf.nn.tanh(h_fc3)
+
+            # Value head - beta
+
+        elif VALUE_HEAD_TYPE == DOUBLE_I:
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(h_fc3[1])) # correct? wrong?
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3[0], x_komi))) # correct? wrong?
+
+        elif VALUE_HEAD_TYPE == DOUBLE_T:
+            W_fc5 = weight_variable([VAL_CHANS, 1])
+            b_fc5 = bias_variable([1])
+            self.weights.append(W_fc5)
+            self.weights.append(b_fc5)
+
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc2, W_fc5), b_fc5)))
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
+
+        elif VALUE_HEAD_TYPE == DOUBLE_Y:
+            W_fc4 = weight_variable([VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS])
+            b_fc4 = bias_variable([VBE_CHANS])
+            self.weights.append(W_fc4)
+            self.weights.append(b_fc4)
+            h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
+
+            W_fc5 = weight_variable([VBE_CHANS, 1])
+            b_fc5 = bias_variable([1])
+            self.weights.append(W_fc5)
+            self.weights.append(b_fc5)
+
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
+
+        elif VALUE_HEAD_TYPE == DOUBLE_V:
+            conv_vbe = self.conv_block(flow, filter_size=1,
+                                       input_channels=self.RESIDUAL_FILTERS,
+                                       output_channels=VBE_OUTPUTS)
+            h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, VBE_OUTPUTS * BOARD_SQUARES])
+
+            W_fc4 = weight_variable([VBE_OUTPUTS * BOARD_SQUARES, VBE_CHANS])
+            b_fc4 = bias_variable([VBE_CHANS])
+            self.weights.append(W_fc4)
+            self.weights.append(b_fc4)
+            h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_vbe_flat, W_fc4), b_fc4))
+
+            W_fc5 = weight_variable([VBE_CHANS, 1])
+            b_fc5 = bias_variable([1])
+            self.weights.append(W_fc5)
+            self.weights.append(b_fc5)
+
+            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi))) # here!
+
+        return h_fc1, h_fc6
 
     def snap_save(self):
         # Save a snapshot of all the variables in the current graph.
@@ -576,7 +651,7 @@ class TFProcess:
                 self.session.run(
                     [self.loss, self.update_ops],
                     feed_dict={self.training: True,
-                               self.planes: batch[0], self.probs: batch[1],
+                               self.planes: batch[0], self.probs: batch[1], # here!
                                self.winner: batch[2]})
 
         self.save_leelaz_weights(swa_path)
@@ -605,11 +680,11 @@ class TFProcessTest(unittest.TestCase):
                 tfprocess.RESIDUAL_FILTERS, tfprocess.RESIDUAL_FILTERS))
         # policy
         data.extend(gen_block(1, tfprocess.RESIDUAL_FILTERS, 2))
-        data.append([0.4] * 2*19*19 * (19*19+1))
-        data.append([0.5] * (19*19+1))
+        data.append([0.4] * 2*BOARD_SQUARES * (BOARD_SQUARES+1))
+        data.append([0.5] * (BOARD_SQUARES+1))
         # value
         data.extend(gen_block(1, tfprocess.RESIDUAL_FILTERS, 1))
-        data.append([0.6] * 19*19 * 256)
+        data.append([0.6] * BOARD_SQUARES * 256)
         data.append([0.7] * 256)
         data.append([0.8] * 256)
         data.append([0.9] * 1)

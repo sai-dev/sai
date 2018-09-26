@@ -2,6 +2,7 @@
 #
 #    This file is part of Leela Zero.
 #    Copyright (C) 2017-2018 Gian-Carlo Pascutto
+#    Copyright (C) 2018 SAI Team
 #
 #    Leela Zero is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -30,6 +31,11 @@ import sys
 import tensorflow as tf
 import time
 import unittest
+
+from config import *
+
+# 16 planes, 1 side to move, 1 x BOARD_SQUARES probs, 1 winner = 19 lines
+DATA_ITEM_LINES = 16 + 1 + 1 + 1
 
 # Sane values are from 4096 to 64 or so.
 # You need to adjust the learning rate if you change this. Should be
@@ -141,12 +147,12 @@ def main():
         len(training), len(test)))
 
     train_parser = ChunkParser(FileDataSrc(training),
-                               shuffle_size=1<<20, # 2.2GB of RAM.
+                               shuffle_size=1<<19, # was 20 -- 2.2GB of RAM.
                                sample=args.sample,
                                batch_size=RAM_BATCH_SIZE).parse()
 
     test_parser = ChunkParser(FileDataSrc(test),
-                              shuffle_size=1<<19,
+                              shuffle_size=1<<15,  # was 19
                               sample=args.sample,
                               batch_size=RAM_BATCH_SIZE).parse()
 

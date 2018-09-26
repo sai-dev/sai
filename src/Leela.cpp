@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -63,6 +64,10 @@ static void parse_commandline(int argc, char *argv[]) {
                        "Requires --noponder.")
         ("visits,v", po::value<int>(),
                      "Weaken engine by limiting the number of visits.")
+        ("komi", po::value<float>()->default_value(cfg_komi),
+                     "Komi")
+        ("lambda", po::value<float>()->default_value(cfg_lambda),
+                     "Lambda value")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
@@ -90,6 +95,8 @@ static void parse_commandline(int argc, char *argv[]) {
     po::options_description selfplay_desc("Self-play options");
     selfplay_desc.add_options()
         ("noise,n", "Enable policy network randomization.")
+        ("noise-value", po::value<float>()->default_value(cfg_noise_value, (boost::format("%g") % cfg_noise_value).str()),
+                     "Dirichilet noise for network randomization.")
         ("seed,s", po::value<std::uint64_t>(),
                    "Random number generation seed.")
         ("dumbpass,d", "Don't use heuristics for smarter passing.")
@@ -101,6 +108,10 @@ static void parse_commandline(int argc, char *argv[]) {
         ("randomtemp",
             po::value<float>()->default_value(cfg_random_temp),
             "Temperature to use for random move selection.")
+        ("blunderthr",
+	    po::value<float>()->default_value(cfg_blunder_thr),
+	    "If visits ratio with best is less than this, it's a blunder. "
+	    "Don't save training data for moves before last blunder.")
         ;
 #ifdef USE_TUNER
     po::options_description tuner_desc("Tuning options");
@@ -108,6 +119,8 @@ static void parse_commandline(int argc, char *argv[]) {
         ("puct", po::value<float>())
         ("softmax_temp", po::value<float>())
         ("fpu_reduction", po::value<float>())
+        ("fpu_zero", "Use constant fpu=0.5 (AlphaGoZero). "
+	 "The default is reduced parent's value (LeelaZero).")
         ;
 #endif
     // These won't be shown, we use them to catch incorrect usage of the
@@ -177,6 +190,10 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("fpu_reduction")) {
         cfg_fpu_reduction = vm["fpu_reduction"].as<float>();
     }
+    if (vm.count("fpu_zero")) {
+        cfg_fpuzero = true;
+    }
+
 #endif
 
     if (vm.count("logfile")) {
@@ -221,6 +238,7 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("noise")) {
         cfg_noise = true;
+        cfg_noise_value = vm["noise-value"].as<float>();
     }
 
     if (vm.count("dumbpass")) {
@@ -251,6 +269,9 @@ static void parse_commandline(int argc, char *argv[]) {
         }
     }
 
+    cfg_lambda = vm["lambda"].as<float>();
+    cfg_komi = vm["komi"].as<float>();
+
     if (vm.count("resignpct")) {
         cfg_resignpct = vm["resignpct"].as<int>();
     }
@@ -266,6 +287,13 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("randomtemp")) {
         cfg_random_temp = vm["randomtemp"].as<float>();
     }
+
+    if (vm.count("blunderthr")) {
+        cfg_blunder_thr = vm["blunderthr"].as<float>();
+    }
+
+
+
 
     if (vm.count("timemanage")) {
         auto tm = vm["timemanage"].as<std::string>();
@@ -391,7 +419,7 @@ int main(int argc, char *argv[]) {
     auto maingame = std::make_unique<GameState>();
 
     /* set board limits */
-    auto komi = 7.5f;
+    auto komi = cfg_komi;
     maingame->init_game(BOARD_SIZE, komi);
 
     if (cfg_benchmark) {

@@ -1,6 +1,7 @@
 leelaz
 *.o
 *.d
+*.gz
 .vscode/settings.json
 training/tf/leelalogs
 training/tf/checkpoint
@@ -8,3 +9,7 @@ training/tf/venv
 leelaz-model*
 *.orig
 leelaz_opencl_tuning
+*~
+train_*
+run/
+__pycache__/

@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -53,7 +54,9 @@ SMP::Mutex& UCTNode::get_mutex() {
 
 bool UCTNode::create_children(std::atomic<int>& nodecount,
                               GameState& state,
-                              float& eval,
+			      float& value,
+                              float& alpkt,
+			      float& beta,
                               float min_psa_ratio) {
     // check whether somebody beat us to it (atomic)
     if (!expandable(min_psa_ratio)) {
@@ -80,14 +83,42 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     const auto raw_netlist = Network::get_scored_moves(
         &state, Network::Ensemble::RANDOM_SYMMETRY);
 
-    // DCNN returns winrate as side to move
-    m_net_eval = raw_netlist.winrate;
     const auto to_move = state.board.get_to_move();
+    const auto komi = state.get_komi();
+
+    //    alpkt = m_net_alpkt = raw_netlist.alpha +
+    //	(state.board.black_to_move() ? -komi : komi);
+    alpkt = m_net_alpkt = (state.board.black_to_move() ? raw_netlist.alpha : -raw_netlist.alpha) - komi;
+    beta = m_net_beta = raw_netlist.beta;
+    value = raw_netlist.value; // = m_net_value
+
+    if (is_mult_komi_net) {
+	const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
+	const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
+	m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta
+	    - m_net_alpkt;
+	
+
+#ifndef NDEBUG
+	myprintf("alpha=%f, beta=%f, pass=%f\n"
+		 "alpkt=%f, pi=%f, pi_lambda=%f, x_bar=%f\n",
+		 raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
+		 m_net_alpkt, pi, pi_lambda, m_eval_bonus);
+#endif
+
+	m_net_eval = pi;
+    }
+    else {
+	m_eval_bonus = 0.0f;
+	m_net_eval = value;
+    }
+
+    // DCNN returns winrate as side to move
     // our search functions evaluate from black's point of view
     if (state.board.white_to_move()) {
         m_net_eval = 1.0f - m_net_eval;
+	value = 1.0f - value;
     }
-    eval = m_net_eval;
 
     std::vector<Network::ScoreVertexPair> nodelist;
 
@@ -196,6 +227,30 @@ float UCTNode::get_score() const {
     return m_score;
 }
 
+float UCTNode::get_eval_bonus() const {
+    return m_eval_bonus;
+}
+
+float UCTNode::get_eval_bonus_father() const {
+    return m_eval_bonus_father;
+}
+
+void UCTNode::set_eval_bonus_father(float bonus) {
+    m_eval_bonus_father = bonus;
+}
+
+float UCTNode::get_net_eval() const {
+    return m_net_eval;
+}
+
+float UCTNode::get_net_beta() const {
+    return m_net_beta;
+}
+
+float UCTNode::get_net_alpkt() const {
+    return m_net_alpkt;
+}
+
 void UCTNode::set_score(float score) {
     m_score = score;
 }
@@ -261,7 +316,10 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         fpu_reduction = cfg_fpu_reduction * std::sqrt(total_visited_policy);
     }
     // Estimated eval for unknown nodes = original parent NN eval - reduction
-    auto fpu_eval = get_net_eval(color) - fpu_reduction;
+    auto fpu_eval = 0.5f;
+    if ( !cfg_fpuzero ) {
+	fpu_eval = get_net_eval(color) - fpu_reduction;
+    }
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
@@ -284,7 +342,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         if (value > best_value) {
             best_value = value;
             best = &child;
-        }
+	}
     }
 
     assert(best != nullptr);
@@ -318,6 +376,20 @@ private:
 void UCTNode::sort_children(int color) {
     LOCK(get_mutex(), lock);
     std::stable_sort(rbegin(m_children), rend(m_children), NodeComp(color));
+}
+
+class NodeCompByPolicy : public std::binary_function<UCTNodePointer&,
+                                             UCTNodePointer&, bool> {
+public:
+    bool operator()(const UCTNodePointer& a,
+                    const UCTNodePointer& b) {
+        return a.get_score() < b.get_score();
+    }
+};
+
+void UCTNode::sort_children_by_policy() {
+    LOCK(get_mutex(), lock);
+    std::stable_sort(rbegin(m_children), rend(m_children), NodeCompByPolicy());
 }
 
 UCTNode& UCTNode::get_best_root_child(int color) {

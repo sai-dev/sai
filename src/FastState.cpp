@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -85,6 +86,7 @@ void FastState::play_move(int color, int vertex) {
 
     m_lastmove = vertex;
     m_movenum++;
+    m_blunder_chosen = false;
 
     if (board.m_tomove == color) {
         board.m_hash ^= Zobrist::zobrist_blacktomove;
@@ -161,4 +163,20 @@ void FastState::set_handicap(int hcap) {
 
 int FastState::get_handicap() const {
     return m_handicap;
+}
+
+// void FastState::set_last_rnd_move_num(size_t num) {
+//     m_lastrndmovenum = num;
+// }
+
+// size_t FastState::get_last_rnd_move_num() {
+//     return m_lastrndmovenum;
+// }
+
+void FastState::set_blunder_state(bool state) {
+    m_blunder_chosen = state;
+}
+
+bool FastState::is_blunder() {
+    return m_blunder_chosen;
 }

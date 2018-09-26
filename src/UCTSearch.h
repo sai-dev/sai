@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -37,24 +38,27 @@ class SearchResult {
 public:
     SearchResult() = default;
     bool valid() const { return m_valid;  }
-    float eval() const { return m_eval;  }
-    static SearchResult from_eval(float eval) {
-        return SearchResult(eval);
+    float eval() const { return m_value;  }
+    float eval_with_bonus(float bonus);
+    static SearchResult from_eval(float value, float alpkt, float beta) {
+        return SearchResult(value, alpkt, beta);
     }
     static SearchResult from_score(float board_score) {
         if (board_score > 0.0f) {
-            return SearchResult(1.0f);
+            return SearchResult(1.0f, board_score, 10.0f);
         } else if (board_score < 0.0f) {
-            return SearchResult(0.0f);
+            return SearchResult(0.0f, board_score, 10.0f);
         } else {
-            return SearchResult(0.5f);
+            return SearchResult(0.5f, board_score, 10.0f);
         }
     }
 private:
-    explicit SearchResult(float eval)
-        : m_valid(true), m_eval(eval) {}
+    explicit SearchResult(float value, float alpkt, float beta)
+        : m_valid(true), m_value(value), m_alpkt(alpkt), m_beta(beta) {}
     bool m_valid{false};
-    float m_eval{0.0f};
+    float m_value{0.5f};
+    float m_alpkt{0.0f};
+    float m_beta{1.0f};
 };
 
 namespace TimeManagement {
@@ -103,6 +107,7 @@ public:
 private:
     float get_min_psa_ratio() const;
     void dump_stats(FastState& state, UCTNode& parent);
+    void print_move_choices_by_policy(KoState& state, UCTNode& parent, int at_least_as_many, float probab_threash);
     void tree_stats(const UCTNode& node);
     std::string get_pv(FastState& state, UCTNode& parent);
     void dump_analysis(int playouts);

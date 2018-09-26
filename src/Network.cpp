@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,6 +25,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <sstream>
@@ -62,6 +64,9 @@
 namespace x3 = boost::spirit::x3;
 using namespace Utils;
 
+static netarch arch;
+bool is_mult_komi_net = false;
+
 // Input + residual block tower
 static std::vector<std::vector<float>> conv_weights;
 static std::vector<std::vector<float>> conv_biases;
@@ -69,29 +74,41 @@ static std::vector<std::vector<float>> batchnorm_means;
 static std::vector<std::vector<float>> batchnorm_stddivs;
 
 // Policy head
-static std::vector<float> conv_pol_w;
-static std::vector<float> conv_pol_b;
-static std::array<float, 2> bn_pol_w1;
-static std::array<float, 2> bn_pol_w2;
+static std::vector<float> conv_pol_w;    // channels*policy_outputs
+static std::vector<float> conv_pol_b;    // policy_outputs
+static std::vector<float> bn_pol_w1;     // policy_outputs
+static std::vector<float> bn_pol_w2;     // policy_outputs
 
-static std::array<float, (BOARD_SQUARES + 1) * BOARD_SQUARES * 2> ip_pol_w;
-static std::array<float, BOARD_SQUARES + 1> ip_pol_b;
+static std::vector<float> ip_pol_w;      // board_sq*policy_outputs*(board_sq+1)
+static std::vector<float> ip_pol_b;      // board_sq+1
 
-// Value head
-static std::vector<float> conv_val_w;
-static std::vector<float> conv_val_b;
-static std::array<float, 1> bn_val_w1;
-static std::array<float, 1> bn_val_w2;
+// Value head alpha (val=Value ALpha)
+static std::vector<float> conv_val_w;    // channels*val_outputs
+static std::vector<float> conv_val_b;    // val_outputs
+static std::vector<float> bn_val_w1;     // val_outputs
+static std::vector<float> bn_val_w2;     // val_outputs
 
-static std::array<float, BOARD_SQUARES * 256> ip1_val_w;
-static std::array<float, 256> ip1_val_b;
+static std::vector<float> ip1_val_w;     // board_sq*val_outputs*val_chans
+static std::vector<float> ip1_val_b;     // val_chans
 
-static std::array<float, 256> ip2_val_w;
-static std::array<float, 1> ip2_val_b;
+static std::vector<float> ip2_val_w;     // val_chans (*2 in SINGLE head type)
+static std::vector<float> ip2_val_b;     // 1 (2 in SINGLE head type)
 static bool value_head_not_stm;
 
 // Symmetry helper
 static std::array<std::array<int, BOARD_SQUARES>, 8> symmetry_nn_idx_table;
+
+// Value head beta (vbe=Value BEta)
+static std::vector<float> conv_vbe_w;    // channels*vbe_outputs
+static std::vector<float> conv_vbe_b;    // vbe_outputs
+static std::vector<float> bn_vbe_w1;     // vbe_outputs
+static std::vector<float> bn_vbe_w2;     // vbe_outputs
+
+static std::vector<float> ip1_vbe_w;     // board_sq*vbe_outputs*vbe_chans
+static std::vector<float> ip1_vbe_b;     // vbe_chans
+
+static std::vector<float> ip2_vbe_w;     // vbe_chans
+static std::vector<float> ip2_vbe_b;     // 1
 
 void Network::benchmark(const GameState* const state, const int iterations) {
     const auto cpus = cfg_num_threads;
@@ -129,6 +146,7 @@ std::vector<float> Network::winograd_transform_f(const std::vector<float>& f,
     // transpose(G.dot(f).dot(G.transpose()))
     // U matrix is transposed for better memory layout in SGEMM
     auto U = std::vector<float>(WINOGRAD_TILE * outputs * channels);
+    // [fm] the following array has 16 components, but only 12 are set
     const auto G = std::array<float, WINOGRAD_TILE>{ 1.0,  0.0,  0.0,
                                                      0.5,  0.5,  0.5,
                                                      0.5, -0.5,  0.5,
@@ -192,7 +210,8 @@ std::vector<float> Network::zeropad_U(const std::vector<float>& U,
     return Upad;
 }
 
-std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
+//v1 refers to the actual weight file format, to be changed when/if the weight file format changes
+int Network::load_v1_network(std::istream& wtfile) {
     // Count size of the network
     myprintf("Detecting residual layers...");
     // We are version 1 or 2
@@ -203,40 +222,14 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
     }
     // First line was the version number
     auto linecount = size_t{1};
-    auto channels = 0;
+    int lastlines = 0;
     auto line = std::string{};
-    while (std::getline(wtfile, line)) {
-        auto iss = std::stringstream{line};
-        // Third line of parameters are the convolution layer biases,
-        // so this tells us the amount of channels in the residual layers.
-        // We are assuming all layers have the same amount of filters.
-        if (linecount == 2) {
-            auto count = std::distance(std::istream_iterator<std::string>(iss),
-                                       std::istream_iterator<std::string>());
-            myprintf("%d channels...", count);
-            channels = count;
-        }
-        linecount++;
-    }
-    // 1 format id, 1 input layer (4 x weights), 14 ending weights,
-    // the rest are residuals, every residual has 8 x weight lines
-    auto residual_blocks = linecount - (1 + 4 + 14);
-    if (residual_blocks % 8 != 0) {
-        myprintf("\nInconsistent number of weights in the file.\n");
-        return {0, 0};
-    }
-    residual_blocks /= 8;
-    myprintf("%d blocks.\n", residual_blocks);
+    size_t plain_conv_layers = 0;
+    size_t plain_conv_wts = 0;
+    std::array<std::vector<float>, 8> wts_2nd_val_head;
+    std::array<std::vector<float>::size_type, 8> n_wts_2nd_val_head;
 
-    // Re-read file and process
-    wtfile.clear();
-    wtfile.seekg(0, std::ios::beg);
-
-    // Get the file format id out of the way
-    std::getline(wtfile, line);
-
-    const auto plain_conv_layers = 1 + (residual_blocks * 2);
-    const auto plain_conv_wts = plain_conv_layers * 4;
+    bool is_head_line = false;
     linecount = 0;
     while (std::getline(wtfile, line)) {
         std::vector<float> weights;
@@ -246,65 +239,219 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
         if (!ok || it_line != line.cend()) {
             myprintf("\nFailed to parse weight file. Error on line %d.\n",
                     linecount + 2); //+1 from version line, +1 from 0-indexing
-            return {0,0};
+            return 1;
         }
-        if (linecount < plain_conv_wts) {
+	auto n_wts = weights.size();
+	size_t n_wts_1st_layer;
+        if (!is_head_line) {
             if (linecount % 4 == 0) {
+	      if (linecount == 0)
+		n_wts_1st_layer = n_wts;
+	      if (linecount==0 || n_wts==arch.channels*9*arch.channels)
                 conv_weights.emplace_back(weights);
+	      else {
+		is_head_line = true;
+		arch.policy_outputs = n_wts/arch.channels;
+		assert (n_wts == arch.channels*arch.policy_outputs);
+		conv_pol_w = std::move(weights);
+		arch.residual_blocks = (linecount-4)/8;
+		plain_conv_layers = 1 + (arch.residual_blocks * 2);
+		plain_conv_wts = plain_conv_layers * 4;
+		assert(plain_conv_wts == linecount);
+		myprintf("%d blocks...%d policy outputs...", arch.residual_blocks, arch.policy_outputs);
+		lastlines = linecount - plain_conv_wts - 14;
+	      }
             } else if (linecount % 4 == 1) {
                 // Redundant in our model, but they encode the
                 // number of outputs so we have to read them in.
-                conv_biases.emplace_back(weights);
+	      if (linecount == 1) {
+		arch.channels = n_wts;
+		arch.input_planes = n_wts_1st_layer/9/arch.channels;
+		assert (arch.input_planes == INPUT_CHANNELS);
+		assert (n_wts_1st_layer == arch.input_planes*9*arch.channels);
+		myprintf("%d input planes...%d channels...", arch.input_planes, arch.channels);
+		}
+	      else
+		assert (n_wts == arch.channels);
+
+	      conv_biases.emplace_back(weights);
             } else if (linecount % 4 == 2) {
+		assert (n_wts == arch.channels);
                 batchnorm_means.emplace_back(weights);
             } else if (linecount % 4 == 3) {
+	        assert (n_wts == arch.channels);
                 process_bn_var(weights);
                 batchnorm_stddivs.emplace_back(weights);
             }
-        } else if (linecount == plain_conv_wts) {
-            conv_pol_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 1) {
-            conv_pol_b = std::move(weights);
+	    assert (n_wts == arch.policy_outputs);
+	    conv_pol_b = std::move(weights);
         } else if (linecount == plain_conv_wts + 2) {
-            std::copy(cbegin(weights), cend(weights), begin(bn_pol_w1));
+	    assert (n_wts == arch.policy_outputs);
+	    bn_pol_w1 = std::move(weights);
         } else if (linecount == plain_conv_wts + 3) {
-            process_bn_var(weights);
-            std::copy(cbegin(weights), cend(weights), begin(bn_pol_w2));
+	    process_bn_var(weights);
+	    assert (n_wts == arch.policy_outputs);
+	    bn_pol_w2 = std::move(weights);
+
         } else if (linecount == plain_conv_wts + 4) {
-            std::copy(cbegin(weights), cend(weights), begin(ip_pol_w));
+            assert (n_wts == arch.policy_outputs*BOARD_SQUARES*(BOARD_SQUARES+1));
+	    myprintf("%dx%d board.\n", BOARD_SIZE, BOARD_SIZE);
+	    ip_pol_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 5) {
-            std::copy(cbegin(weights), cend(weights), begin(ip_pol_b));
+	    assert (n_wts == BOARD_SQUARES+1);
+            ip_pol_b = std::move(weights);
+
         } else if (linecount == plain_conv_wts + 6) {
-            conv_val_w = std::move(weights);
+	    arch.val_outputs = n_wts/arch.channels;
+	    assert (n_wts == arch.channels*arch.val_outputs);
+	    conv_val_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 7) {
+	    assert (n_wts == arch.val_outputs);
             conv_val_b = std::move(weights);
         } else if (linecount == plain_conv_wts + 8) {
-            std::copy(cbegin(weights), cend(weights), begin(bn_val_w1));
+	    assert (n_wts == arch.val_outputs);
+            bn_val_w1 = std::move(weights);
         } else if (linecount == plain_conv_wts + 9) {
+	    assert (n_wts == arch.val_outputs);
             process_bn_var(weights);
-            std::copy(cbegin(weights), cend(weights), begin(bn_val_w2));
+            bn_val_w2 = std::move(weights);
+
         } else if (linecount == plain_conv_wts + 10) {
-            std::copy(cbegin(weights), cend(weights), begin(ip1_val_w));
+	    arch.val_chans = n_wts/arch.val_outputs/(BOARD_SQUARES);
+	    assert (n_wts == arch.val_chans*arch.val_outputs*BOARD_SQUARES);
+	    ip1_val_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 11) {
-            std::copy(cbegin(weights), cend(weights), begin(ip1_val_b));
+	    assert (n_wts == arch.val_chans);
+            ip1_val_b = std::move(weights);
         } else if (linecount == plain_conv_wts + 12) {
-            std::copy(cbegin(weights), cend(weights), begin(ip2_val_w));
+	    arch.value_head_rets = n_wts/arch.val_chans;
+	    assert (n_wts == arch.val_chans*arch.value_head_rets);
+	    assert (arch.value_head_rets == 1 || arch.value_head_rets == 2);
+	    ip2_val_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 13) {
-            std::copy(cbegin(weights), cend(weights), begin(ip2_val_b));
+	    assert (n_wts == arch.value_head_rets);
+            ip2_val_b = std::move(weights);
+
+        } else if (linecount >= plain_conv_wts + 14) {
+	    auto i = lastlines;
+	    assert (i>=0 && i<8);
+            wts_2nd_val_head[i] = std::move(weights);
+	    n_wts_2nd_val_head[i] = n_wts;
         }
         linecount++;
+	lastlines++;
     }
 
-    return {channels, static_cast<int>(residual_blocks)};
+    if (lastlines == 8) {
+        arch.value_head_type = DOUBLE_V;
+        arch.value_head_rets = 2;
+
+	arch.vbe_outputs = n_wts_2nd_val_head[0]/arch.channels;
+	assert (n_wts_2nd_val_head[0] == arch.channels*arch.vbe_outputs);
+	conv_vbe_w = std::move(wts_2nd_val_head[0]);
+
+	assert (n_wts_2nd_val_head[1] == arch.vbe_outputs);
+	conv_vbe_b = std::move(wts_2nd_val_head[1]);
+
+	assert (n_wts_2nd_val_head[2] == arch.vbe_outputs);
+	bn_vbe_w1 = std::move(wts_2nd_val_head[2]);
+
+	assert (n_wts_2nd_val_head[3] == arch.vbe_outputs);
+	process_bn_var(wts_2nd_val_head[3]);
+	bn_vbe_w2 = std::move(wts_2nd_val_head[3]);
+
+	arch.vbe_chans = n_wts_2nd_val_head[4]/arch.vbe_outputs/(BOARD_SQUARES);
+	assert (n_wts_2nd_val_head[4] == arch.vbe_chans*arch.vbe_outputs*BOARD_SQUARES);
+	ip1_vbe_w = std::move(wts_2nd_val_head[4]);
+
+	assert (n_wts_2nd_val_head[5] == arch.vbe_chans);
+	ip1_vbe_b = std::move(wts_2nd_val_head[5]);
+
+	int ret2 = n_wts_2nd_val_head[6]/arch.vbe_chans;
+	assert (n_wts_2nd_val_head[6] == arch.vbe_chans*ret2);
+	if (ret2 != 1) {
+	  myprintf ("Unexpected in weights file: ret2=%d. %d -- %d -- %d.\n",
+		    ret2,
+		    n_wts_2nd_val_head[6],
+		    arch.vbe_chans,
+		    n_wts_2nd_val_head[6]/arch.vbe_chans);
+	  return 1;
+	}
+	ip2_vbe_w = std::move(wts_2nd_val_head[6]);
+
+	assert (n_wts_2nd_val_head[7] == 1);
+	ip2_vbe_b = std::move(wts_2nd_val_head[7]);
+
+	myprintf("Double value head. Type V.\n");
+	myprintf("Alpha head: %d outputs, %d channels.\n", arch.val_outputs, arch.val_chans);
+	myprintf("Beta head: %d outputs, %d channels.\n", arch.vbe_outputs, arch.vbe_chans);
+    } else if (lastlines == 4) {
+        arch.value_head_type = DOUBLE_Y;
+        arch.value_head_rets = 2;
+
+	arch.vbe_chans = n_wts_2nd_val_head[0]/arch.val_outputs/(BOARD_SQUARES);
+	assert (n_wts_2nd_val_head[0] == arch.vbe_chans*arch.val_outputs*BOARD_SQUARES);
+	ip1_vbe_w = std::move(wts_2nd_val_head[0]);
+
+	assert (n_wts_2nd_val_head[1] == arch.vbe_chans);
+	ip1_vbe_b = std::move(wts_2nd_val_head[1]);
+
+	int ret2 = n_wts_2nd_val_head[2]/arch.vbe_chans;
+	assert (n_wts_2nd_val_head[2] == arch.vbe_chans*ret2);
+	if (ret2 != 1)
+	  return 1;
+	ip2_vbe_w = std::move(wts_2nd_val_head[2]);
+
+	assert (n_wts_2nd_val_head[3] == 1);
+	ip2_vbe_b = std::move(wts_2nd_val_head[3]);
+
+	myprintf("Double value head. Type Y.\n");
+	myprintf("Common convolution: %d outputs.\n", arch.val_outputs);
+	myprintf("Alpha head: %d channels. Beta head: %d channels.\n", arch.val_chans, arch.vbe_chans);
+    } else if (lastlines == 2) {
+        arch.value_head_type = DOUBLE_T;
+	arch.value_head_rets = 2;
+
+	int ret2 = n_wts_2nd_val_head[0]/arch.val_chans;
+	assert (n_wts_2nd_val_head[0] == arch.val_chans*ret2);
+	if (ret2 != 1)
+	  return 1;
+	ip2_vbe_w = std::move(wts_2nd_val_head[0]);
+
+	assert (n_wts_2nd_val_head[1] == 1);
+	ip2_vbe_b = std::move(wts_2nd_val_head[1]);
+
+	myprintf("Double value head. Type T: %d outputs, %d channels.\n",
+		 arch.val_outputs, arch.val_chans);
+    } else if (lastlines == 0) {
+        if (arch.value_head_rets == 2) {
+	  arch.value_head_type = DOUBLE_I;
+
+	  myprintf("Double value head. Type I: %d outputs, %d channels.\n",
+		   arch.val_outputs, arch.val_chans);
+	}
+	else if (arch.value_head_rets == 1) {
+          arch.value_head_type = SINGLE;
+
+	  myprintf("Single value head: %d outputs, %d channels.\n",
+		   arch.val_outputs, arch.val_chans);
+	}
+    } else {
+      myprintf ("\nFailed to parse weight file.\n");
+      return 1;
+    }
+
+    return 0;
 }
 
-std::pair<int, int> Network::load_network_file(const std::string& filename) {
+int Network::load_network_file(const std::string& filename) {
     // gzopen supports both gz and non-gz files, will decompress
     // or just read directly as needed.
     auto gzhandle = gzopen(filename.c_str(), "rb");
     if (gzhandle == nullptr) {
         myprintf("Could not open weights file: %s\n", filename.c_str());
-        return {0, 0};
+        return 1;
     }
     // Stream the gz file in to a memory buffer stream.
     auto buffer = std::stringstream{};
@@ -316,7 +463,7 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
         if (bytesRead < 0) {
             myprintf("Failed to decompress or read: %s\n", filename.c_str());
             gzclose(gzhandle);
-            return {0, 0};
+            return 1;
         }
         assert(bytesRead <= chunkBufferSize);
         buffer.write(chunkBuffer.data(), bytesRead);
@@ -332,7 +479,7 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
         iss >> format_version;
         if (iss.fail() || (format_version != 1 && format_version != 2)) {
             myprintf("Weights file is the wrong version.\n");
-            return {0, 0};
+            return 1;
         } else {
             // Version 2 networks are identical to v1, except
             // that they return the score for black instead of
@@ -345,7 +492,7 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
             return load_v1_network(buffer);
         }
     }
-    return {0, 0};
+    return 1;
 }
 
 void Network::initialize() {
@@ -357,25 +504,25 @@ void Network::initialize() {
     }
 
     // Load network from file
-    size_t channels, residual_blocks;
-    std::tie(channels, residual_blocks) = load_network_file(cfg_weightsfile);
-    if (channels == 0) {
+    if(load_network_file(cfg_weightsfile)) {
         exit(EXIT_FAILURE);
     }
+
+    is_mult_komi_net = (arch.value_head_type != SINGLE);
 
     auto weight_index = size_t{0};
     // Input convolution
     // Winograd transform convolution weights
     conv_weights[weight_index] =
         winograd_transform_f(conv_weights[weight_index],
-                             channels, INPUT_CHANNELS);
+                             arch.channels, arch.input_planes);
     weight_index++;
 
     // Residual block convolutions
-    for (auto i = size_t{0}; i < residual_blocks * 2; i++) {
+    for (auto i = size_t{0}; i < arch.residual_blocks * 2; i++) {
         conv_weights[weight_index] =
             winograd_transform_f(conv_weights[weight_index],
-                                 channels, channels);
+                                 arch.channels, arch.channels);
         weight_index++;
     }
 
@@ -395,6 +542,11 @@ void Network::initialize() {
         conv_val_b[i] = 0.0f;
     }
 
+    for (auto i = size_t{0}; i < bn_vbe_w1.size(); i++) {
+        bn_vbe_w1[i] -= conv_vbe_b[i];
+        conv_vbe_b[i] = 0.0f;
+    }
+
     for (auto i = size_t{0}; i < bn_pol_w1.size(); i++) {
         bn_pol_w1[i] -= conv_pol_b[i];
         conv_pol_b[i] = 0.0f;
@@ -402,7 +554,7 @@ void Network::initialize() {
 
 #ifdef USE_OPENCL
     myprintf("Initializing OpenCL.\n");
-    opencl.initialize(channels);
+    opencl.initialize(arch.channels);
 
     for (const auto & opencl_net : opencl.get_networks()) {
         const auto tuners = opencl_net->getOpenCL().get_sgemm_tuners();
@@ -413,28 +565,28 @@ void Network::initialize() {
 
         weight_index = 0;
 
-        const auto m_ceil = ceilMultiple(ceilMultiple(channels, mwg), vwm);
-        const auto k_ceil = ceilMultiple(ceilMultiple(INPUT_CHANNELS, kwg), vwm);
+        const auto m_ceil = ceilMultiple(ceilMultiple(arch.channels, mwg), vwm);
+        const auto k_ceil = ceilMultiple(ceilMultiple(arch.input_planes, kwg), vwm);
 
         const auto Upad = zeropad_U(conv_weights[weight_index],
-                                    channels, INPUT_CHANNELS,
+                                    arch.channels, arch.input_planes,
                                     m_ceil, k_ceil);
 
         // Winograd filter transformation changes filter size to 4x4
-        opencl_net->push_input_convolution(WINOGRAD_ALPHA, INPUT_CHANNELS,
-            channels, Upad,
+        opencl_net->push_input_convolution(WINOGRAD_ALPHA, arch.input_planes,
+            arch.channels, Upad,
             batchnorm_means[weight_index], batchnorm_stddivs[weight_index]);
         weight_index++;
 
         // residual blocks
-        for (auto i = size_t{0}; i < residual_blocks; i++) {
+        for (auto i = size_t{0}; i < arch.residual_blocks; i++) {
             const auto Upad1 = zeropad_U(conv_weights[weight_index],
-                                         channels, channels,
+                                         arch.channels, arch.channels,
                                          m_ceil, m_ceil);
             const auto Upad2 = zeropad_U(conv_weights[weight_index + 1],
-                                         channels, channels,
+                                         arch.channels, arch.channels,
                                          m_ceil, m_ceil);
-            opencl_net->push_residual(WINOGRAD_ALPHA, channels, channels,
+            opencl_net->push_residual(WINOGRAD_ALPHA, arch.channels, arch.channels,
                                       Upad1,
                                       batchnorm_means[weight_index],
                                       batchnorm_stddivs[weight_index],
@@ -445,8 +597,11 @@ void Network::initialize() {
         }
 
         // Output head convolutions
-        opencl_net->push_convolve1(channels, OUTPUTS_POLICY, conv_pol_w);
-        opencl_net->push_convolve1(channels, OUTPUTS_VALUE, conv_val_w);
+        opencl_net->push_convolve1(arch.channels, arch.policy_outputs, conv_pol_w);
+        opencl_net->push_convolve1(arch.channels, arch.val_outputs, conv_val_w);
+	if (arch.value_head_type == DOUBLE_V) {
+	  opencl_net->push_convolve1(arch.channels, arch.vbe_outputs, conv_vbe_w);
+	}
     }
 #endif
 #ifdef USE_BLAS
@@ -697,13 +852,12 @@ void convolve(const size_t outputs,
     }
 }
 
-template<unsigned int inputs,
-         unsigned int outputs,
-         bool ReLU,
-         size_t W>
+template<bool ReLU>
 std::vector<float> innerproduct(const std::vector<float>& input,
-                                const std::array<float, W>& weights,
-                                const std::array<float, outputs>& biases) {
+                                const std::vector<float>& weights,
+                                const std::vector<float>& biases) {
+    const auto inputs = input.size();
+    const auto outputs = biases.size();
     std::vector<float> output(outputs);
 
     cblas_sgemv(CblasRowMajor, CblasNoTrans,
@@ -756,33 +910,33 @@ void batchnorm(const size_t channels,
     }
 }
 
+// output_val, output_vbe are the features before the fully connected step
 void Network::forward_cpu(const std::vector<float>& input,
                           std::vector<float>& output_pol,
-                          std::vector<float>& output_val) {
+                          std::vector<float>& output_val,
+                          std::vector<float>& output_vbe) {
     // Input convolution
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
     constexpr auto tiles = (width + 1) * (height + 1) / 4;
-    // Calculate output channels
-    const auto output_channels = conv_biases[0].size();
     // input_channels is the maximum number of input channels of any
     // convolution. Residual blocks are identical, but the first convolution
     // might be bigger when the network has very few filters
-    const auto input_channels = std::max(static_cast<size_t>(output_channels),
-                                         static_cast<size_t>(INPUT_CHANNELS));
-    auto conv_out = std::vector<float>(output_channels * width * height);
+    const auto input_channels = std::max(static_cast<size_t>(arch.channels),
+                                         static_cast<size_t>(arch.input_planes));
+    auto conv_out = std::vector<float>(arch.channels * width * height);
 
     auto V = std::vector<float>(WINOGRAD_TILE * input_channels * tiles);
-    auto M = std::vector<float>(WINOGRAD_TILE * output_channels * tiles);
+    auto M = std::vector<float>(WINOGRAD_TILE * arch.channels * tiles);
 
-    winograd_convolve3(output_channels, input, conv_weights[0], V, M, conv_out);
-    batchnorm<BOARD_SQUARES>(output_channels, conv_out,
+    winograd_convolve3(arch.channels, input, conv_weights[0], V, M, conv_out);
+    batchnorm<BOARD_SQUARES>(arch.channels, conv_out,
                              batchnorm_means[0].data(),
                              batchnorm_stddivs[0].data());
 
     // Residual tower
-    auto conv_in = std::vector<float>(output_channels * width * height);
-    auto res = std::vector<float>(output_channels * width * height);
+    auto conv_in = std::vector<float>(arch.channels * width * height);
+    auto res = std::vector<float>(arch.channels * width * height);
     for (auto i = size_t{1}; i < conv_weights.size(); i += 2) {
         auto output_channels = conv_biases[i].size();
         std::swap(conv_out, conv_in);
@@ -802,8 +956,11 @@ void Network::forward_cpu(const std::vector<float>& input,
                                  batchnorm_stddivs[i + 1].data(),
                                  res.data());
     }
-    convolve<1>(OUTPUTS_POLICY, conv_out, conv_pol_w, conv_pol_b, output_pol);
-    convolve<1>(OUTPUTS_VALUE, conv_out, conv_val_w, conv_val_b, output_val);
+    convolve<1>(arch.policy_outputs, conv_out, conv_pol_w, conv_pol_b, output_pol);
+    convolve<1>(arch.val_outputs, conv_out, conv_val_w, conv_val_b, output_val);
+    if (arch.value_head_type == DOUBLE_V) {
+      convolve<1>(arch.vbe_outputs, conv_out, conv_vbe_w, conv_vbe_b, output_vbe);
+    }
 }
 
 template<typename T>
@@ -870,6 +1027,10 @@ std::vector<float> softmax(const std::vector<float>& input,
     return output;
 }
 
+float sigmoid(float alpha, float beta, float bonus) {
+  return 1.0f/(1.0f+std::exp(-beta*(alpha+bonus)));
+}
+
 Network::Netresult Network::get_scored_moves(
     const GameState* const state, const Ensemble ensemble,
     const int symmetry, const bool skip_cache) {
@@ -891,7 +1052,6 @@ Network::Netresult Network::get_scored_moves(
     } else if (ensemble == AVERAGE) {
         for (auto sym = 0; sym < 8; ++sym) {
             auto tmpresult = get_scored_moves_internal(state, sym);
-            result.winrate += tmpresult.winrate / 8.0f;
             result.policy_pass += tmpresult.policy_pass / 8.0f;
 
             for (auto idx = size_t{0}; idx < BOARD_SQUARES; idx++) {
@@ -903,13 +1063,6 @@ Network::Netresult Network::get_scored_moves(
         assert(symmetry == -1);
         const auto rand_sym = Random::get_Rng().randfix<8>();
         result = get_scored_moves_internal(state, rand_sym);
-    }
-
-    // v2 format (ELF Open Go) returns black value, not stm
-    if (value_head_not_stm) {
-        if (state->board.get_to_move() == FastBoard::WHITE) {
-            result.winrate = 1.0f - result.winrate;
-        }
     }
 
     // Insert result into cache.
@@ -925,55 +1078,105 @@ Network::Netresult Network::get_scored_moves_internal(
     constexpr auto height = BOARD_SIZE;
 
     const auto input_data = gather_features(state, symmetry);
-    std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
-    std::vector<float> value_data(OUTPUTS_VALUE * width * height);
+    std::vector<float> policy_data(arch.policy_outputs * width * height);
+    std::vector<float> val_data(arch.val_outputs * width * height);
+    std::vector<float> vbe_data(arch.vbe_outputs * width * height);
+
 #ifdef USE_HALF
-    std::vector<net_t> policy_data_n(OUTPUTS_POLICY * width * height);
-    std::vector<net_t> value_data_n(OUTPUTS_VALUE * width * height);
+    std::vector<net_t> policy_data_n(arch.policy_outputs * width * height);
+    std::vector<net_t> val_data_n(arch.val_outputs * width * height);
+    std::vector<net_t> vbe_data_n(arch.vbe_outputs * width * height);
 #endif
+
+
 #ifdef USE_OPENCL
 #ifdef USE_HALF
-    opencl.forward(input_data, policy_data_n, value_data_n);
+    opencl.forward(input_data, policy_data_n, val_data_n, vbe_data_n);
     std::copy(begin(policy_data_n), end(policy_data_n), begin(policy_data));
-    std::copy(begin(value_data_n), end(value_data_n), begin(value_data));
+    std::copy(begin(val_data_n), end(val_data_n), begin(val_data));
+    std::copy(begin(vbe_data_n), end(vbe_data_n), begin(vbe_data));
 #else
-    opencl.forward(input_data, policy_data, value_data);
+    opencl.forward(input_data, policy_data, val_data, vbe_data);
 #endif
+
 #elif defined(USE_BLAS) && !defined(USE_OPENCL)
-    forward_cpu(input_data, policy_data, value_data);
+    forward_cpu(input_data, policy_data, val_data, vbe_data);
 #endif
 #ifdef USE_OPENCL_SELFCHECK
     // Both implementations are available, self-check the OpenCL driver by
     // running both with a probability of 1/2000.
     if (Random::get_Rng().randfix<SELFCHECK_PROBABILITY>() == 0) {
         auto cpu_policy_data = std::vector<float>(policy_data.size());
-        auto cpu_value_data = std::vector<float>(value_data.size());
-        forward_cpu(input_data, cpu_policy_data, cpu_value_data);
+        auto cpu_val_data = std::vector<float>(val_data.size());
+        auto cpu_vbe_data = std::vector<float>(vbe_data.size());
+        forward_cpu(input_data, cpu_policy_data, cpu_val_data, cpu_vbe_data);
         compare_net_outputs(policy_data, cpu_policy_data);
-        compare_net_outputs(value_data, cpu_value_data);
+        compare_net_outputs(val_data, cpu_val_data);
+        compare_net_outputs(vbe_data, cpu_vbe_data);
     }
 #endif
-
     // Get the moves
-    batchnorm<BOARD_SQUARES>(OUTPUTS_POLICY, policy_data,
+    batchnorm<BOARD_SQUARES>(arch.policy_outputs, policy_data,
         bn_pol_w1.data(), bn_pol_w2.data());
+
     const auto policy_out =
-        innerproduct<OUTPUTS_POLICY * BOARD_SQUARES, BOARD_SQUARES + 1, false>(
+        innerproduct<false>(
             policy_data, ip_pol_w, ip_pol_b);
+
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
 
-    // Now get the score
-    batchnorm<BOARD_SQUARES>(OUTPUTS_VALUE, value_data,
+    // Get alpha or value
+    batchnorm<BOARD_SQUARES>(arch.val_outputs, val_data,
         bn_val_w1.data(), bn_val_w2.data());
-    const auto winrate_data =
-        innerproduct<BOARD_SQUARES, 256, true>(value_data, ip1_val_w, ip1_val_b);
-    const auto winrate_out =
-        innerproduct<256, 1, false>(winrate_data, ip2_val_w, ip2_val_b);
-
-    // Sigmoid
-    const auto winrate_sig = (1.0f + std::tanh(winrate_out[0])) / 2.0f;
+    const auto val_channels =
+        innerproduct<true>(val_data, ip1_val_w, ip1_val_b);
+    const auto val_output =
+        innerproduct<false>(val_channels, ip2_val_w, ip2_val_b);
 
     Netresult result;
+
+    if (arch.value_head_type==DOUBLE_V) {
+	// If double head value, also get beta
+	batchnorm<BOARD_SQUARES>(arch.vbe_outputs, vbe_data,
+				 bn_vbe_w1.data(), bn_vbe_w2.data());
+	const auto vbe_channels =
+	    innerproduct<true>(vbe_data, ip1_vbe_w, ip1_vbe_b);
+	const auto vbe_output =
+	    innerproduct<false>(vbe_channels, ip2_vbe_w, ip2_vbe_b);
+
+	result.value = 0.5f;
+	result.alpha = val_output[0];
+	result.beta = std::exp(vbe_output[0]) * 10.0f / BOARD_SQUARES;
+
+    } else if (arch.value_head_type==DOUBLE_Y) {
+	const auto vbe_channels =
+	    innerproduct<true>(val_data, ip1_vbe_w, ip1_vbe_b);
+	const auto vbe_output =
+	    innerproduct<false>(vbe_channels, ip2_vbe_w, ip2_vbe_b);
+
+	result.value = 0.5f;
+	result.alpha = val_output[0];
+	result.beta = std::exp(vbe_output[0]) * 10.0f / BOARD_SQUARES;
+
+    } else if (arch.value_head_type==DOUBLE_T) {
+	const auto vbe_output =
+	    innerproduct<false>(val_channels, ip2_vbe_w, ip2_vbe_b);
+
+	result.value = 0.5f;
+	result.alpha = val_output[0];
+	result.beta = std::exp(vbe_output[0]) * 10.0f / BOARD_SQUARES;
+
+    } else if (arch.value_head_type==DOUBLE_I) {
+	result.value = 0.5f;
+	result.alpha = val_output[0];
+	result.beta = std::exp(val_output[1]) * 10.0f / BOARD_SQUARES;
+
+    } else if (arch.value_head_type==SINGLE) {
+	result.value = (1.0f + std::tanh(val_output[0])) / 2.0f;
+	result.alpha = 0.0f;
+	result.beta = 1.0f;
+    }
+
 
     for (auto idx = size_t{0}; idx < BOARD_SQUARES; idx++) {
         const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
@@ -981,14 +1184,14 @@ Network::Netresult Network::get_scored_moves_internal(
     }
 
     result.policy_pass = outputs[BOARD_SQUARES];
-    result.winrate = winrate_sig;
 
     return result;
 }
 
 void Network::show_heatmap(const FastState* const state,
                            const Netresult& result,
-                           const bool topmoves) {
+                           const bool topmoves,
+			   const bool stdout = false) {
     std::vector<std::string> display_map;
     std::string line;
 
@@ -1008,11 +1211,30 @@ void Network::show_heatmap(const FastState* const state,
     }
 
     for (int i = display_map.size() - 1; i >= 0; --i) {
-        myprintf("%s\n", display_map[i].c_str());
+	if (stdout) {
+	    std::cout << display_map[i] << std::endl;
+	}
+	else {
+	    myprintf("%s\n", display_map[i].c_str());
+	}
     }
     const auto pass_score = int(result.policy_pass * 1000);
-    myprintf("pass: %d\n", pass_score);
-    myprintf("winrate: %f\n", result.winrate);
+    const auto komi = state->get_komi();
+    const auto winrate = sigmoid(result.alpha, result.beta, state->board.black_to_move() ? -komi : komi);
+    if (stdout) {
+	std::cout << "pass: " << pass_score << std::endl
+		  << "value: " << result.value << std::endl
+		  << "winrate: " << winrate << std::endl
+		  << "alpha: " << result.alpha << std::endl
+		  << "beta: " << result.beta << std::endl;
+    }
+    else {
+	myprintf("pass: %d\n", pass_score);
+	myprintf("alpha: %f\n", result.alpha);
+	myprintf("beta: %f\n", result.beta);
+	myprintf("value: %f\n", result.value);
+	myprintf("winrate: %f\n", winrate);
+    }
 
     if (topmoves) {
         std::vector<Network::ScoreVertexPair> moves;
@@ -1061,7 +1283,7 @@ void Network::fill_input_plane_pair(const FullBoard& board,
 std::vector<net_t> Network::gather_features(const GameState* const state,
                                             const int symmetry) {
     assert(symmetry >= 0 && symmetry <= 7);
-    auto input_data = std::vector<net_t>(INPUT_CHANNELS * BOARD_SQUARES);
+    auto input_data = std::vector<net_t>(arch.input_planes * BOARD_SQUARES);
 
     const auto to_move = state->get_to_move();
     const auto blacks_move = to_move == FastBoard::BLACK;

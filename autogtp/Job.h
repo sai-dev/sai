@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Marco Calignano
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -68,7 +69,9 @@ public:
 private:
     QString m_network;
     QString m_sgf;
+    QString m_selfplay_id;
     bool m_debug;
+    bool m_restore;
 };
 
 class ValidationJob : public Job {

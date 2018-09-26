@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -68,6 +69,7 @@ private:
     cl::Buffer m_MBuffer;
     cl::Buffer m_pinnedOutBuffer_pol;
     cl::Buffer m_pinnedOutBuffer_val;
+    cl::Buffer m_pinnedOutBuffer_vbe;
     bool m_buffers_allocated{false};
 };
 
@@ -132,7 +134,8 @@ public:
 
     void forward(const std::vector<net_t>& input,
             std::vector<net_t>& output_pol,
-            std::vector<net_t>& output_val);
+            std::vector<net_t>& output_val,
+            std::vector<net_t>& output_vbe);
 
 private:
     using weight_slice_t = std::vector<cl::Buffer>::const_iterator;

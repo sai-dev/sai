@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Marco Calignano
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,10 +31,10 @@
 #include "Management.h"
 #include "Game.h"
 
-
 constexpr int RETRY_DELAY_MIN_SEC = 30;
 constexpr int RETRY_DELAY_MAX_SEC = 60 * 60;  // 1 hour
 constexpr int MAX_RETRIES = 3;           // Stop retrying after 3 times
+
 const QString Leelaz_min_version = "0.12";
 
 Management::Management(const int gpus,
@@ -43,7 +44,9 @@ Management::Management(const int gpus,
                        const int maxGames,
                        const bool delNetworks,
                        const QString& keep,
-                       const QString& debug)
+                       const QString& debug,
+                       const QString& serverUrl,
+                       const QString& publicAuthKey)
 
     : m_syncMutex(),
     m_gamesThreads(gpus * games),
@@ -55,6 +58,8 @@ Management::Management(const int gpus,
     m_gamesPlayed(0),
     m_keepPath(keep),
     m_debugPath(debug),
+    m_serverUrl(serverUrl),
+    m_publicAuthKey(publicAuthKey),
     m_version(ver),
     m_fallBack(Order::Error),
     m_lastMatch(Order::Error),
@@ -252,6 +257,9 @@ QString Management::getOptionsString(const QJsonObject &opt, const QString &rnd)
     QString options;
     options.append(getOption(opt, "playouts", " -p ", ""));
     options.append(getOption(opt, "visits", " -v ", ""));
+    options.append(getOption(opt, "komi", " --komi ", ""));
+    options.append(getOption(opt, "lambda", " --lambda ", ""));
+    options.append(getOption(opt, "noise_value", " --noise-value ", ""));
     options.append(getOption(opt, "resignation_percent", " -r ", "1"));
     options.append(getOption(opt, "randomcnt", " -m ", "30"));
     options.append(getOption(opt, "threads", " -t ", "1"));
@@ -261,6 +269,7 @@ QString Management::getOptionsString(const QJsonObject &opt, const QString &rnd)
     if (rnd != "") {
         options.append(" -s " + rnd + " ");
     }
+    options.append(getOption(opt, "other_options", " ", ""));
     return options;
 }
 
@@ -311,7 +320,7 @@ Order Management::getWorkInternal(bool tuning) {
     prog_cmdline.append(".exe");
 #endif
     prog_cmdline.append(" -s -J");
-    prog_cmdline.append(" http://zero.sjeng.org/get-task/");
+    prog_cmdline.append(" "+m_serverUrl+"get-task/");
     if (tuning) {
         prog_cmdline.append("0");
     } else {
@@ -390,6 +399,9 @@ Order Management::getWorkInternal(bool tuning) {
         fetchNetwork(net);
         o.type(Order::Production);
         parameters["network"] = net;
+        parameters["selfplay_id"] = ob.value("selfplay_id").toString();
+        parameters["sgf"] = ob.contains("sgfhash") ? fetchGameData(ob.value("sgfhash").toString(), "sgf") : "" ;
+        parameters["moves"] = ob.contains("movescount") ? ob.value("movescount").toString() : "0";
         o.parameters(parameters);
         if (m_delNetworks &&
             m_fallBack.parameters()["network"] != net) {
@@ -518,7 +530,7 @@ void Management::fetchNetwork(const QString &net) {
     // Use the filename from the server.
     prog_cmdline.append(" -s -J -o " + name + ".gz ");
     prog_cmdline.append(" -w %{filename_effective}");
-    prog_cmdline.append(" http://zero.sjeng.org/" + name + ".gz");
+    prog_cmdline.append(" "+m_serverUrl + name + ".gz");
 
     QProcess curl;
     curl.start(prog_cmdline);
@@ -552,6 +564,30 @@ void Management::fetchNetwork(const QString &net) {
     return;
 }
 
+QString Management::fetchGameData(const QString &name, const QString &extension) {
+    QString prog_cmdline("curl");
+#ifdef WIN32
+    prog_cmdline.append(".exe");
+#endif
+    QString fileName =  QString::fromStdString(std::tmpnam(nullptr));
+
+    // Be quiet, but output the real file name we saved.
+    // Use the filename from the server.
+    prog_cmdline.append(" -s -J -o " + fileName + "." + extension);
+    prog_cmdline.append(" -w %{filename_effective}");
+    prog_cmdline.append(" "+m_serverUrl + "view/" + name + "." + extension);
+
+    QProcess curl;
+    curl.start(prog_cmdline);
+    curl.waitForFinished(-1);
+
+    if (curl.exitCode()) {
+        throw NetworkException("Curl returned non-zero exit code "
+                               + std::to_string(curl.exitCode()));
+    }
+
+    return fileName;
+}
 
 void Management::archiveFiles(const QString &fileName) {
     if (!m_keepPath.isEmpty()) {
@@ -667,6 +703,8 @@ bool Management::sendCurl(const QStringList &lines) {
 #ifdef WIN32
     prog_cmdline.append(".exe");
 #endif
+    prog_cmdline.append(" -f");
+    prog_cmdline.append(" -F key=\"" + m_publicAuthKey + "\"");
     QStringList::ConstIterator it = lines.constBegin();
     while (it != lines.constEnd()) {
         prog_cmdline.append(" " + *it);
@@ -720,7 +758,7 @@ void Management::uploadResult(const QMap<QString,QString> &r, const QMap<QString
     prog_cmdline.append("-F options_hash="+ l["optHash"]);
     prog_cmdline.append("-F random_seed="+ l["rndSeed"]);
     prog_cmdline.append("-F sgf=@"+ r["file"] + ".sgf.gz");
-    prog_cmdline.append("http://zero.sjeng.org/submit-match");
+    prog_cmdline.append(m_serverUrl+"submit-match");
 
     bool sent = false;
     for (auto retries = 0; retries < MAX_RETRIES; retries++) {
@@ -764,6 +802,8 @@ void Management::uploadData(const QMap<QString,QString> &r, const QMap<QString,Q
     archiveFiles(r["file"]);
     gzipFile(r["file"] + ".sgf");
     QStringList prog_cmdline;
+    if (l.contains("selfplay_id"))
+        prog_cmdline.append("-F selfplay_id="+l["selfplay_id"]);
     prog_cmdline.append("-F networkhash=" + l["network"]);
     prog_cmdline.append("-F clientversion=" + QString::number(m_version));
     prog_cmdline.append("-F options_hash="+ l["optHash"]);
@@ -772,7 +812,7 @@ void Management::uploadData(const QMap<QString,QString> &r, const QMap<QString,Q
     prog_cmdline.append("-F random_seed="+ l["rndSeed"]);
     prog_cmdline.append("-F sgf=@" + r["file"] + ".sgf.gz");
     prog_cmdline.append("-F trainingdata=@" + r["file"] + ".txt.0.gz");
-    prog_cmdline.append("http://zero.sjeng.org/submit");
+    prog_cmdline.append(m_serverUrl+"submit");
 
     bool sent = false;
     for (auto retries = 0; retries < MAX_RETRIES; retries++) {
@@ -794,6 +834,7 @@ void Management::uploadData(const QMap<QString,QString> &r, const QMap<QString,Q
         }
     }
     if (!sent) {
+        QTextStream(stdout) << "PROVA\n";
         saveCurlCmdLine(prog_cmdline, r["file"]);
         return;
     }

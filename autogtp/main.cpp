@@ -78,6 +78,14 @@ int main(int argc, char *argv[]) {
         { "e", "erase" }, "Erase old networks when new ones are available.",
                           "");
 
+    QCommandLineOption publicAuthKeyOption(
+        "key" , "Set keys needed by the server for submitting games and matches",
+                "key", "");
+
+    QCommandLineOption serverUrlOption(
+        "url", "Set the URL of leela-zero/SAI server",
+                "server url", "http://localhost:8080/");
+
     parser.addOption(gamesNumOption);
     parser.addOption(gpusOption);
     parser.addOption(keepSgfOption);
@@ -86,6 +94,9 @@ int main(int argc, char *argv[]) {
     parser.addOption(singleOption);
     parser.addOption(maxOption);
     parser.addOption(eraseOption);
+    parser.addOption(publicAuthKeyOption);
+    parser.addOption(serverUrlOption);
+
 
     // Process the actual command line arguments given by the user
     parser.process(app);
@@ -97,7 +108,7 @@ int main(int argc, char *argv[]) {
     }
     int maxNum = -1;
     if (parser.isSet(maxOption)) {
-        maxNum = parser.value(maxOption).toInt();
+        maxNum = parser.value(maxOption)    .toInt();
         if (maxNum == 0) {
             maxNum = 1;
         }
@@ -142,7 +153,8 @@ int main(int argc, char *argv[]) {
     }
     Management *boss = new Management(gpusNum, gamesNum, gpusList, AUTOGTP_VERSION, maxNum,
                                       parser.isSet(eraseOption), parser.value(keepSgfOption),
-                                      parser.value(keepDebugOption));
+                                      parser.value(keepDebugOption), parser.value(serverUrlOption),
+                                      parser.value(publicAuthKeyOption));
     QObject::connect(&app, &QCoreApplication::aboutToQuit, boss, &Management::storeGames);
     QTimer *timer = new QTimer();
     boss->giveAssignments();

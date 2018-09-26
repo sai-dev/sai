@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -28,6 +29,8 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <tuple>
+#include <iomanip>
 
 #include "FullBoard.h"
 #include "GTP.h"
@@ -42,7 +45,7 @@ void SGFTree::init_state(void) {
     // Initialize with defaults.
     // The SGF might be missing boardsize or komi
     // which means we'll never initialize properly.
-    m_state.init_game(19, 7.5f);
+    m_state.init_game(BOARD_SIZE, cfg_komi);
 }
 
 KoState * SGFTree::get_state(void) {
@@ -137,8 +140,8 @@ void SGFTree::populate_states(void) {
         int bsize;
         strm >> bsize;
         if (bsize == BOARD_SIZE) {
-            // Assume 7.5 komi if not specified
-            m_state.init_game(bsize, 7.5f);
+            // Assume default komi if not specified
+            m_state.init_game(bsize, cfg_komi);
             valid_size = true;
         } else {
             throw std::runtime_error("Board size not supported.");
@@ -454,6 +457,15 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         } else {
             moves.append(";B[" + movestr + "]");
         }
+	const auto ev = state->get_eval();
+        auto comstr = std::stringstream{};
+	comstr << std::setprecision(3)
+	       << std::get<0>(ev) << ", " // alpkt
+	       << std::get<1>(ev) << ", " // beta
+	       << std::get<2>(ev) << ", " // pi
+	       << std::get<3>(ev) << ", " // avg_eval
+	       << std::get<4>(ev);        // eval_bonus
+	moves.append("C[" + comstr.str() + "]");
         if (++counter % 10 == 0) {
             moves.append("\n");
         }

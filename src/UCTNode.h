@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -44,11 +45,13 @@ public:
     ~UCTNode() = default;
 
     bool create_children(std::atomic<int>& nodecount,
-                         GameState& state, float& eval,
+                         GameState& state, float& value, float& alpkt,
+			 float& beta,
                          float min_psa_ratio = 0.0f);
 
     const std::vector<UCTNodePointer>& get_children() const;
     void sort_children(int color);
+    void sort_children_by_policy();
     UCTNode& get_best_root_child(int color);
     UCTNode* uct_select_child(int color, bool is_root);
 
@@ -61,18 +64,25 @@ public:
     void set_active(const bool active);
     bool valid() const;
     bool active() const;
+    double get_blackevals() const;
     int get_move() const;
     int get_visits() const;
     float get_score() const;
     void set_score(float score);
     float get_eval(int tomove) const;
     float get_net_eval(int tomove) const;
+    float get_eval_bonus() const;
+    float get_eval_bonus_father() const;
+    void set_eval_bonus_father(float bonus);
+    float get_net_eval() const;
+    float get_net_beta() const;
+    float get_net_alpkt() const;
     void virtual_loss(void);
     void virtual_loss_undo(void);
     void update(float eval);
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
-    void randomize_first_proportionally();
+    bool randomize_first_proportionally();
     void prepare_root_node(int color,
                            std::atomic<int>& nodecount,
                            GameState& state);
@@ -91,7 +101,6 @@ private:
     void link_nodelist(std::atomic<int>& nodecount,
                        std::vector<Network::ScoreVertexPair>& nodelist,
                        float min_psa_ratio);
-    double get_blackevals() const;
     void accumulate_eval(float eval);
     void kill_superkos(const KoState& state);
     void dirichlet_noise(float epsilon, float alpha);
@@ -108,7 +117,12 @@ private:
     // UCT eval
     float m_score;
     // Original net eval for this node (not children).
-    float m_net_eval{0.0f};
+    float m_net_eval{0.5f};
+    //    float m_net_value{0.5f};
+    float m_net_alpkt{0.0f}; // alpha + \tilde k
+    float m_net_beta{1.0f};
+    float m_eval_bonus{0.0f}; // x bar
+    float m_eval_bonus_father{0.0f}; // x bar of father node
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
     // Is someone adding scores to this node?

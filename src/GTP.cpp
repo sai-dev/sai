@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,6 +27,7 @@
 #include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
@@ -44,6 +46,8 @@
 
 using namespace Utils;
 
+//extern bool is_mult_komi_net;
+
 // Configuration flags
 bool cfg_gtp_mode;
 bool cfg_allow_pondering;
@@ -55,6 +59,10 @@ TimeManagement::enabled_t cfg_timemanage;
 int cfg_lagbuffer_cs;
 int cfg_resignpct;
 int cfg_noise;
+bool cfg_fpuzero;
+float cfg_noise_value;
+float cfg_lambda;
+float cfg_komi;
 int cfg_random_cnt;
 int cfg_random_min_visits;
 float cfg_random_temp;
@@ -74,6 +82,7 @@ FILE* cfg_logfile_handle;
 bool cfg_quiet;
 std::string cfg_options_str;
 bool cfg_benchmark;
+float cfg_blunder_thr;
 
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
@@ -87,6 +96,8 @@ void GTP::setup_default_parameters() {
 #endif
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
+    cfg_komi = 7.5f;
+    cfg_lambda = 0.5f;
     cfg_timemanage = TimeManagement::AUTO;
     cfg_lagbuffer_cs = 100;
 #ifdef USE_OPENCL
@@ -98,8 +109,11 @@ void GTP::setup_default_parameters() {
     cfg_softmax_temp = 1.0f;
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign
+    // if negative, the default is 10%, otherwise, this value % is used
     cfg_resignpct = -1;
+    cfg_fpuzero = false;
     cfg_noise = false;
+    cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
     cfg_random_min_visits = 1;
     cfg_random_temp = 1.0f;
@@ -107,6 +121,7 @@ void GTP::setup_default_parameters() {
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
+    cfg_blunder_thr = 0.0f;
 
     // C++11 doesn't guarantee *anything* about how random this is,
     // and in MinGW it isn't random at all. But we can mix it in, which
@@ -302,7 +317,7 @@ bool GTP::execute(GameState & game, std::string xinput) {
     } else if (command.find("komi") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
-        float komi = 7.5f;
+        float komi = cfg_komi;
         float old_komi = game.get_komi();
 
         cmdstream >> tmp;  // eat komi
@@ -501,20 +516,42 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
         return true;
     } else if (command.find("auto") == 0) {
+#ifndef NDEBUG
+	int blunders=0, last=0;
+	int movenum = game.get_movenum();
+#endif
         do {
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
+#ifndef NDEBUG
+	    if (game.is_blunder()) {
+		blunders++;
+		last=movenum;
+	    }
+#endif
             game.play_move(move);
             game.display_state();
-
+#ifndef NDEBUG
+	    movenum = game.get_movenum();
+#endif
         } while (game.get_passes() < 2 && !game.has_resigned());
-
+#ifndef NDEBUG
+	myprintf("Game ended. There where %d blunders in a total of %d moves.\n"
+		 "The last blunder was on move %d, for %d training moves available.\n",
+		 blunders, movenum, last, movenum-last);
+#endif
         return true;
     } else if (command.find("go") == 0) {
         int move = search->think(game.get_to_move());
         game.play_move(move);
 
         std::string vertex = game.move_to_text(move);
-        myprintf("%s\n", vertex.c_str());
+        myprintf("%s", vertex.c_str());
+#ifndef NDEBUG
+	if (game.is_blunder()) {
+	    myprintf("       --- a blunder");
+	}
+#endif
+        myprintf("\n");
         return true;
     } else if (command.find("heatmap") == 0) {
         std::istringstream cmdstream(command);
@@ -533,7 +570,7 @@ bool GTP::execute(GameState & game, std::string xinput) {
             for (auto r = 0; r < 8; r++) {
                 vec = Network::get_scored_moves(
                     &game, Network::Ensemble::DIRECT, r, true);
-                Network::show_heatmap(&game, vec, false);
+                Network::show_heatmap(&game, vec, false, false);
             }
         } else if (symmetry == "average" || symmetry == "avg") {
             vec = Network::get_scored_moves(
@@ -544,10 +581,27 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
 
         if (symmetry != "all") {
-            Network::show_heatmap(&game, vec, false);
+            Network::show_heatmap(&game, vec, false, false);
         }
 
         gtp_printf(id, "");
+        return true;
+    } else if (command.find("hm") == 0) {
+        const Network::Netresult vec = Network::get_scored_moves(
+					&game, Network::Ensemble::DIRECT, 0, true);
+
+	Network::show_heatmap(&game, vec, false, true);
+
+	// const auto komi = game.get_komi();
+	// const auto winrate = sigmoid( vec.alpha,
+	// 			      vec.beta,
+	// 			      game.board.black_to_move() ? -komi : komi );
+
+	// std::cout << (is_mult_komi_net ? winrate : vec.value) << std::endl
+	// 	  << vec.alpha << std::endl
+	// 	  << vec.beta << std::endl;
+
+
         return true;
     } else if (command.find("fixed_handicap") == 0) {
         std::istringstream cmdstream(command);

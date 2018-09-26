@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -34,7 +35,7 @@
  * BOARD_SIZE: Define size of the board to compile Leela with, must be an odd
    number due to winograd tiles
  */
-#define BOARD_SIZE 19
+#define BOARD_SIZE 7
 #define BOARD_SQUARES (BOARD_SIZE*BOARD_SIZE)
 
 #if (BOARD_SIZE % 2 == 0)
@@ -50,6 +51,7 @@
  * Also used for OpenCL self-checks.
  */
 #define USE_BLAS
+//#define FEATURE_USE_CPU_ONLY
 
 /*
  * We use OpenBLAS by default, except on macOS, which has a fast BLAS
@@ -78,7 +80,7 @@
  * USE_TUNER: Expose some extra command line parameters that allow tuning the
  * search algorithm.
  */
-//#define USE_TUNER
+#define USE_TUNER
 
 #define PROGRAM_NAME "Leela Zero"
 #define PROGRAM_VERSION "0.15"

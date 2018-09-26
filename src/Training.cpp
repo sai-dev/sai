@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -117,7 +118,7 @@ void OutputChunker::flush_chunks() {
         memcpy(in_buff.get(), m_buffer.data(), in_buff_size);
 
         auto comp_size = gzwrite(out, in_buff.get(), in_buff_size);
-        if (!comp_size) {
+        if (in_buff_size && !comp_size) {
             throw std::runtime_error("Error in gzip output");
         }
         Utils::myprintf("Writing chunk %d\n",  m_chunk_count);
@@ -160,7 +161,11 @@ void Training::record(GameState& state, UCTNode& root) {
 
     auto result =
         Network::get_scored_moves(&state, Network::Ensemble::DIRECT, 0);
-    step.net_winrate = result.winrate;
+    const auto komi = state.get_komi();
+    step.komi = komi;
+    step.is_blunder = state.is_blunder();
+    step.net_winrate = sigmoid(result.alpha, result.beta,
+			       state.board.black_to_move() ? -komi : komi);
 
     const auto& best_node = root.get_best_root_child(step.to_move);
     step.root_uct_winrate = root.get_eval(step.to_move);
@@ -233,11 +238,23 @@ void Training::load_training(std::ifstream& in) {
 
 void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     auto training_str = std::string{};
-    for (const auto& step : m_data) {
+
+    if (m_data.size()==0) {
+	return;
+    }
+
+    auto it = m_data.end()-1;
+    for ( ; it!=m_data.begin() ; --it ) {
+	if (it->is_blunder) {
+	    break;
+	}
+    }
+
+    for ( ; it!=m_data.end() ; ++it ) {
         auto out = std::stringstream{};
         // First output 16 times an input feature plane
         for (auto p = size_t{0}; p < 16; p++) {
-            const auto& plane = step.planes[p];
+            const auto& plane = it->planes[p];
             // Write it out as a string of hex characters
             for (auto bit = size_t{0}; bit + 3 < plane.size(); bit += 4) {
                 auto hexbyte =  plane[bit]     << 3
@@ -254,18 +271,20 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         }
         // The side to move planes can be compactly encoded into a single
         // bit, 0 = black to move.
-        out << (step.to_move == FastBoard::BLACK ? "0" : "1") << std::endl;
+        out << (it->to_move == FastBoard::BLACK ? "0" : "1")
+	    << " " << it->komi
+	    << std::endl;
         // Then a BOARD_SQUARES + 1 long array of float probabilities
-        for (auto it = begin(step.probabilities);
-            it != end(step.probabilities); ++it) {
-            out << *it;
-            if (next(it) != end(step.probabilities)) {
+        for (auto its = begin(it->probabilities);
+            its != end(it->probabilities); ++its) {
+            out << *its;
+            if (next(its) != end(it->probabilities)) {
                 out << " ";
             }
         }
         out << std::endl;
         // And the game result for the side to move
-        if (step.to_move == winner_color) {
+        if (it->to_move == winner_color) {
             out << "1";
         } else {
             out << "-1";
@@ -309,6 +328,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
 
     do {
         auto to_move = state.get_to_move();
+        auto komi = state.get_komi();
         auto move_vertex = tree_moves[counter];
         auto move_idx = size_t{0};
 
@@ -330,6 +350,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
         auto step = TimeStep{};
         step.to_move = to_move;
         step.planes = get_planes(&state);
+        step.komi = komi;
 
         step.probabilities.resize(BOARD_SQUARES + 1);
         step.probabilities[move_idx] = 1.0f;

@@ -2,6 +2,7 @@
 #
 #    This file is part of Leela Zero.
 #    Copyright (C) 2017 Henrik Forsten
+#    Copyright (C) 2018 SAI Team
 #
 #    Leela Zero is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -21,6 +22,8 @@ import os
 import numpy as np
 import scipy.signal as signal
 from copy import deepcopy
+
+from config import *
 
 def convolve(w, x , bn=None, bn_epsilon=1e-5):
     x_ch, x_w, x_h = x.shape
@@ -115,7 +118,7 @@ def conv_bn_wider(weights, next_weights, inputs, channels,
             next_weights_new[j][:, i, :, :] *= (1.0 + noise)*factor[i]
 
     if noise_std == 0 and verify:
-        x = np.random.random((inputs, 19, 19))
+        x = np.random.random((inputs, BOARD_SIZE, BOARD_SIZE))
         old1 = convolve(np.array(weights[0]).reshape(channels, inputs, 3, 3), x, bn=[weights[2], weights[3]])
         old2 = convolve(np.array(next_weights[0]).reshape(-1, channels, w_filter, w_filter), old1)
         new1 = convolve(np.array(w_conv_new).reshape(channels + new_channels, inputs, 3, 3), x, bn=[w_bn_means, w_bn_vars])

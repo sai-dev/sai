@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -407,6 +408,8 @@ std::string FastBoard::move_to_text(int move) const {
     column--;
     row--;
 
+    // myprintf("Move: %d, m_squaresize: %d, row: %d.\n",
+    // 	     move, m_squaresize,);
     assert(move == FastBoard::PASS
            || move == FastBoard::RESIGN
            || (row >= 0 && row < m_boardsize));
