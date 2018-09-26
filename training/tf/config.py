@@ -42,17 +42,20 @@ BOARD_SIZE = 7
 BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 
 # Network structure -- common part
+
 RESIDUAL_FILTERS = 128
 RESIDUAL_BLOCKS = 3
 POLICY_OUTPUTS = 2
+INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
+              # 0: only komi in input (17 input planes)
 
 # Network structure -- Sai value head
 # Value head type can be:
 SINGLE = 1 # (Leela Zero)
 DOUBLE_V = 2
 DOUBLE_Y = 3
-DOUBLE_T = 4
-DOUBLE_I = 5
+DOUBLE_T = 4 # last two tyoes are equivalent, changing
+DOUBLE_I = 5 # only the order of weights in the file
 
 VALUE_HEAD_TYPE = DOUBLE_Y
 VAL_OUTPUTS = 2
