@@ -59,6 +59,7 @@ private:
     float m_value{0.5f};
     float m_alpkt{0.0f};
     float m_beta{1.0f};
+    float m_sdk{0.0f}; // How much a captured stone dynamically changes FastState m_komi, as required for Japanese scoring
 };
 
 namespace TimeManagement {

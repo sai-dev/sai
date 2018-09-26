@@ -271,11 +271,29 @@ int FastBoard::calc_reach_color(int color) const {
     return reachable;
 }
 
+int FastBoard::calc_is_color(int color) const {
+    auto color_match = 0;
+    for (auto i = 0; i < m_boardsize; i++) {
+        for (auto j = 0; j < m_boardsize; j++) {
+            auto vertex = get_vertex(i, j);
+            if (m_square[vertex] == color) {
+                color_match++;
+            }
+        }
+    }
+    return color_match;
+}
+
 // Needed for scoring passed out games not in MC playouts
 float FastBoard::area_score(float komi) const {
     auto white = calc_reach_color(WHITE);
     auto black = calc_reach_color(BLACK);
     return black - white - komi;
+}
+float FastBoard::nihon_score(float komi) const {
+    auto prisoner_diff = m_prisoners[BLACK] - m_prisoners[WHITE];
+    auto board_stone_diff = calc_is_color(WHITE) - calc_is_color(BLACK);
+    return area_score(komi) + prisoner_diff + board_stone_diff;
 }
 
 void FastBoard::display_board(int lastmove) {

@@ -82,6 +82,7 @@ public:
     bool is_eye(const int color, const int vtx) const;
 
     float area_score(float komi) const;
+    float nihon_score(float komi) const;
 
     int get_prisoners(int side) const;
     bool black_to_move() const;
@@ -126,6 +127,7 @@ protected:
     int m_squaresize;
 
     int calc_reach_color(int color) const;
+    int calc_is_color(int color) const;
 
     int count_neighbours(const int color, const int i) const;
     void merge_strings(const int ip, const int aip);
