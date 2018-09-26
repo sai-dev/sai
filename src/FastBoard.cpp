@@ -105,6 +105,8 @@ void FastBoard::reset_board(int size) {
     m_tomove = BLACK;
     m_prisoners[BLACK] = 0;
     m_prisoners[WHITE] = 0;
+    m_pg_stones[BLACK] = 0;
+    m_pg_stones[WHITE] = 0;
     m_empty_cnt = 0;
 
     m_dirs[0] = -m_squaresize;
@@ -292,8 +294,9 @@ float FastBoard::area_score(float komi) const {
 }
 float FastBoard::nihon_score(float komi) const {
     auto prisoner_diff = m_prisoners[BLACK] - m_prisoners[WHITE];
+    auto postgame_stone_diff = m_pg_stones[BLACK] - m_pg_stones[WHITE];
     auto board_stone_diff = calc_is_color(WHITE) - calc_is_color(BLACK);
-    return area_score(komi) + prisoner_diff + board_stone_diff;
+    return area_score(komi) + prisoner_diff + postgame_stone_diff + board_stone_diff;
 }
 
 void FastBoard::display_board(int lastmove) {
