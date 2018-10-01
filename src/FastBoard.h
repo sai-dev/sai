@@ -100,6 +100,8 @@ public:
     static bool starpoint(int size, int point);
     static bool starpoint(int size, int x, int y);
 
+    int liberties_to_capture(int vtx) const;
+
 protected:
     /*
         bit masks to detect eyes on neighbors

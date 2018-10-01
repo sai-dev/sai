@@ -35,7 +35,7 @@ public:
 
     void play_move(int vertex);
 
-    bool is_move_legal(int color, int vertex);
+    bool is_move_legal(int color, int vertex) const;
 
     void set_komi(float komi);
     float get_komi() const;
@@ -52,6 +52,7 @@ public:
     size_t get_movenum() const;
     int get_last_move() const;
     void display_state();
+    void display_legal(int color);
     std::string move_to_text(int move);
 
     void set_blunder_state(bool state);

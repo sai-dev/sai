@@ -60,6 +60,7 @@ int cfg_lagbuffer_cs;
 int cfg_resignpct;
 int cfg_noise;
 bool cfg_fpuzero;
+bool cfg_adv_features;
 float cfg_noise_value;
 float cfg_lambda;
 float cfg_komi;
@@ -112,6 +113,7 @@ void GTP::setup_default_parameters() {
     // if negative, the default is 10%, otherwise, this value % is used
     cfg_resignpct = -1;
     cfg_fpuzero = false;
+    cfg_adv_features = false;
     cfg_noise = false;
     cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
@@ -442,6 +444,10 @@ bool GTP::execute(GameState & game, std::string xinput) {
     } else if (command.find("showboard") == 0) {
         gtp_printf(id, "");
         game.display_state();
+        return true;
+    } else if (command.find("showlegal") == 0) {
+        gtp_printf(id, "");
+        game.display_legal(game.get_to_move());
         return true;
     } else if (command.find("final_score") == 0) {
         float ftmp = game.final_score();

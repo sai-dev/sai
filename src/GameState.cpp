@@ -348,11 +348,17 @@ void GameState::place_free_handicap(int stones) {
     set_handicap(orgstones);
 }
 
-const FullBoard& GameState::get_past_board(int moves_ago) const {
+std::shared_ptr<const KoState> GameState::get_past_state(int moves_ago) const {
     assert(moves_ago >= 0 && (unsigned)moves_ago <= m_movenum);
     assert(m_movenum + 1 <= game_history.size());
-    return game_history[m_movenum - moves_ago]->board;
+    return game_history[m_movenum - moves_ago];
 }
+
+// const FullBoard& GameState::get_past_board(int moves_ago) const {
+//     assert(moves_ago >= 0 && (unsigned)moves_ago <= m_movenum);
+//     assert(m_movenum + 1 <= game_history.size());
+//     return game_history[m_movenum - moves_ago]->board;
+// }
 
 // void GameState::copy_last_rnd_move_num () {
 //     const auto num = game_history[m_movenum - 1]->m_lastrndmovenum;

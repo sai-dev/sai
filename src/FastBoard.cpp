@@ -189,6 +189,18 @@ int FastBoard::count_neighbours(const int c, const int v) const {
     return (m_neighbours[v] >> (NBR_SHIFT * c)) & NBR_MASK;
 }
 
+int FastBoard::liberties_to_capture(int vtx) const {
+    short unsigned int minlibs = 9;
+    for (int k = 0; k < 4; k++) {
+        int ai = vtx + m_dirs[k];
+	const auto libs = m_libs[m_parent[ai]];
+	if (libs < minlibs) {
+	    minlibs = libs;
+	}
+    }
+    return minlibs;
+}
+
 void FastBoard::add_neighbour(const int vtx, const int color) {
     assert(color == WHITE || color == BLACK || color == EMPTY);
 

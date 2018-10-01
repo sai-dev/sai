@@ -141,10 +141,19 @@ void Training::clear_training() {
 }
 
 TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
-    const auto input_data = Network::gather_features(state, 0);
-
+    const auto input_data =
+	Network::gather_features(state, 0,
+				 cfg_adv_features ? Network::REDUCED_INPUT_MOVES :
+				 Network::DEFAULT_INPUT_MOVES,
+				 cfg_adv_features, false);
     auto planes = TimeStep::NNPlanes{};
-    const auto moves_planes = 2 * Network::INPUT_MOVES;
+
+    // for now the number of planes coding the position is always 16,
+    // but in general it is a number of feature planes (2 or 4
+    // depending on advanced features) times a number of moves in
+    // recorded history (8 or 4 depending on advanced features)
+    const auto moves_planes = (2 + (cfg_adv_features ? 2 : 0))
+	* (cfg_adv_features ? Network::REDUCED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
     planes.resize(moves_planes);
 
     for (auto c = size_t{0}; c < moves_planes; c++) {

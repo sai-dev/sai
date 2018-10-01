@@ -36,13 +36,6 @@
 
 float sigmoid(float alpha, float beta, float bonus);
 
-static constexpr int SINGLE = 1;
-static constexpr int DOUBLE_V = 2;
-static constexpr int DOUBLE_Y = 3;
-static constexpr int DOUBLE_T = 4;
-static constexpr int DOUBLE_I = 5;
-
-
 extern bool is_mult_komi_net;
 
 
@@ -77,12 +70,16 @@ public:
                                       const int symmetry = -1,
                                       const bool skip_cache = false);
 
-    static constexpr auto INPUT_MOVES = 8;
-    static constexpr auto COLOR_INPUT_PLANES = 2 * INPUT_MOVES + 2;
-    static constexpr auto NOCOL_INPUT_PLANES = 2 * INPUT_MOVES + 1;
-  //static constexpr auto OUTPUTS_POLICY = 2;
-  //static constexpr auto OUTPUTS_VAL = 1;
-  //static constexpr auto OUTPUTS_VBE = 1;
+    static constexpr unsigned short int SINGLE = 1;
+    static constexpr unsigned short int DOUBLE_V = 2;
+    static constexpr unsigned short int DOUBLE_Y = 3;
+    static constexpr unsigned short int DOUBLE_T = 4;
+    static constexpr unsigned short int DOUBLE_I = 5;
+    static constexpr unsigned int DEFAULT_INPUT_MOVES = 8;
+    static constexpr unsigned int REDUCED_INPUT_MOVES = 4;
+    static constexpr unsigned int DEFAULT_ADV_FEATURES = 0;
+    static constexpr auto DEFAULT_COLOR_INPUT_PLANES = (2 + DEFAULT_ADV_FEATURES) * DEFAULT_INPUT_MOVES + 2;
+    //    static constexpr auto DEFAULT_NOCOL_INPUT_PLANES = (2 + DEFAULT_ADV_FEATURES) * INPUT_MOVES + 1;
 
     // Winograd filter transformation changes 3x3 filters to 4x4
     static constexpr auto WINOGRAD_ALPHA = 4;
@@ -96,7 +93,10 @@ public:
 			     const bool stdout);
 
     static std::vector<net_t> gather_features(const GameState* const state,
-                                              const int symmetry);
+                                              const int symmetry,
+					      const int input_moves = DEFAULT_INPUT_MOVES,
+					      const bool adv_features = false,
+					      const bool include_color = false);
 private:
     static int load_v1_network(std::istream& wtfile);
     static int load_network_file(const std::string& filename);
@@ -128,6 +128,10 @@ private:
                                       std::vector<net_t>::iterator black,
                                       std::vector<net_t>::iterator white,
                                       const int symmetry);
+    static void fill_input_plane_advfeat(std::shared_ptr<const KoState> const state,
+					 std::vector<net_t>::iterator legal,
+					 std::vector<net_t>::iterator atari,
+					 const int symmetry);
     static Netresult get_scored_moves_internal(const GameState* const state,
                                                const int symmetry);
 #if defined(USE_BLAS)
@@ -141,16 +145,19 @@ private:
 
 
 struct netarch {
-  int value_head_type = SINGLE;
-  size_t residual_blocks = size_t{3};
-  size_t channels = size_t{128};
-    size_t input_planes = size_t{Network::COLOR_INPUT_PLANES};
-  size_t policy_outputs = size_t{2};
-  size_t val_outputs = size_t{1};
-  size_t vbe_outputs = size_t{0};
-  size_t val_chans = size_t{256};
-  size_t vbe_chans = size_t{0};
-  size_t value_head_rets = size_t{1};
+    int value_head_type = Network::SINGLE;
+    size_t residual_blocks = size_t{3};
+    size_t channels = size_t{128};
+    size_t input_moves = size_t{Network::DEFAULT_INPUT_MOVES};
+    size_t input_planes = size_t{Network::DEFAULT_COLOR_INPUT_PLANES};
+    bool adv_features = false;
+    bool include_color = true;
+    size_t policy_outputs = size_t{2};
+    size_t val_outputs = size_t{1};
+    size_t vbe_outputs = size_t{0};
+    size_t val_chans = size_t{256};
+    size_t vbe_chans = size_t{0};
+    size_t value_head_rets = size_t{1};
 };
 
 extern netarch arch;

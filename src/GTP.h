@@ -40,6 +40,7 @@ extern int cfg_lagbuffer_cs;
 extern int cfg_resignpct;
 extern int cfg_noise;
 extern bool cfg_fpuzero;
+extern bool cfg_adv_features;
 extern float cfg_noise_value;
 extern float cfg_komi;
 extern float cfg_lambda;

@@ -121,6 +121,8 @@ static void parse_commandline(int argc, char *argv[]) {
         ("fpu_reduction", po::value<float>())
         ("fpu_zero", "Use constant fpu=0.5 (AlphaGoZero). "
 	 "The default is reduced parent's value (LeelaZero).")
+        ("adv_features", "Include advanced features (legal moves, liberties to capture) "
+	 "when saving training data, but lower history from 8 to 4 moves.")
         ;
 #endif
     // These won't be shown, we use them to catch incorrect usage of the
@@ -193,7 +195,9 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("fpu_zero")) {
         cfg_fpuzero = true;
     }
-
+    if (vm.count("adv_features")) {
+	cfg_adv_features  = true;
+    }
 #endif
 
     if (vm.count("logfile")) {

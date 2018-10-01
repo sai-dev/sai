@@ -62,7 +62,7 @@ void FastState::reset_board(void) {
     board.reset_board(board.get_boardsize());
 }
 
-bool FastState::is_move_legal(int color, int vertex) {
+bool FastState::is_move_legal(int color, int vertex) const {
     return vertex == FastBoard::PASS ||
            vertex == FastBoard::RESIGN ||
            (vertex != m_komove &&
@@ -143,6 +143,41 @@ void FastState::display_state() {
              board.get_prisoners(FastBoard::WHITE));
 
     board.display_board(get_last_move());
+}
+
+void FastState::display_legal(int color) {
+    myprintf("\nPasses: %d            Black (X) Prisoners: %d\n",
+             m_passes, board.get_prisoners(FastBoard::BLACK));
+    if (board.black_to_move()) {
+        myprintf("Black (X) to move");
+    } else {
+        myprintf("White (O) to move");
+    }
+    myprintf("    White (O) Prisoners: %d\n",
+             board.get_prisoners(FastBoard::WHITE));
+
+    int boardsize = board.get_boardsize();
+
+    myprintf("\n   ");
+    board.print_columns();
+    for (int j = boardsize-1; j >= 0; j--) {
+        myprintf("%2d", j+1);
+	myprintf(" ");
+        for (int i = 0; i < boardsize; i++) {
+            if (is_move_legal(color, board.get_vertex(i,j))) {
+		//                myprintf("O");
+		myprintf("%1d", board.liberties_to_capture(board.get_vertex(i,j)));
+            } else {
+                myprintf(".");
+            }
+            myprintf(" ");
+        }
+        myprintf("%2d\n", j+1);
+    }
+    myprintf("   ");
+    board.print_columns();
+    myprintf("\n");
+    //board.display_legal(color);
 }
 
 std::string FastState::move_to_text(int move) {
