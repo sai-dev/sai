@@ -84,6 +84,10 @@ public:
     float area_score(float komi) const;
     float nihon_score(float komi) const;
 
+    int calc_is_color(int color) const;
+    void set_passPassPosition(FastBoard *pp_board_pos);
+    FastBoard * get_passPassPosition();
+
     int get_prisoners(int side) const;
     bool black_to_move() const;
     bool white_to_move() const;
@@ -116,7 +120,7 @@ protected:
     std::array<unsigned short, MAXSQ>      m_neighbours;  /* counts of neighboring stones */
     std::array<int, 4>                     m_dirs;        /* movement directions 4 way */
     std::array<int, 2>                     m_prisoners;   /* prisoners per color */
-    std::array<int, 2>                     m_pg_stones;   /* stones placed after game ended per color */
+    FastBoard                             *m_pp_board_pos;/* board position after a double pass */
     std::array<unsigned short, MAXSQ>      m_empty;       /* empty squares */
     std::array<unsigned short, MAXSQ>      m_empty_idx;   /* indexes of square */
     int m_empty_cnt;                                      /* count of empties */
@@ -128,7 +132,6 @@ protected:
     int m_squaresize;
 
     int calc_reach_color(int color) const;
-    int calc_is_color(int color) const;
 
     int count_neighbours(const int color, const int i) const;
     void merge_strings(const int ip, const int aip);
