@@ -282,7 +282,7 @@ int Network::load_v1_network(std::istream& wtfile) {
 		  // with some advanced features (legal and atari)
 		  arch.input_moves = (arch.input_planes - (arch.include_color ? 2 : 1)) /
 		      (arch.adv_features ? 4 : 2);
-		  
+
 		  assert (n_wts_1st_layer == arch.input_planes*9*arch.channels);
 		  myprintf("%d input planes...%d input moves... %d channels...",
 			   arch.input_planes,
@@ -1110,7 +1110,7 @@ Network::Netresult Network::get_scored_moves_internal(
     // if the input planes of the loaded network are even, then the
     // color of the current player is encoded in the last two planes
     const auto include_color = (0 == arch.input_planes % 2);
-    
+
     const auto input_data = gather_features(state, symmetry,
 					    arch.input_moves,
 					    arch.adv_features,
@@ -1225,6 +1225,35 @@ Network::Netresult Network::get_scored_moves_internal(
     return result;
 }
 
+Network::Netresult_extended Network::get_extended(const FastState& state, const Netresult& result) {
+    const auto komi = state.get_komi();
+    const auto alpha = result.alpha;
+    const auto beta = result.beta;
+
+    const auto winrate = sigmoid(alpha,  beta, state.board.black_to_move() ? -komi : komi);
+    const auto alpkt = (state.board.black_to_move() ? alpha : -alpha) - komi;
+
+    const auto pi = sigmoid(alpkt, beta, 0.0f);
+	// if pi is near to 1, this is much more precise than 1-pi
+	const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f);
+
+    const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
+    const auto pi_mu = (1-cfg_mu)*pi + cfg_mu*0.5f;
+
+	// this is useful when lambda is near to 0 and pi near 1
+	const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
+	const auto sigma_inv_pi_lambda = std::log(pi_lambda) - std::log(one_m_pi_lambda);
+	const auto eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
+
+    const auto one_m_pi_mu = (1-cfg_mu)*one_m_pi + cfg_mu*0.5f;
+	const auto sigma_inv_pi_mu = std::log(pi_mu) - std::log(one_m_pi_mu);
+	const auto eval_base = sigma_inv_pi_mu / beta - alpkt;
+
+	const auto agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, eval_base, eval_bonus);
+
+    return { winrate, alpkt, pi, eval_bonus, eval_base, agent_eval };
+}
+
 void Network::show_heatmap(const FastState* const state,
                            const Netresult& result,
                            const bool topmoves,
@@ -1256,21 +1285,34 @@ void Network::show_heatmap(const FastState* const state,
 	}
     }
     const auto pass_score = int(result.policy_pass * 1000);
-    const auto komi = state->get_komi();
-    const auto winrate = sigmoid(result.alpha, result.beta, state->board.black_to_move() ? -komi : komi);
+
     if (stdout) {
-	std::cout << "pass: " << pass_score << std::endl
-		  << "value: " << result.value << std::endl
-		  << "winrate: " << winrate << std::endl
-		  << "alpha: " << result.alpha << std::endl
-		  << "beta: " << result.beta << std::endl;
+        std::cout << "pass: " << pass_score << std::endl;
+        if (is_mult_komi_net) {
+            const auto result_extended = get_extended(*state, result);
+            std::cout << "alpha: " << result.alpha << std::endl
+                      << "beta: " << result.beta << std::endl
+                      << "winrate: " << result_extended.winrate << std::endl
+                      << "black alpkt: " << result_extended.alpkt << std::endl
+                      << "black x_bar: " << result_extended.eval_bonus << std::endl
+                      << "black x_base: " << result_extended.eval_base << std::endl;
+        } else {
+            std::cout << "value: " << result.value << std::endl;
+        }
     }
     else {
-	myprintf("pass: %d\n", pass_score);
-	myprintf("alpha: %f\n", result.alpha);
-	myprintf("beta: %f\n", result.beta);
-	myprintf("value: %f\n", result.value);
-	myprintf("winrate: %f\n", winrate);
+        myprintf("pass: %d\n", pass_score);
+        if (is_mult_komi_net) {
+            const auto result_extended = get_extended(*state, result);
+            myprintf("alpha: %f\n", result.alpha);
+            myprintf("beta: %f\n", result.beta);
+            myprintf("winrate: %f\n", result_extended.winrate);
+            myprintf("black alpkt: %f\n", result_extended.alpkt);
+            myprintf("black x_bar: %f\n", result_extended.eval_bonus);
+            myprintf("black x_base: %f\n", result_extended.eval_base);
+        } else {
+            myprintf("value: %f\n", result.value);
+        }
     }
 
     if (topmoves) {
@@ -1350,7 +1392,7 @@ std::vector<net_t> Network::gather_features(const GameState* const state,
     // planes are needed, otherwise one input plane filled with ones
     // will provide information on the border of the board for the CNN
     auto input_planes = moves_planes + (include_color ? 2 : 1);
-    
+
     auto input_data = std::vector<net_t>(input_planes * BOARD_SQUARES);
 
     const auto current_it = begin(input_data);
@@ -1362,7 +1404,7 @@ std::vector<net_t> Network::gather_features(const GameState* const state,
 	legal_it += 2 * input_moves * BOARD_SQUARES;
 	atari_it += 3 * input_moves * BOARD_SQUARES;
     }
-    
+
     const auto to_move = state->get_to_move();
     const auto blacks_move = to_move == FastBoard::BLACK;
     const auto black_it = blacks_move ? current_it : opponent_it;
@@ -1371,12 +1413,12 @@ std::vector<net_t> Network::gather_features(const GameState* const state,
     // 	     "moves planes: %d, input planes: %d, to move: %d, blacks_move: %d\n",
     // 	     input_moves, adv_features, include_color,
     // 	     moves_planes, input_planes, to_move, blacks_move);
-    
+
     // we fill one plane with ones: this is the only one remaining
     // when the color of current player is not included, otherwise it
     // is one of the two last plane, depending on current player
     const auto onesfilled_it = 	blacks_move || !include_color ?
-	begin(input_data) + moves_planes * BOARD_SQUARES : 
+	begin(input_data) + moves_planes * BOARD_SQUARES :
 	begin(input_data) + (moves_planes + 1) * BOARD_SQUARES;
     std::fill(onesfilled_it, onesfilled_it + BOARD_SQUARES, net_t(true));
 

@@ -86,9 +86,6 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     const auto to_move = state.board.get_to_move();
     const auto komi = state.get_komi();
 
-    //    alpkt = m_net_alpkt = raw_netlist.alpha +
-    //	(state.board.black_to_move() ? -komi : komi);
-    alpkt = m_net_alpkt = (state.board.black_to_move() ? raw_netlist.alpha : -raw_netlist.alpha) - komi;
     beta = m_net_beta = raw_netlist.beta;
     value = raw_netlist.value; // = m_net_value
 
@@ -98,36 +95,26 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
         value = 1.0f - value;
 
     if (is_mult_komi_net) {
-        const auto pi = sigmoid(alpkt, beta, 0.0f);
-	// if pi is near to 1, this is much more precise than 1-pi
-	const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f);
-
-    const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
-    const auto pi_mu = (1-cfg_mu)*pi + cfg_mu*0.5f;
-
-	// this is useful when lambda is near to 0 and pi near 1
-	const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
-	const auto sigma_inv_pi_lambda = std::log(pi_lambda) - std::log(one_m_pi_lambda);
-	m_eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
-    const auto one_m_pi_mu = (1-cfg_mu)*one_m_pi + cfg_mu*0.5f;
-	const auto sigma_inv_pi_mu = std::log(pi_mu) - std::log(one_m_pi_mu);
-	m_eval_base = sigma_inv_pi_mu / beta - alpkt;
-	m_agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, m_eval_base, m_eval_bonus);
+        const auto result_extended = Network::get_extended(state, raw_netlist);
+        m_net_alpkt = alpkt = result_extended.alpkt;
+        m_eval_bonus = result_extended.eval_bonus;
+        m_eval_base = result_extended.eval_base;
+        m_agent_eval = result_extended.agent_eval;
+        m_net_eval = result_extended.pi;
 
 #ifndef NDEBUG
         myprintf("alpha=%f, beta=%f, pass=%f\n"
-            "alpkt=%f, pi=%f, pi_lambda=%f, pi_mu=%f, x_bar=%f\n x_base=%f\n",
+            "alpkt=%f, pi=%f, x_bar=%f\n x_base=%f\n",
             raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
-            m_net_alpkt, pi, pi_lambda, pi_mu, m_eval_bonus, m_eval_base);
+            m_net_alpkt, m_net_eval, m_eval_bonus, m_eval_base);
 #endif
 
-        m_net_eval = pi;
-    }
-    else {
+    } else {
+        m_net_alpkt = -komi;
         m_eval_bonus = 0.0f;
         m_eval_base = 0.0f;
         m_net_eval = value;
-	m_agent_eval = value;
+        m_agent_eval = value;
     }
 
     std::vector<Network::ScoreVertexPair> nodelist;

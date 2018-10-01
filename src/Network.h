@@ -65,6 +65,16 @@ public:
         Netresult() : policy(BOARD_SQUARES), policy_pass(0.0f), alpha(0.0f), beta(0.0f) {}
     };
 
+    // Results which may obtained by a Netresult together with a FastState
+    struct Netresult_extended {
+        float winrate;
+        float alpkt;
+        float pi;
+        float eval_bonus;
+        float eval_base;
+        float agent_eval;
+    };
+
     static Netresult get_scored_moves(const GameState* const state,
                                       const Ensemble ensemble,
                                       const int symmetry = -1,
@@ -91,6 +101,8 @@ public:
     static void show_heatmap(const FastState * const state,
                              const Netresult & netres, const bool topmoves,
 			     const bool stdout);
+
+    static Netresult_extended get_extended(const FastState&, const Netresult& result);
 
     static std::vector<net_t> gather_features(const GameState* const state,
                                               const int symmetry,
