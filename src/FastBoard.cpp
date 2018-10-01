@@ -293,7 +293,6 @@ float FastBoard::area_score(float komi) const {
 }
 // Japanese scoring of a postgame position with all capturable stones removed
 float FastBoard::nihon_score(float komi) const {
-    int removedPrisonerDifference = 0;
     FastBoard passPassRemoveDead;
     passPassRemoveDead.reset_board(m_boardsize);
 
@@ -303,22 +302,14 @@ float FastBoard::nihon_score(float komi) const {
             auto vertex = get_vertex(i, j);
             if (m_square[vertex] == m_pp_board_pos->get_square(vertex)) {
                 passPassRemoveDead.set_square(vertex, m_square[vertex]);
-            } else if (m_square[vertex] == EMPTY) {
-                //Account for removed prisoners
-                switch (m_pp_board_pos->get_square(vertex)) {
-                    case WHITE:
-                        removedPrisonerDifference++;
-                        break;
-                    case BLACK:
-                        removedPrisonerDifference--;
-                }
             }
         }
     }
 
     auto prisoner_diff = m_pp_board_pos->get_prisoners(BLACK) - m_pp_board_pos->get_prisoners(WHITE);
-    auto board_stone_diff = passPassRemoveDead.calc_is_color(WHITE) - passPassRemoveDead.calc_is_color(BLACK);
-    return passPassRemoveDead.area_score(komi) + prisoner_diff + removedPrisonerDifference + board_stone_diff;
+    //Account for the territory with stones
+    auto board_stone_diff = m_pp_board_pos->calc_is_color(WHITE) - m_pp_board_pos->calc_is_color(BLACK);
+    return passPassRemoveDead.area_score(komi) + prisoner_diff + board_stone_diff;
 }
 
 // Sets the position after a double pass, required for Japanese scoring
