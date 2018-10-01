@@ -66,6 +66,8 @@ static void parse_commandline(int argc, char *argv[]) {
                      "Weaken engine by limiting the number of visits.")
         ("komi", po::value<float>()->default_value(cfg_komi),
                      "Komi")
+        ("rules", po::value<std::string>()->default_value("chinese"),
+                     "Rules: chinese  or japanese")
         ("lambda", po::value<float>()->default_value(cfg_lambda),
                      "Lambda value")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
@@ -271,6 +273,14 @@ static void parse_commandline(int argc, char *argv[]) {
 
     cfg_lambda = vm["lambda"].as<float>();
     cfg_komi = vm["komi"].as<float>();
+
+    if (vm["rules"].as<std::string>() == "chinese") {
+            cfg_rules = CHINESE;
+            cfg_prisoner_value = 0.0f;
+    } else if (vm["rules"].as<std::string>() == "japanese") {
+            cfg_rules = JAPANESE;
+            cfg_prisoner_value = 1.0f;
+    }
 
     if (vm.count("resignpct")) {
         cfg_resignpct = vm["resignpct"].as<int>();

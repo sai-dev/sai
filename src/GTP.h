@@ -65,6 +65,15 @@ extern bool cfg_benchmark;
 extern float cfg_blunder_thr;
 
 /*
+    possible scoring methods
+*/
+enum rules_t : int {
+    CHINESE, JAPANESE
+};
+extern rules_t cfg_rules;
+extern float cfg_prisoner_value; // How much a captured stone is worth 0:Chinese, 1:Japanese
+
+/*
     A list of all valid GTP2 commands is defined here:
     https://www.lysator.liu.se/~gunnar/gtp/gtp2-spec-draft2/gtp2-spec.html
     GTP is meant to be used between programs. It's not a human interface.

@@ -69,16 +69,7 @@ public:
     size_t m_movenum;
     int m_lastmove;
 
-    /*
-        possible scoring methods
-    */
-    enum score_method_t : char {
-        CHINESE = 0, JAPANESE = 1
-    };
-    score_method_t m_score_method = CHINESE;
-
     float get_bonus(void) const;
-    float prisoner_value{0.0f}; // How much a captured stone is worth 0:Chinese, 1:Japanese
 
     // last rndly chosen move with low probability
     // we don't save training info before that point

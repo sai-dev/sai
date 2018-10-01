@@ -18,6 +18,7 @@
 */
 
 #include "config.h"
+#include "GTP.h"
 #include "FastState.h"
 
 #include <algorithm>
@@ -150,7 +151,7 @@ std::string FastState::move_to_text(int move) {
 }
 
 float FastState::final_score() const {
-    switch (m_score_method) {
+    switch (cfg_rules) {
         case CHINESE:
             return board.area_score(get_komi() + get_handicap());
         case JAPANESE:
@@ -164,7 +165,7 @@ float FastState::get_komi() const {
 
 //Komi can be considered dynamic for Japanese scoring as prisoners have value
 float FastState::get_bonus() const {
-    return get_komi() + prisoner_value * (board.get_prisoners(FastBoard::WHITE) - board.get_prisoners(FastBoard::BLACK));
+    return get_komi() + cfg_prisoner_value * (board.get_prisoners(FastBoard::WHITE) - board.get_prisoners(FastBoard::BLACK));
 }
 
 void FastState::set_handicap(int hcap) {

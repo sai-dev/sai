@@ -62,6 +62,8 @@ int cfg_noise;
 bool cfg_fpuzero;
 float cfg_noise_value;
 float cfg_lambda;
+rules_t cfg_rules;
+float cfg_prisoner_value;
 float cfg_komi;
 int cfg_random_cnt;
 int cfg_random_min_visits;
@@ -96,6 +98,8 @@ void GTP::setup_default_parameters() {
 #endif
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
+    cfg_rules = CHINESE;
+    cfg_prisoner_value = 0.0f;
     cfg_komi = 7.5f;
     cfg_lambda = 0.5f;
     cfg_timemanage = TimeManagement::AUTO;
