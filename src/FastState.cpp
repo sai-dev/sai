@@ -150,11 +150,21 @@ std::string FastState::move_to_text(int move) {
 }
 
 float FastState::final_score() const {
-    return board.area_score(get_komi() + get_handicap());
+    switch (m_score_method) {
+        case CHINESE:
+            return board.area_score(get_komi() + get_handicap());
+        case JAPANESE:
+            return board.nihon_score(get_komi() + get_handicap());
+    }
 }
 
 float FastState::get_komi() const {
     return m_komi;
+}
+
+//Komi can be considered dynamic for Japanese scoring as prisoners have value
+float FastState::get_bonus() const {
+    return get_komi() + prisoner_value * (board.get_prisoners(FastBoard::WHITE) - board.get_prisoners(FastBoard::BLACK));
 }
 
 void FastState::set_handicap(int hcap) {

@@ -84,7 +84,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
         &state, Network::Ensemble::RANDOM_SYMMETRY);
 
     const auto to_move = state.board.get_to_move();
-    const auto komi = state.get_komi();
+    const auto komi = state.get_bonus();
 
     //    alpkt = m_net_alpkt = raw_netlist.alpha +
     //	(state.board.black_to_move() ? -komi : komi);

@@ -1219,7 +1219,7 @@ void Network::show_heatmap(const FastState* const state,
 	}
     }
     const auto pass_score = int(result.policy_pass * 1000);
-    const auto komi = state->get_komi();
+    const auto komi = state->get_bonus();
     const auto winrate = sigmoid(result.alpha, result.beta, state->board.black_to_move() ? -komi : komi);
     if (stdout) {
 	std::cout << "pass: " << pass_score << std::endl

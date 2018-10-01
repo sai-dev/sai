@@ -161,7 +161,7 @@ void Training::record(GameState& state, UCTNode& root) {
 
     auto result =
         Network::get_scored_moves(&state, Network::Ensemble::DIRECT, 0);
-    const auto komi = state.get_komi();
+    const auto komi = state.get_bonus();
     step.komi = komi;
     step.is_blunder = state.is_blunder();
     step.net_winrate = sigmoid(result.alpha, result.beta,
@@ -328,7 +328,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
 
     do {
         auto to_move = state.get_to_move();
-        auto komi = state.get_komi();
+        auto komi = state.get_bonus();
         auto move_vertex = tree_moves[counter];
         auto move_idx = size_t{0};
 
