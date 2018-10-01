@@ -68,6 +68,8 @@ static void parse_commandline(int argc, char *argv[]) {
                      "Komi")
         ("lambda", po::value<float>()->default_value(cfg_lambda),
                      "Lambda value")
+        ("mu",  po::value<float>()->default_value(cfg_mu),
+                     "Mu value")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
@@ -284,6 +286,7 @@ static void parse_commandline(int argc, char *argv[]) {
     }
 
     cfg_lambda = vm["lambda"].as<float>();
+    cfg_mu = vm["mu"].as<float>();
     cfg_komi = vm["komi"].as<float>();
 
     if (vm.count("resignpct")) {

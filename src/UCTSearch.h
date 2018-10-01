@@ -39,7 +39,7 @@ public:
     SearchResult() = default;
     bool valid() const { return m_valid;  }
     float eval() const { return m_value;  }
-    float eval_with_bonus(float bonus);
+    float eval_with_bonus(float bonus, float base);
     static SearchResult from_eval(float value, float alpkt, float beta) {
         return SearchResult(value, alpkt, beta);
     }

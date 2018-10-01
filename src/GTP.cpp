@@ -63,6 +63,7 @@ bool cfg_fpuzero;
 bool cfg_adv_features;
 float cfg_noise_value;
 float cfg_lambda;
+float cfg_mu;
 float cfg_komi;
 int cfg_random_cnt;
 int cfg_random_min_visits;
@@ -99,6 +100,7 @@ void GTP::setup_default_parameters() {
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_komi = 7.5f;
     cfg_lambda = 0.5f;
+    cfg_mu = 0.0f;
     cfg_timemanage = TimeManagement::AUTO;
     cfg_lagbuffer_cs = 100;
 #ifdef USE_OPENCL

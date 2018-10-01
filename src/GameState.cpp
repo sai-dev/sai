@@ -43,8 +43,9 @@ void GameState::set_eval(float alpkt,
 		       float beta,
 		       float pi,
 		       float avg_eval,
-		       float eval_bonus) {
-    KoState::set_eval(alpkt, beta, pi, avg_eval, eval_bonus);
+		       float eval_bonus,
+               float eval_base) {
+    KoState::set_eval(alpkt, beta, pi, avg_eval, eval_bonus, eval_base);
 }
 
 

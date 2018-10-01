@@ -75,6 +75,9 @@ public:
     float get_eval_bonus() const;
     float get_eval_bonus_father() const;
     void set_eval_bonus_father(float bonus);
+    float get_eval_base() const;
+    float get_eval_base_father() const;
+    void set_eval_base_father(float bonus);
     float get_net_eval() const;
     float get_net_beta() const;
     float get_net_alpkt() const;
@@ -123,6 +126,8 @@ private:
     float m_net_alpkt{0.0f}; // alpha + \tilde k
     float m_net_beta{1.0f};
     float m_eval_bonus{0.0f}; // x bar
+    float m_eval_base{0.0f}; // x base
+    float m_eval_base_father{0.0f}; // x base of father node
     float m_eval_bonus_father{0.0f}; // x bar of father node
 
     // the following is used only in fpu, with reduction

@@ -100,27 +100,32 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     if (is_mult_komi_net) {
         const auto pi = sigmoid(alpkt, beta, 0.0f);
 	// if pi is near to 1, this is much more precise than 1-pi
-	const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f); 
+	const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f);
 
-        const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
+    const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
+    const auto pi_mu = (1-cfg_mu)*pi + cfg_mu*0.5f;
 
 	// this is useful when lambda is near to 0 and pi near 1
 	const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
 	const auto sigma_inv_pi_lambda = std::log(pi_lambda) - std::log(one_m_pi_lambda);
 	m_eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
-	m_agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, 0.0f, m_eval_bonus);
+    const auto one_m_pi_mu = (1-cfg_mu)*one_m_pi + cfg_mu*0.5f;
+	const auto sigma_inv_pi_mu = std::log(pi_mu) - std::log(one_m_pi_mu);
+	m_eval_base = sigma_inv_pi_mu / beta - alpkt;
+	m_agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, m_eval_base, m_eval_bonus);
 
 #ifndef NDEBUG
         myprintf("alpha=%f, beta=%f, pass=%f\n"
-            "alpkt=%f, pi=%f, pi_lambda=%f, x_bar=%f\n",
+            "alpkt=%f, pi=%f, pi_lambda=%f, pi_mu=%f, x_bar=%f\n x_base=%f\n",
             raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
-            m_net_alpkt, pi, pi_lambda, m_eval_bonus);
+            m_net_alpkt, pi, pi_lambda, pi_mu, m_eval_bonus, m_eval_base);
 #endif
 
         m_net_eval = pi;
     }
     else {
         m_eval_bonus = 0.0f;
+        m_eval_base = 0.0f;
         m_net_eval = value;
 	m_agent_eval = value;
     }
@@ -242,6 +247,18 @@ float UCTNode::get_eval_bonus_father() const {
 
 void UCTNode::set_eval_bonus_father(float bonus) {
     m_eval_bonus_father = bonus;
+}
+
+float UCTNode::get_eval_base() const {
+    return m_eval_base;
+}
+
+float UCTNode::get_eval_base_father() const {
+    return m_eval_base_father;
+}
+
+void UCTNode::set_eval_base_father(float bonus) {
+    m_eval_base_father = bonus;
 }
 
 float UCTNode::get_net_eval() const {
