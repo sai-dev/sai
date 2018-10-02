@@ -92,32 +92,28 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     beta = m_net_beta = raw_netlist.beta;
     value = raw_netlist.value; // = m_net_value
 
+    // DCNN returns value as side to move
+    // our search functions evaluate from black's point of view
+    if (state.board.white_to_move())
+        value = 1.0f - value;
+
     if (is_mult_komi_net) {
-	const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
-	const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
-	m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta
-	    - m_net_alpkt;
-	
+        const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
+        const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
+        m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;
 
 #ifndef NDEBUG
-	myprintf("alpha=%f, beta=%f, pass=%f\n"
-		 "alpkt=%f, pi=%f, pi_lambda=%f, x_bar=%f\n",
-		 raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
-		 m_net_alpkt, pi, pi_lambda, m_eval_bonus);
+        myprintf("alpha=%f, beta=%f, pass=%f\n"
+            "alpkt=%f, pi=%f, pi_lambda=%f, x_bar=%f\n",
+            raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
+            m_net_alpkt, pi, pi_lambda, m_eval_bonus);
 #endif
 
-	m_net_eval = pi;
+        m_net_eval = pi;
     }
     else {
-	m_eval_bonus = 0.0f;
-	m_net_eval = value;
-    }
-
-    // DCNN returns winrate as side to move
-    // our search functions evaluate from black's point of view
-    if (state.board.white_to_move()) {
-        m_net_eval = 1.0f - m_net_eval;
-	value = 1.0f - value;
+        m_eval_bonus = 0.0f;
+        m_net_eval = value;
     }
 
     std::vector<Network::ScoreVertexPair> nodelist;
