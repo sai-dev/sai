@@ -312,9 +312,23 @@ float FastBoard::nihon_score(float komi) const {
     return passPassRemoveDead.area_score(komi) + prisoner_diff + board_stone_diff;
 }
 
-// Sets the position after a double pass, required for Japanese scoring
-void FastBoard::set_passPassPosition(FastBoard *pp_board_pos) {
-    m_pp_board_pos = pp_board_pos;
+// Sets the endgame position to the current position after a double pass, required for Japanese scoring
+void FastBoard::set_passPassPosition() {
+    FastBoard copyOfCurrentPosition;
+    copyOfCurrentPosition.reset_board(m_boardsize);
+
+    //Generate a board: the end game position without dead stones removed
+    for (auto i = 0; i < m_boardsize; i++) {
+        for (auto j = 0; j < m_boardsize; j++) {
+            auto vertex = get_vertex(i, j);
+            copyOfCurrentPosition.set_square(vertex, m_square[vertex]);
+        }
+    }
+
+    copyOfCurrentPosition.set_prisoners(WHITE, m_prisoners[WHITE]);
+    copyOfCurrentPosition.set_prisoners(BLACK, m_prisoners[BLACK]);
+
+    m_pp_board_pos = &copyOfCurrentPosition;
 }
 
 FastBoard * FastBoard::get_passPassPosition() {
@@ -550,6 +564,12 @@ int FastBoard::get_prisoners(int side)  const {
     assert(side == WHITE || side == BLACK);
 
     return m_prisoners[side];
+}
+
+void FastBoard::set_prisoners(int side, int amount) {
+    assert(side == WHITE || side == BLACK);
+
+    m_prisoners[side] = amount;
 }
 
 int FastBoard::get_to_move() const {

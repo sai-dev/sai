@@ -85,10 +85,11 @@ public:
     float nihon_score(float komi) const;
 
     int calc_is_color(int color) const;
-    void set_passPassPosition(FastBoard *pp_board_pos);
+    void set_passPassPosition();
     FastBoard * get_passPassPosition();
 
     int get_prisoners(int side) const;
+    void set_prisoners(int side, int amount);
     bool black_to_move() const;
     bool white_to_move() const;
     int get_to_move() const;
