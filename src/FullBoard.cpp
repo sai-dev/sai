@@ -21,6 +21,7 @@
 #include <array>
 #include <cassert>
 
+#include "GTP.h"
 #include "FullBoard.h"
 #include "Utils.h"
 #include "Zobrist.h"
