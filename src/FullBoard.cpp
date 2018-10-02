@@ -158,6 +158,10 @@ int FullBoard::update_board(const int color, const int i) {
 
     m_hash ^= Zobrist::zobrist_pris[color][m_prisoners[color]];
     m_prisoners[color] += captured_stones;
+    if (cfg_rules == JAPANESE && get_passPassPosition() != NULL) {
+        //post-game moves get refund points when playing
+        m_prisoners[color]++;
+    }
     m_hash ^= Zobrist::zobrist_pris[color][m_prisoners[color]];
 
     /* move last vertex in list to our position */
