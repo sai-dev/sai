@@ -121,6 +121,11 @@ void FastState::set_passes(int val) {
 
 void FastState::increment_passes() {
     m_passes++;
+    if (m_passes == 2 && cfg_rules == JAPANESE && board.get_passPassPosition() == NULL){
+        //begin the post-game
+        board.set_passPassPosition(&board);
+        m_passes = 0;
+    }
     if (m_passes > 4) m_passes = 4;
 }
 
