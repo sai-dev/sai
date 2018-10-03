@@ -177,6 +177,9 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("quiet")) {
         cfg_quiet = true;
     }
+#ifndef NDEBUG
+    cfg_quiet = false;
+#endif
 
     if (vm.count("benchmark")) {
         cfg_quiet = true;  // Set this early to avoid unnecessary output.
@@ -205,7 +208,14 @@ static void parse_commandline(int argc, char *argv[]) {
         myprintf("Logging to %s.\n", cfg_logfile.c_str());
         cfg_logfile_handle = fopen(cfg_logfile.c_str(), "a");
     }
-
+#ifndef NDEBUG
+    else {
+        cfg_logfile = "std_log";
+        myprintf("Logging to %s.\n", cfg_logfile.c_str());
+        cfg_logfile_handle = fopen(cfg_logfile.c_str(), "a");
+    }
+#endif
+    
     if (vm.count("weights")) {
         cfg_weightsfile = vm["weights"].as<std::string>();
     } else {
