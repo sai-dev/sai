@@ -99,12 +99,27 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
 
     if (is_mult_komi_net) {
         const auto pi = sigmoid(alpkt, beta, 0.0f);
+	// if pi is near to 1, this is much more precise than 1-pi
+	const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f); 
+
         const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
-	const auto sigma_inv_pi_lambda = std::log( (pi_lambda)/(1.0f-pi_lambda) );
-        m_eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
-	m_agent_eval = 0.5f
-	    + (std::log(std::cosh(0.5f * sigma_inv_pi_lambda)) - std::log(std::cosh(0.5f * beta * alpkt)))
-	    / (sigma_inv_pi_lambda - beta * alpkt);
+
+	// this is useful when lambda is near to 0 and pi near 1
+	const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
+	auto sigma_inv_pi_lambda = std::log(pi_lambda) - std::log(one_m_pi_lambda);
+	if (cfg_lambda > 0.0001f) {
+	    m_eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
+	} else {
+	    // if lambda is too small, use the derivative in 0 of xbar(lambda) to estimate;
+	    m_eval_bonus = cfg_lambda / (pi * one_m_pi * 2 * beta / (1 - 2 * pi));
+	}
+	if (std::abs(beta * m_eval_bonus) > 0.0001f) {
+	    m_agent_eval = 0.5f
+		+ (std::log(std::cosh(0.5f * sigma_inv_pi_lambda)) - std::log(std::cosh(0.5f * beta * alpkt)))
+		/ m_eval_bonus / beta;
+	} else {
+	    m_agent_eval = pi;
+	}
 
 #ifndef NDEBUG
         myprintf("alpha=%f, beta=%f, pass=%f\n"

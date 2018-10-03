@@ -280,7 +280,7 @@ int Network::load_v1_network(std::istream& wtfile) {
 		  // that for each move there are 2 bitplanes with
 		  // stones positions and possibly 2 more bitplanes
 		  // with some advanced features (legal and atari)
-		  arch.input_moves = arch.input_planes /
+		  arch.input_moves = (arch.input_planes - (arch.include_color ? 2 : 1)) /
 		      (arch.adv_features ? 4 : 2);
 		  
 		  assert (n_wts_1st_layer == arch.input_planes*9*arch.channels);
@@ -1367,7 +1367,11 @@ std::vector<net_t> Network::gather_features(const GameState* const state,
     const auto blacks_move = to_move == FastBoard::BLACK;
     const auto black_it = blacks_move ? current_it : opponent_it;
     const auto white_it = blacks_move ? opponent_it : current_it;
-
+    // myprintf("input moves: %d, advanced features: %d, include color: %d\n"
+    // 	     "moves planes: %d, input planes: %d, to move: %d, blacks_move: %d\n",
+    // 	     input_moves, adv_features, include_color,
+    // 	     moves_planes, input_planes, to_move, blacks_move);
+    
     // we fill one plane with ones: this is the only one remaining
     // when the color of current player is not included, otherwise it
     // is one of the two last plane, depending on current player
