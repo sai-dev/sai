@@ -27,15 +27,15 @@ BATCH_SIZE = 512
 # Number of examples in a GPU batch. Higher values are more efficient.
 # The maximum depends on the amount of RAM in your GPU and the network size.
 # Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 64
+RAM_BATCH_SIZE = 128
 
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 DOWN_SAMPLE = 16
 
 # -- 2.2GB of RAM.
-TRAIN_SHUFFLE_BITS=20
-TEST_SHUFFLE_BITS=17  # was 19
+TRAIN_SHUFFLE_BITS=19 # was 20
+TEST_SHUFFLE_BITS=16  # was 19
 
 # Board size and number of squares in a board. Board size must be an odd number!
 BOARD_SIZE = 7
@@ -64,13 +64,13 @@ VAL_CHANS = 256
 VBE_CHANS = 128 # only for double W and Y
 
 # Learning rate
-LEARN_RATE = 0.0005
+LEARN_RATE = 0.0010
 
 # Outputs new network after the specified number of training steps
-TRAINING_STEPS = 4000
+TRAINING_STEPS = 10000
 
 # Display intermediate output after the specified number of training steps
-INFO_STEPS = 800
+INFO_STEPS = 500
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 4000
+MAX_TRAINING_STEPS = 10000
