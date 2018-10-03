@@ -200,7 +200,7 @@ void UCTNode::inflate_all_children() {
 void UCTNode::prepare_root_node(int color,
                                 std::atomic<int>& nodes,
                                 GameState& root_state) {
-    float root_eval, root_value, root_alpkt, root_beta;
+    float root_value, root_alpkt, root_beta;
 
     const auto had_children = has_children();
     if (expandable()) {
@@ -212,10 +212,10 @@ void UCTNode::prepare_root_node(int color,
 	update(0);
     }
     
-    root_eval = get_net_eval();
-    root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
+    //    root_eval = get_net_eval(color);
+    //    root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
 
-    myprintf("NN eval=%f\n", root_eval);
+    myprintf("NN eval=%f. Agent eval=%f\n", get_net_eval(color), get_agent_eval(color));
 
     // There are a lot of special cases where code assumes
     // all children of the root are inflated, so do that.

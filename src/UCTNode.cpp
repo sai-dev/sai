@@ -98,9 +98,13 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
         value = 1.0f - value;
 
     if (is_mult_komi_net) {
-        const auto pi = sigmoid(m_net_alpkt, m_net_beta, 0.0f);
+        const auto pi = sigmoid(alpkt, beta, 0.0f);
         const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
-        m_eval_bonus = std::log( (pi_lambda)/(1.0f-pi_lambda) ) / m_net_beta - m_net_alpkt;
+	const auto sigma_inv_pi_lambda = std::log( (pi_lambda)/(1.0f-pi_lambda) );
+        m_eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
+	m_agent_eval = 0.5f
+	    + (std::log(std::cosh(0.5f * sigma_inv_pi_lambda)) - std::log(std::cosh(0.5f * beta * alpkt)))
+	    / (sigma_inv_pi_lambda - beta * alpkt);
 
 #ifndef NDEBUG
         myprintf("alpha=%f, beta=%f, pass=%f\n"
@@ -280,6 +284,13 @@ float UCTNode::get_net_eval(int tomove) const {
     return m_net_eval;
 }
 
+float UCTNode::get_agent_eval(int tomove) const {
+    if (tomove == FastBoard::WHITE) {
+        return 1.0f - m_agent_eval;
+    }
+    return m_agent_eval;
+}
+
 double UCTNode::get_blackevals() const {
     return m_blackevals;
 }
@@ -314,7 +325,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     // Estimated eval for unknown nodes = original parent NN eval - reduction
     auto fpu_eval = 0.5f;
     if ( !cfg_fpuzero ) {
-	fpu_eval = get_net_eval(color) - fpu_reduction;
+	fpu_eval = get_agent_eval(color) - fpu_reduction;
     }
 
     auto best = static_cast<UCTNodePointer*>(nullptr);

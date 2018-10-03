@@ -71,6 +71,7 @@ public:
     void set_score(float score);
     float get_eval(int tomove) const;
     float get_net_eval(int tomove) const;
+    float get_agent_eval(int tomove) const;
     float get_eval_bonus() const;
     float get_eval_bonus_father() const;
     void set_eval_bonus_father(float bonus);
@@ -123,6 +124,9 @@ private:
     float m_net_beta{1.0f};
     float m_eval_bonus{0.0f}; // x bar
     float m_eval_bonus_father{0.0f}; // x bar of father node
+
+    // the following is used only in fpu, with reduction
+    float m_agent_eval{0.5f}; // eval_with_bonus(eval_bonus()) no father
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
     // Is someone adding scores to this node?
