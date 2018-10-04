@@ -106,20 +106,9 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
 
 	// this is useful when lambda is near to 0 and pi near 1
 	const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
-	auto sigma_inv_pi_lambda = std::log(pi_lambda) - std::log(one_m_pi_lambda);
-	if (cfg_lambda > 0.0001f) {
-	    m_eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
-	} else {
-	    // if lambda is too small, use the derivative in 0 of xbar(lambda) to estimate;
-	    m_eval_bonus = cfg_lambda / (pi * one_m_pi * 2 * beta / (1 - 2 * pi));
-	}
-	if (std::abs(beta * m_eval_bonus) > 0.0001f) {
-	    m_agent_eval = 0.5f
-		+ (std::log(std::cosh(0.5f * sigma_inv_pi_lambda)) - std::log(std::cosh(0.5f * beta * alpkt)))
-		/ m_eval_bonus / beta;
-	} else {
-	    m_agent_eval = pi;
-	}
+	const auto sigma_inv_pi_lambda = std::log(pi_lambda) - std::log(one_m_pi_lambda);
+	m_eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
+	m_agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, 0.0f, m_eval_bonus);
 
 #ifndef NDEBUG
         myprintf("alpha=%f, beta=%f, pass=%f\n"
@@ -133,6 +122,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     else {
         m_eval_bonus = 0.0f;
         m_net_eval = value;
+	m_agent_eval = value;
     }
 
     std::vector<Network::ScoreVertexPair> nodelist;

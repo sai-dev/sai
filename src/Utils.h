@@ -35,6 +35,7 @@ namespace Utils {
     void gtp_fail_printf(int id, const char *fmt, ...);
     void log_input(const std::string& input);
     bool input_pending();
+    float sigmoid_interval_avg(float alpkt, float beta, float s, float t);
 
     template<class T>
     void atomic_add(std::atomic<T> &f, T d) {

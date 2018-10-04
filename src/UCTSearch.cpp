@@ -829,29 +829,5 @@ void UCTSearch::set_visit_limit(int visits) {
 }
 
 float SearchResult::eval_with_bonus(float xbar) {
-    if (std::abs(xbar) < 0.001f) {
-	return sigmoid(m_alpkt,m_beta,0.0f);
-    }
-
-#ifndef NDEBUG
-    if (std::abs(xbar) > 1000.0f) {
-	myprintf("Warning: xbar out of bound: %f.\n", xbar);
-    }
-#endif
-
-    if (xbar > 1000.0f) {
-	return 1.0f;
-    }
-
-    if (xbar < -1000.0f) {
-	return 0.0f;
-    }
-    
-    auto a = std::abs(m_alpkt+xbar);
-    auto b = std::abs(m_alpkt);
-
-    auto aa = std::log(sigmoid(b,m_beta,0.0f))/m_beta/xbar;
-    auto bb = std::log(sigmoid(a,m_beta,0.0f))/m_beta/xbar;
-    
-    return 0.5f + 0.5f*(a-b)/xbar + aa - bb;
+    return Utils::sigmoid_interval_avg(m_alpkt, m_beta, 0.0f, xbar);
 }

@@ -22,6 +22,7 @@
 #include <mutex>
 #include <cstdarg>
 #include <cstdio>
+#include <cmath>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -143,4 +144,33 @@ size_t Utils::ceilMultiple(size_t a, size_t b) {
 
     auto ret = a + (b - a % b);
     return ret;
+}
+
+float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
+    if (s>t) {
+	std::swap(s,t);
+    }
+    const auto h = beta * (t - s);
+
+    if (h < 0.001f) {
+	return sigmoid(alpkt,beta,(s+t)/2);
+    }
+
+    #ifndef NDEBUG
+    if (std::abs(s) + std::abs(t) > 2000.0f) {
+	myprintf("Warning: integration interval out of bound: [%f,%f].\n", s, t);
+    }
+    #endif
+
+    const auto a = std::abs(alpkt+s);
+    const auto b = std::abs(alpkt+t);
+
+    const auto main_term = (alpkt+s)*(alpkt+t) > 0 ?
+	( alpkt+s > 0 ? 1.0f : 0.0f ) :
+	0.5f + 0.5f*(a-b)/(s-t);
+
+    const auto aa = std::log(sigmoid(a,beta,0.0f))/h;
+    const auto bb = std::log(sigmoid(b,beta,0.0f))/h;
+
+    return main_term - aa + bb;
 }
