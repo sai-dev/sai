@@ -151,7 +151,7 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
 	std::swap(s,t);
     }
     const auto h = beta * (t - s);
-
+    
     if (h < 0.001f) {
 	return sigmoid(alpkt,beta,(s+t)/2);
     }
@@ -167,10 +167,13 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
 
     const auto main_term = (alpkt+s)*(alpkt+t) > 0 ?
 	( alpkt+s > 0 ? 1.0f : 0.0f ) :
-	0.5f + 0.5f*(a-b)/(s-t);
+	0.5f + 0.5f*(b-a)/(t-s);
 
     const auto aa = std::log(sigmoid(a,beta,0.0f))/h;
     const auto bb = std::log(sigmoid(b,beta,0.0f))/h;
 
-    return main_term - aa + bb;
+    //    myprintf("integral: alpkt=%f, beta=%f, s=%f, t=%f\n"
+    //	     "h=%f, a=%f, b=%f, main_term=%f, aa=%f, bb=%f\n",
+    //	     alpkt, beta, s, t, h, a, b, main_term, aa, bb);
+    return main_term - bb + aa;
 }
