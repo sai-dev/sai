@@ -1083,6 +1083,9 @@ Network::Netresult Network::get_scored_moves(
         for (auto sym = 0; sym < 8; ++sym) {
             auto tmpresult = get_scored_moves_internal(state, sym);
             result.policy_pass += tmpresult.policy_pass / 8.0f;
+            result.value += tmpresult.value / 8.0f;
+            result.alpha += tmpresult.alpha / 8.0f;
+            result.beta += tmpresult.beta / 8.0f;
 
             for (auto idx = size_t{0}; idx < BOARD_SQUARES; idx++) {
                 result.policy[idx] += tmpresult.policy[idx] / 8.0f;
@@ -1256,20 +1259,35 @@ Network::Netresult_extended Network::get_extended(const FastState& state, const 
 
 void Network::show_heatmap(const FastState* const state,
                            const Netresult& result,
-                           const bool topmoves,
-			   const bool stdout = false) {
+                           const bool topmoves) {
     std::vector<std::string> display_map;
     std::string line;
 
+    float legal_score = 0.0f;
+    float illegal_score = 0.0f;
+
+    std::array<float, BOARD_SQUARES> scores;
+    
+    const auto color = state->get_to_move();
+
     for (unsigned int y = 0; y < BOARD_SIZE; y++) {
         for (unsigned int x = 0; x < BOARD_SIZE; x++) {
-            auto score = 0;
             const auto vertex = state->board.get_vertex(x, y);
-            if (state->board.get_square(vertex) == FastBoard::EMPTY) {
-                score = result.policy[y * BOARD_SIZE + x] * 1000;
+            const auto score = result.policy[y * BOARD_SIZE + x];
+            if (state->is_move_legal(color, vertex)) {
+                legal_score += score;
+                scores[y * BOARD_SIZE + x] = score;
+            } else {
+                illegal_score += score;
+                scores[y * BOARD_SIZE + x] = 0.0f;
             }
+        }
+    }
 
-            line += boost::str(boost::format("%3d ") % score);
+    for (unsigned int y = 0; y < BOARD_SIZE; y++) {
+        for (unsigned int x = 0; x < BOARD_SIZE; x++) {
+            const auto clean_score = int(scores[y * BOARD_SIZE + x] * 1000.0f / legal_score);
+            line += boost::str(boost::format("%3d ") % clean_score);
         }
 
         display_map.push_back(line);
@@ -1277,42 +1295,22 @@ void Network::show_heatmap(const FastState* const state,
     }
 
     for (int i = display_map.size() - 1; i >= 0; --i) {
-	if (stdout) {
-	    std::cout << display_map[i] << std::endl;
-	}
-	else {
-	    myprintf("%s\n", display_map[i].c_str());
-	}
+        myprintf("%s\n", display_map[i].c_str());
     }
     const auto pass_score = int(result.policy_pass * 1000);
+    const auto illegal_millis = int(illegal_score * 1000);
 
-    if (stdout) {
-        std::cout << "pass: " << pass_score << std::endl;
-        if (is_mult_komi_net) {
-            const auto result_extended = get_extended(*state, result);
-            std::cout << "alpha: " << result.alpha << std::endl
-                      << "beta: " << result.beta << std::endl
-                      << "winrate: " << result_extended.winrate << std::endl
-                      << "black alpkt: " << result_extended.alpkt << std::endl
-                      << "black x_bar: " << result_extended.eval_bonus << std::endl
-                      << "black x_base: " << result_extended.eval_base << std::endl;
-        } else {
-            std::cout << "value: " << result.value << std::endl;
-        }
-    }
-    else {
-        myprintf("pass: %d\n", pass_score);
-        if (is_mult_komi_net) {
-            const auto result_extended = get_extended(*state, result);
-            myprintf("alpha: %f\n", result.alpha);
-            myprintf("beta: %f\n", result.beta);
-            myprintf("winrate: %f\n", result_extended.winrate);
-            myprintf("black alpkt: %f\n", result_extended.alpkt);
-            myprintf("black x_bar: %f\n", result_extended.eval_bonus);
-            myprintf("black x_base: %f\n", result_extended.eval_base);
-        } else {
-            myprintf("value: %f\n", result.value);
-        }
+    myprintf("pass: %d, illegal: %d\n", pass_score, illegal_millis);
+    if (is_mult_komi_net) {
+        const auto result_extended = get_extended(*state, result);
+        myprintf("alpha: %.2f, ", result.alpha);
+        myprintf("beta: %.2f, ", result.beta);
+        myprintf("winrate: %.1f%%\n", result_extended.winrate*100);
+        myprintf("black alpkt: %.2f,", result_extended.alpkt);
+        myprintf(" x_bar: %.2f,", result_extended.eval_bonus);
+        myprintf(" x_base: %.2f\n", result_extended.eval_base);
+    } else {
+        myprintf("value: %.1f%%\n", result.value*100);
     }
 
     if (topmoves) {

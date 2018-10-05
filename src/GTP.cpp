@@ -578,7 +578,7 @@ bool GTP::execute(GameState & game, std::string xinput) {
             for (auto r = 0; r < 8; r++) {
                 vec = Network::get_scored_moves(
                     &game, Network::Ensemble::DIRECT, r, true);
-                Network::show_heatmap(&game, vec, false, false);
+                Network::show_heatmap(&game, vec, false);
             }
         } else if (symmetry == "average" || symmetry == "avg") {
             vec = Network::get_scored_moves(
@@ -589,27 +589,10 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
 
         if (symmetry != "all") {
-            Network::show_heatmap(&game, vec, false, false);
+            Network::show_heatmap(&game, vec, false);
         }
 
         gtp_printf(id, "");
-        return true;
-    } else if (command.find("hm") == 0) {
-        const Network::Netresult vec = Network::get_scored_moves(
-					&game, Network::Ensemble::DIRECT, 0, true);
-
-	Network::show_heatmap(&game, vec, false, true);
-
-	// const auto komi = game.get_komi();
-	// const auto winrate = sigmoid( vec.alpha,
-	// 			      vec.beta,
-	// 			      game.board.black_to_move() ? -komi : komi );
-
-	// std::cout << (is_mult_komi_net ? winrate : vec.value) << std::endl
-	// 	  << vec.alpha << std::endl
-	// 	  << vec.beta << std::endl;
-
-
         return true;
     } else if (command.find("fixed_handicap") == 0) {
         std::istringstream cmdstream(command);
