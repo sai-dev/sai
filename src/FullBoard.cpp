@@ -182,7 +182,7 @@ int FullBoard::update_board(const int color, const int i) {
     return 0;
 }
 
-void FullBoard::display_board(int lastmove) {
+void FullBoard::display_board(int lastmove) const {
     FastBoard::display_board(lastmove);
 
     myprintf("Hash: %llX Ko-Hash: %llX\n\n", get_hash(), get_ko_hash());

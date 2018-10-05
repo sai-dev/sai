@@ -290,7 +290,7 @@ float FastBoard::area_score(float komi) const {
     return black - white - komi;
 }
 
-void FastBoard::display_board(int lastmove) {
+void FastBoard::display_board(int lastmove) const {
     int boardsize = get_boardsize();
 
     myprintf("\n   ");
@@ -322,7 +322,7 @@ void FastBoard::display_board(int lastmove) {
     myprintf("\n");
 }
 
-void FastBoard::print_columns() {
+void FastBoard::print_columns() const {
     for (int i = 0; i < get_boardsize(); i++) {
         if (i < 25) {
             myprintf("%c ", (('a' + i < 'i') ? 'a' + i : 'a' + i + 1));

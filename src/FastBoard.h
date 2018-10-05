@@ -95,7 +95,7 @@ public:
     std::string get_string(int vertex) const;
 
     void reset_board(int size);
-    void display_board(int lastmove = -1);
+    void display_board(int lastmove = -1) const;
 
     static bool starpoint(int size, int point);
     static bool starpoint(int size, int x, int y);
@@ -133,7 +133,7 @@ protected:
     void merge_strings(const int ip, const int aip);
     void add_neighbour(const int i, const int color);
     void remove_neighbour(const int i, const int color);
-    void print_columns();
+    void print_columns() const;
 };
 
 #endif
