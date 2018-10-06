@@ -36,7 +36,8 @@ namespace Utils {
     void log_input(const std::string& input);
     bool input_pending();
     float sigmoid_interval_avg(float alpkt, float beta, float s, float t);
-
+    float log_sigmoid(float x);
+    
     template<class T>
     void atomic_add(std::atomic<T> &f, T d) {
         T old = f.load();

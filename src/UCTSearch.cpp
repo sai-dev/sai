@@ -170,8 +170,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     const std::string tmp = lastmove ? currstate.move_to_text(lastmove)
 	: "empty";
 
-    myprintf("Last move was %i, or %s. Simulation begins.\n"
-	     "Visits=%i, blackevals=%f, net_eval=%f, x_bar=%f, x_base=%f.\n",
+    myprintf("\nSimulation step: at move %i, or %s.\n"
+	     "Visits=%i, blackevals=%.2f, net_eval=%.3f, x_bar=%.2f, x_base=%.2f.\n",
 	     lastmove, tmp.c_str(),
 	     node->get_visits(),
 	     node->get_blackevals(),
@@ -192,29 +192,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             const auto success =
                 node->create_children(m_nodes, currstate, value, alpkt, beta,
                                       get_min_psa_ratio());
-#ifndef NDEBUG
-	    myprintf("Function create_children() returned %i, alpkt=%f, beta=%f.\n",
-		     success, alpkt, beta);
-	    myprintf("Last move was %i, or %s. Just after create_children().\n"
-		     "Visits=%i, blackevals=%f, x_bar=%f, x_base=%f"
-		     "eval=%f, net_eval=%f.\n",
-		     lastmove, tmp.c_str(),
-		     node->get_visits(),
-		     node->get_blackevals(),
-		     node->get_eval_bonus(),
-             node->get_eval_base(),
-		     node->get_eval(color),
-		     node->get_net_eval(color));
-#endif
             if (!had_children && success) {
                 result = SearchResult::from_eval(value, alpkt, beta);
-#ifndef NDEBUG
-		myprintf("Result from eval: eval=%f, eval_with_bonus=%f\n"
-			 "Move choices by policy: ",
-			 result.eval_with_bonus(0.0f, 0.0f),
-			 result.eval_with_bonus(node->get_eval_bonus(),node->get_eval_base()));
-		print_move_choices_by_policy(currstate, *node, 3, 0.01f);
-#endif
             }
         }
     }
@@ -231,7 +210,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         } else {
 #ifndef NDEBUG
             std::string tmp = currstate.move_to_text(move);
-	    myprintf("%4s ", tmp.c_str());
+	    myprintf("UCT selected move %4s.\n", tmp.c_str());
 #endif
             result = play_simulation(currstate, next);
         }
@@ -241,23 +220,16 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 	const auto eval = is_mult_komi_net ?
 	    result.eval_with_bonus(node->get_eval_bonus_father(), node->get_eval_base_father()) : result.eval();
 #ifndef NDEBUG
-	myprintf("is_mult_komi_net=%d, bonus=%f, base=%f, eval_with_bonus=%f, eval=%f.\n"
-		 "About to update blackevals with %f\n", is_mult_komi_net, node->get_eval_bonus(), node->get_eval_base(),
-		 result.eval_with_bonus(node->get_eval_bonus(), node->get_eval_base()), result.eval(), eval);
+	myprintf("Last move was %s. Visits=%i, blackevals=%f, "
+		 "bonus=%f, eval=%f.\n"
+		 "About to update blackevals with %f\n",
+		 tmp.c_str(), node->get_visits(), node->get_blackevals(),
+		 node->get_eval_bonus(), 
+		 result.eval(), eval);
 #endif
         node->update(eval);
     }
     node->virtual_loss_undo();
-
-#ifndef NDEBUG
-    myprintf("Last move was %i, or %s. Simulation ends.\n"
-	     "Visits=%i, blackevals=%f, eval=%f, net_eval=%f.\n",
-	     lastmove, tmp.c_str(),
-	     node->get_visits(),
-	     node->get_blackevals(),
-	     node->get_eval(color),
-	     node->get_net_eval(color));
-#endif
 
     return result;
 }
@@ -287,12 +259,23 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         tmpstate.play_move(node->get_move());
         std::string pv = move + " " + get_pv(tmpstate, *node);
 
+#ifdef NDEBUG
         myprintf("%4s -> %7d (V: %5.2f%%) (N: %5.2f%%) PV: %s\n",
-            move.c_str(),
-            node->get_visits(),
-            node->get_visits() ? node->get_eval(color)*100.0f : 0.0f,
-            node->get_score() * 100.0f,
-            pv.c_str());
+#else
+        myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %.2f, den: %d) "
+                 "(V: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+#endif
+                 move.c_str(),
+                 node->get_visits(),
+#ifndef NDEBUG
+                 node->get_urgency()[0] * 100.0f,
+                 node->get_urgency()[2] * 100.0f,
+		 node->get_urgency()[4],
+		 int(node->get_urgency()[3]),
+#endif
+                 node->get_visits() ? node->get_eval(color)*100.0f : 0.0f,
+                 node->get_score() * 100.0f,
+                 pv.c_str());
     }
     tree_stats(parent);
 }
@@ -705,6 +688,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
     bool keeprunning = true;
     int last_update = 0;
     do {
+#ifndef NDEBUG
+	myprintf("\n\nSimulation starts from root.\n");
+#endif
         auto currstate = std::make_unique<GameState>(m_rootstate);
 
         auto result = play_simulation(*currstate, m_root.get());
@@ -751,7 +737,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
     const auto alpkt = m_root->get_net_alpkt();
     const auto beta = m_root->get_net_beta();
     m_rootstate.set_eval(alpkt, beta,
-			 sigmoid(alpkt, beta, 0.0f),
+			 sigmoid(alpkt, beta, 0.0f).first,
 			 m_root->get_eval(FastBoard::BLACK),
 			 m_root->get_eval_bonus(),
              m_root->get_eval_base());

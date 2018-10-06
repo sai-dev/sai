@@ -153,7 +153,7 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
     const auto h = beta * (t - s);
     
     if (h < 0.001f) {
-	return sigmoid(alpkt,beta,(s+t)/2);
+	return sigmoid(alpkt,beta,(s+t)/2).first;
     }
 
     #ifndef NDEBUG
@@ -169,11 +169,24 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
 	( alpkt+s > 0 ? 1.0f : 0.0f ) :
 	0.5f + 0.5f*(b-a)/(t-s);
 
-    const auto aa = std::log(sigmoid(a,beta,0.0f))/h;
-    const auto bb = std::log(sigmoid(b,beta,0.0f))/h;
+    const auto aa = log_sigmoid(a*beta) / h;
+    const auto bb = log_sigmoid(b*beta) / h;
 
     //    myprintf("integral: alpkt=%f, beta=%f, s=%f, t=%f\n"
     //	     "h=%f, a=%f, b=%f, main_term=%f, aa=%f, bb=%f\n",
     //	     alpkt, beta, s, t, h, a, b, main_term, aa, bb);
     return main_term - bb + aa;
+}
+
+float Utils::log_sigmoid(float x) {
+    // Returns log(1/(1+exp(-x))
+    // When sigmoid is about 1, log(sigmoid) is about 0 but not very precise
+    // This function provides a robust estimate in that case.
+    // Its argument should be beta*(alpha+bonus)
+    if (x>10.0f) {
+        const auto ul = std::exp(-x);
+        const auto ll = 1.0f/(1.0f+std::exp(x));
+        return -std::sqrt(ul*ll);
+    }
+    return std::log(sigmoid(x,1.0f,0.0f).first);
 }

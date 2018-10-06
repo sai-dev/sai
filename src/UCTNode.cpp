@@ -103,8 +103,8 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
         m_net_eval = result_extended.pi;
 
 #ifndef NDEBUG
-        myprintf("alpha=%f, beta=%f, pass=%f\n"
-            "alpkt=%f, pi=%f, x_bar=%f\n x_base=%f\n",
+        myprintf("--> NN:   alpha=%.2f, beta=%.3f, pass=%.3f, "
+            "alpkt=%.2f, pi=%.3f, x_bar=%.2f, x_base=%.2f\n\n",
             raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
             m_net_alpkt, m_net_eval, m_eval_bonus, m_eval_base);
 #endif
@@ -268,6 +268,20 @@ int UCTNode::get_visits() const {
     return m_visits;
 }
 
+#ifndef NDEBUG
+void UCTNode::set_urgency(float urgency,
+                          float psa,
+                          float q,
+                          float den,
+                          float num) {
+    m_last_urgency = {urgency, psa, q, den, num};
+}
+
+std::array<float, 5> UCTNode::get_urgency() const {
+    return m_last_urgency;
+}
+#endif
+
 float UCTNode::get_eval(int tomove) const {
     // Due to the use of atomic updates and virtual losses, it is
     // possible for the visit count to change underneath us. Make sure
@@ -340,6 +354,12 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
 
+#ifndef NDEBUG
+    auto b_psa = 0.0f;
+    auto b_q = 0.0f;
+    auto b_denom = 0.0f;
+#endif
+    
     for (auto& child : m_children) {
         if (!child.active()) {
             continue;
@@ -358,11 +378,20 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         if (value > best_value) {
             best_value = value;
             best = &child;
+#ifndef NDEBUG
+	    b_psa = psa;
+	    b_q = winrate;
+	    b_denom = denom;
+#endif
 	}
     }
 
     assert(best != nullptr);
     best->inflate();
+#ifndef NDEBUG
+    best->get()->set_urgency(best_value, b_psa, b_q,
+                             b_denom, numerator);
+#endif
     return best->get();
 }
 

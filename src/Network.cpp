@@ -1057,8 +1057,18 @@ std::vector<float> softmax(const std::vector<float>& input,
     return output;
 }
 
-float sigmoid(float alpha, float beta, float bonus) {
-  return 1.0f/(1.0f+std::exp(-beta*(alpha+bonus)));
+std::pair<float,float> sigmoid(float alpha, float beta, float bonus) {
+    const auto arg = beta*(alpha+bonus);
+    const auto absarg = std::abs(arg);
+    float ret;
+    
+    if (absarg > 30.0f) {
+        ret = std::exp(-absarg);
+    } else {
+        ret = 1.0f/(1.0f+std::exp(absarg));
+    }
+    return arg<0 ? std::make_pair(ret, 1.0f-ret)
+               : std::make_pair(1.0f-ret, ret);
 }
 
 Network::Netresult Network::get_scored_moves(
@@ -1235,26 +1245,28 @@ Network::Netresult_extended Network::get_extended(const FastState& state, const 
 
     const auto winrate = sigmoid(alpha,  beta, state.board.black_to_move() ? -komi : komi);
     const auto alpkt = (state.board.black_to_move() ? alpha : -alpha) - komi;
-
+    
     const auto pi = sigmoid(alpkt, beta, 0.0f);
-	// if pi is near to 1, this is much more precise than 1-pi
-	const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f);
+    // if pi is near to 1, this is much more precise than 1-pi
+    //    const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f);
+    
+    const auto pi_lambda = std::make_pair((1-cfg_lambda)*pi.first + cfg_lambda*0.5f,
+                                          (1-cfg_lambda)*pi.second + cfg_lambda*0.5f);
+    const auto pi_mu = std::make_pair((1-cfg_mu)*pi.first + cfg_mu*0.5f,
+                                      (1-cfg_mu)*pi.second + cfg_mu*0.5f);
+    
+    // this is useful when lambda is near to 0 and pi near 1
+    //    const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
+    const auto sigma_inv_pi_lambda = std::log(pi_lambda.first) - std::log(pi_lambda.second);
+    const auto eval_bonus = (cfg_lambda == 0) ? 0.0f : sigma_inv_pi_lambda / beta - alpkt;
+    
+    //    const auto one_m_pi_mu = (1-cfg_mu)*one_m_pi + cfg_mu*0.5f;
+    const auto sigma_inv_pi_mu = std::log(pi_mu.first) - std::log(pi_mu.second);
+    const auto eval_base = (cfg_mu == 0) ? 0.0f : sigma_inv_pi_mu / beta - alpkt;
+    
+    const auto agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, eval_base, eval_bonus);
 
-    const auto pi_lambda = (1-cfg_lambda)*pi + cfg_lambda*0.5f;
-    const auto pi_mu = (1-cfg_mu)*pi + cfg_mu*0.5f;
-
-	// this is useful when lambda is near to 0 and pi near 1
-	const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
-	const auto sigma_inv_pi_lambda = std::log(pi_lambda) - std::log(one_m_pi_lambda);
-	const auto eval_bonus = sigma_inv_pi_lambda / beta - alpkt;
-
-    const auto one_m_pi_mu = (1-cfg_mu)*one_m_pi + cfg_mu*0.5f;
-	const auto sigma_inv_pi_mu = std::log(pi_mu) - std::log(one_m_pi_mu);
-	const auto eval_base = sigma_inv_pi_mu / beta - alpkt;
-
-	const auto agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, eval_base, eval_bonus);
-
-    return { winrate, alpkt, pi, eval_bonus, eval_base, agent_eval };
+    return { winrate.first, alpkt, pi.first, eval_bonus, eval_base, agent_eval };
 }
 
 void Network::show_heatmap(const FastState* const state,

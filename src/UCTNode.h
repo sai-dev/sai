@@ -81,6 +81,11 @@ public:
     float get_net_eval() const;
     float get_net_beta() const;
     float get_net_alpkt() const;
+#ifndef NDEBUG
+    void set_urgency(float urgency, float psa, float q,
+                     float num, float den);
+    std::array<float, 5> get_urgency() const;
+#endif
     void virtual_loss(void);
     void virtual_loss_undo(void);
     void update(float eval);
@@ -129,6 +134,9 @@ private:
     float m_eval_base{0.0f}; // x base
     float m_eval_base_father{0.0f}; // x base of father node
     float m_eval_bonus_father{0.0f}; // x bar of father node
+#ifndef NDEBUG
+    std::array<float, 5> m_last_urgency;
+#endif
 
     // the following is used only in fpu, with reduction
     float m_agent_eval{0.5f}; // eval_with_bonus(eval_bonus()) no father

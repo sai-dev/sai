@@ -34,7 +34,7 @@
 
 
 
-float sigmoid(float alpha, float beta, float bonus);
+std::pair<float,float> sigmoid(float alpha, float beta, float bonus);
 
 extern bool is_mult_komi_net;
 

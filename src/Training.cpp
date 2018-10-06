@@ -175,7 +175,8 @@ void Training::record(GameState& state, UCTNode& root) {
     step.komi = komi;
     step.is_blunder = state.is_blunder();
     step.net_winrate = sigmoid(result.alpha, result.beta,
-			       state.board.black_to_move() ? -komi : komi);
+			       state.board.black_to_move() ?
+                               -komi : komi).first;
 
     const auto& best_node = root.get_best_root_child(step.to_move);
     step.root_uct_winrate = root.get_eval(step.to_move);
