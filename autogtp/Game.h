@@ -63,6 +63,7 @@ public:
     enum {
         BLACK = 0,
         WHITE = 1,
+        JIGO = 2,
     };
 
 private:

@@ -300,6 +300,8 @@ bool Game::getScore() {
             m_winner = QString(QStringLiteral("white"));
         } else if (readBuffer[2] == 'B') {
             m_winner = QString(QStringLiteral("black"));
+        } else if (readBuffer[2] == '0') {
+            m_winner = QString(QStringLiteral("jigo"));
         }
         if (!eatNewLine()) {
             error(Game::PROCESS_DIED);
@@ -316,10 +318,14 @@ bool Game::getScore() {
 }
 
 int Game::getWinner() {
-    if (m_winner.compare(QStringLiteral("white"), Qt::CaseInsensitive) == 0)
+    if (m_winner.compare(QStringLiteral("white"),
+                         Qt::CaseInsensitive) == 0)
         return Game::WHITE;
-    else
+    else if (m_winner.compare(QStringLiteral("black"),
+                              Qt::CaseInsensitive) == 0)
         return Game::BLACK;
+
+    return Game::JIGO;
 }
 
 bool Game::writeSgf() {

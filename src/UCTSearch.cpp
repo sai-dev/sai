@@ -640,7 +640,7 @@ void UCTSearch::print_move_choices_by_policy(KoState & state, UCTNode & parent, 
         if (++movecount > at_least_as_many && policy_value_of_move<probab_threash)
 	    break;
 
-	    policy_value_of_move = node.get_score();
+        policy_value_of_move = node.get_score();
         std::string tmp = state.move_to_text(node.get_move());
         myprintf("%4s %4.1f",
 		 tmp.c_str(),

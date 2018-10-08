@@ -44,9 +44,9 @@ public:
         return SearchResult(value, alpkt, beta);
     }
     static SearchResult from_score(float board_score) {
-        if (board_score > 0.0f) {
+        if (board_score > 0.0001f) {
             return SearchResult(1.0f, board_score, 10.0f);
-        } else if (board_score < 0.0f) {
+        } else if (board_score < -0.0001f) {
             return SearchResult(0.0f, board_score, 10.0f);
         } else {
             return SearchResult(0.5f, board_score, 10.0f);

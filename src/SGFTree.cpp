@@ -186,19 +186,21 @@ void SGFTree::populate_states(void) {
         std::string result = it->second;
         if (boost::algorithm::find_first(result, "Time")) {
             // std::cerr << "Skipping: " << result << std::endl;
-            m_winner = FastBoard::EMPTY;
+            m_winner = FastBoard::INVAL;
         } else {
             if (boost::algorithm::starts_with(result, "W+")) {
                 m_winner = FastBoard::WHITE;
             } else if (boost::algorithm::starts_with(result, "B+")) {
                 m_winner = FastBoard::BLACK;
+            } else if (boost::algorithm::starts_with(result, "0")) {
+                m_winner = FastBoard::EMPTY;
             } else {
                 m_winner = FastBoard::INVAL;
                 // std::cerr << "Could not parse game result: " << result << std::endl;
             }
         }
     } else {
-        m_winner = FastBoard::EMPTY;
+        m_winner = FastBoard::INVAL;
     }
 
     // handicap stones
@@ -474,10 +476,12 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     if (!state->has_resigned()) {
         float score = state->final_score();
 
-        if (score > 0.0f) {
+        if (score > 0.0001f) {
             header.append("RE[B+" + str(boost::format("%.1f") % score) + "]");
-        } else {
+        } else if (score < -0.0001f) {
             header.append("RE[W+" + str(boost::format("%.1f") % -score) + "]");
+        } else {
+            header.append("RE[0]");
         }
     } else {
         if (state->who_resigned() == FastBoard::WHITE) {

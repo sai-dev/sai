@@ -297,8 +297,14 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         // And the game result for the side to move
         if (it->to_move == winner_color) {
             out << "1";
-        } else {
+        } else if (winner_color == FastBoard::WHITE &&
+                   it->to_move == FastBoard::BLACK) {
             out << "-1";
+        } else if (winner_color == FastBoard::BLACK &&
+                   it->to_move == FastBoard::WHITE) {
+            out << "-1";
+        } else if (winner_color == FastBoard::EMPTY) {
+            out << "0";
         }
         out << std::endl;
         training_str.append(out.str());
@@ -413,7 +419,9 @@ void Training::dump_supervised(const std::string& sgf_name,
 
         auto who_won = sgftree->get_winner();
         // Accept all komis and handicaps, but reject no usable result
-        if (who_won != FastBoard::BLACK && who_won != FastBoard::WHITE) {
+        if (who_won != FastBoard::BLACK &&
+            who_won != FastBoard::WHITE &&
+            who_won != FastBoard::EMPTY) {
             continue;
         }
 

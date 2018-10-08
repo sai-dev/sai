@@ -454,9 +454,9 @@ bool GTP::execute(GameState & game, std::string xinput) {
     } else if (command.find("final_score") == 0) {
         float ftmp = game.final_score();
         /* white wins */
-        if (ftmp < -0.1) {
+        if (ftmp < -0.0001f) {
             gtp_printf(id, "W+%3.1f", float(fabs(ftmp)));
-        } else if (ftmp > 0.1) {
+        } else if (ftmp > 0.0001f) {
             gtp_printf(id, "B+%3.1f", ftmp);
         } else {
             gtp_printf(id, "0");
@@ -810,6 +810,13 @@ bool GTP::execute(GameState & game, std::string xinput) {
             who_won = FullBoard::WHITE;
         } else if (winner_color == "b" || winner_color == "black") {
             who_won = FullBoard::BLACK;
+        } else if (winner_color == "0" ||
+                   winner_color == "n" ||
+                   winner_color == "j" ||
+                   winner_color == "d" ||
+                   winner_color == "jigo" ||
+                   winner_color == "draw") {
+            who_won = FullBoard::EMPTY;
         } else {
             gtp_fail_printf(id, "syntax not understood");
             return true;
