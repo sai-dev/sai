@@ -26,6 +26,7 @@
 #include <sstream>
 #include <string>
 
+#include "Network.h"
 #include "Utils.h"
 #include "config.h"
 
@@ -574,4 +575,22 @@ std::string FastBoard::get_stone_list() const {
     }
 
     return result;
+}
+
+int FastBoard::get_sym_move(const int vertex,
+                            const int symmetry) const {
+    const auto idx = get_index(vertex);
+    if (idx < 0 || idx >= BOARD_SQUARES)
+        return vertex;
+    
+    return get_vertex(symmetry_nn_idx_table[symmetry][idx]);
+}
+
+int FastBoard::get_index(const int vertex) const {
+    const auto xy = get_xy(vertex);
+    return xy.second * BOARD_SIZE + xy.first;
+}
+
+int FastBoard::get_vertex(const int index) const {
+    return get_vertex(index % BOARD_SIZE, index / BOARD_SIZE);
 }

@@ -37,6 +37,9 @@
 std::pair<float,float> sigmoid(float alpha, float beta, float bonus);
 
 extern bool is_mult_komi_net;
+extern std::array<std::array<int, BOARD_SQUARES>, 8>
+    symmetry_nn_idx_table;   
+    
 
 
 class Network {

@@ -37,6 +37,7 @@
 #include "GTP.h"
 #include "GameState.h"
 #include "Network.h"
+#include "Random.h"
 #include "Utils.h"
 
 using namespace Utils;
@@ -117,16 +118,42 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
         m_agent_eval = value;
     }
 
-    std::vector<Network::ScoreVertexPair> nodelist;
 
+    std::vector<int> stabilizer_subgroup;
+
+    for (auto i = 0; i < 8; i++) {
+        if(i == 0 || (cfg_exploit_symmetries && state.is_symmetry_invariant(i))) {
+            stabilizer_subgroup.emplace_back(i);
+        }
+    }
+    
+    std::vector<Network::ScoreVertexPair> nodelist;
+    std::array<bool, BOARD_SQUARES> taken_already{};
+    auto unif_law = std::uniform_real_distribution<float>{0.0, 1.0};
+    
     auto legal_sum = 0.0f;
     for (auto i = 0; i < BOARD_SQUARES; i++) {
-        const auto x = i % BOARD_SIZE;
-        const auto y = i / BOARD_SIZE;
-        const auto vertex = state.board.get_vertex(x, y);
-        if (state.is_move_legal(to_move, vertex)) {
-            nodelist.emplace_back(raw_netlist.policy[i], vertex);
-            legal_sum += raw_netlist.policy[i];
+        const auto vertex = state.board.get_vertex(i);
+        if (state.is_move_legal(to_move, vertex) && !taken_already[i]) {
+            auto taken_policy = 0.0f;
+            auto max_u = 0.0f;
+            auto rnd_vertex = vertex;
+            for (auto sym : stabilizer_subgroup) {
+                const auto j_vertex = state.board.get_sym_move(vertex, sym);
+                const auto j = state.board.get_index(j_vertex);
+                if (!taken_already[j]) {
+                    taken_already[j] = true;
+                    taken_policy += raw_netlist.policy[j];
+
+                    const auto u = unif_law(Random::get_Rng());
+                    if (u > max_u) {
+                        max_u = u;
+                        rnd_vertex = j_vertex;
+                    }
+                }
+            }
+            nodelist.emplace_back(taken_policy, rnd_vertex);
+            legal_sum += taken_policy;
         }
     }
     nodelist.emplace_back(raw_netlist.policy_pass, FastBoard::PASS);

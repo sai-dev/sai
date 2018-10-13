@@ -73,6 +73,8 @@ public:
     square_t get_square(int x, int y) const;
     square_t get_square(int vertex) const ;
     int get_vertex(int i, int j) const;
+    int get_vertex(const int index) const;
+    int get_index(const int vertex) const;
     void set_square(int x, int y, square_t content);
     void set_square(int vertex, square_t content);
     std::pair<int, int> get_xy(int vertex) const;
@@ -101,7 +103,8 @@ public:
     static bool starpoint(int size, int x, int y);
 
     int liberties_to_capture(int vtx) const;
-
+    int get_sym_move(const int vertex, const int symmetry) const;
+        
 protected:
     /*
         bit masks to detect eyes on neighbors

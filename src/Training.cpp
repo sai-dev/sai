@@ -200,12 +200,24 @@ void Training::record(GameState& state, UCTNode& root) {
         return;
     }
 
+    std::vector<int> stabilizer_subgroup;
+
+    for (auto i = 0; i < 8; i++) {
+        if(i == 0 || (cfg_exploit_symmetries && state.is_symmetry_invariant(i))) {
+            stabilizer_subgroup.emplace_back(i);
+        }
+    }
+
     for (const auto& child : root.get_children()) {
         auto prob = static_cast<float>(child->get_visits() / sum_visits);
         auto move = child->get_move();
         if (move != FastBoard::PASS) {
-            auto xy = state.board.get_xy(move);
-            step.probabilities[xy.second * BOARD_SIZE + xy.first] = prob;
+            const auto frac_prob = prob / stabilizer_subgroup.size();
+            for (auto sym : stabilizer_subgroup) {
+                const auto sym_move = state.board.get_sym_move(move, sym);
+                const auto sym_idx = state.board.get_index(sym_move);
+                step.probabilities[sym_idx] += frac_prob;
+            }
         } else {
             step.probabilities[BOARD_SQUARES] = prob;
         }

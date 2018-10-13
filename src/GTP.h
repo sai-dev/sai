@@ -41,6 +41,7 @@ extern int cfg_resignpct;
 extern int cfg_noise;
 extern bool cfg_fpuzero;
 extern bool cfg_adv_features;
+extern bool cfg_exploit_symmetries;
 extern float cfg_noise_value;
 extern float cfg_komi;
 extern float cfg_lambda;

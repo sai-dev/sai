@@ -57,9 +57,7 @@ public:
 
     void set_blunder_state(bool state);
     bool is_blunder();
-
-    //    size_t get_last_rnd_move_num();
-    //    void set_last_rnd_move_num(size_t num);
+    bool is_symmetry_invariant(const int symmetry) const;
 
     FullBoard board;
 

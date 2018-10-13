@@ -114,6 +114,9 @@ static void parse_commandline(int argc, char *argv[]) {
 	    po::value<float>()->default_value(cfg_blunder_thr),
 	    "If visits ratio with best is less than this, it's a blunder. "
 	    "Don't save training data for moves before last blunder.")
+        ("symm", "Exploit symmetries by collapsing policy values of "
+         "equivalent moves to a single one, chosen randomly. When writing "
+         "training data, split the visit count evenly among equivalent moves.")
         ;
 #ifdef USE_TUNER
     po::options_description tuner_desc("Tuning options");
@@ -123,8 +126,9 @@ static void parse_commandline(int argc, char *argv[]) {
         ("fpu_reduction", po::value<float>())
         ("fpu_zero", "Use constant fpu=0.5 (AlphaGoZero). "
 	 "The default is reduced parent's value (LeelaZero).")
-        ("adv_features", "Include advanced features (legal moves, liberties to capture) "
-	 "when saving training data, but lower history from 8 to 4 moves.")
+        ("adv_features", "Include advanced features (legal moves, "
+         "last liberty intersections) when saving training data. Shorten "
+         "history from 8 past moves to last 4.")
         ;
 #endif
     // These won't be shown, we use them to catch incorrect usage of the
@@ -308,9 +312,9 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("blunderthr")) {
         cfg_blunder_thr = vm["blunderthr"].as<float>();
     }
-
-
-
+    if (vm.count("symm")) {
+        cfg_exploit_symmetries = true;
+    }
 
     if (vm.count("timemanage")) {
         auto tm = vm["timemanage"].as<std::string>();

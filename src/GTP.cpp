@@ -61,6 +61,7 @@ int cfg_resignpct;
 int cfg_noise;
 bool cfg_fpuzero;
 bool cfg_adv_features;
+bool cfg_exploit_symmetries;
 float cfg_noise_value;
 float cfg_lambda;
 float cfg_mu;
@@ -116,6 +117,7 @@ void GTP::setup_default_parameters() {
     cfg_resignpct = -1;
     cfg_fpuzero = false;
     cfg_adv_features = false;
+    cfg_exploit_symmetries = false;
     cfg_noise = false;
     cfg_noise_value = 0.03;
     cfg_random_cnt = 0;

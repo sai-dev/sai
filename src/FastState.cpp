@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "FastBoard.h"
+#include "Network.h"
 #include "Utils.h"
 #include "Zobrist.h"
 
@@ -214,4 +215,22 @@ void FastState::set_blunder_state(bool state) {
 
 bool FastState::is_blunder() {
     return m_blunder_chosen;
+}
+
+bool FastState::is_symmetry_invariant(const int symmetry) const {
+    for (auto y = 0; y < BOARD_SIZE; y++) {
+        for (auto x = 0; x < BOARD_SIZE; x++) {
+            const auto sym_vertex =
+                board.get_vertex(symmetry_nn_idx_table[symmetry][y * BOARD_SIZE + x]);
+            if (board.get_square(x, y) != board.get_square(sym_vertex))
+                return false;
+        }
+    }
+
+    if(m_komove != 0) {
+        if (m_komove != board.get_sym_move(m_komove, symmetry))
+            return false;
+    }
+    
+    return true;
 }

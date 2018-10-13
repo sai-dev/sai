@@ -96,7 +96,7 @@ static std::vector<float> ip2_val_b;     // 1 (2 in SINGLE head type)
 static bool value_head_not_stm;
 
 // Symmetry helper
-static std::array<std::array<int, BOARD_SQUARES>, 8> symmetry_nn_idx_table;
+std::array<std::array<int, BOARD_SQUARES>, 8> symmetry_nn_idx_table;
 
 // Value head beta (vbe=Value BEta)
 static std::vector<float> conv_vbe_w;    // channels*vbe_outputs
