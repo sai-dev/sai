@@ -28,6 +28,7 @@
 #include <iterator>
 #include <limits>
 #include <numeric>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -126,11 +127,11 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
             stabilizer_subgroup.emplace_back(i);
         }
     }
-    
+
     std::vector<Network::ScoreVertexPair> nodelist;
     std::array<bool, BOARD_SQUARES> taken_already{};
     auto unif_law = std::uniform_real_distribution<float>{0.0, 1.0};
-    
+
     auto legal_sum = 0.0f;
     for (auto i = 0; i < BOARD_SQUARES; i++) {
         const auto vertex = state.board.get_vertex(i);
@@ -386,7 +387,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     auto b_q = 0.0f;
     auto b_denom = 0.0f;
 #endif
-    
+
     for (auto& child : m_children) {
         if (!child.active()) {
             continue;
