@@ -219,7 +219,8 @@ class ChunkParser:
             return False, None
         if not(len(probabilities) == BOARD_SQUARES + 1):
             return False, None
-
+        probabilities = probabilities/sum(probabilities)
+        
         probs = probabilities.tobytes()
         if not(len(probs) == (BOARD_SQUARES + 1) * 4):
             return False, None
