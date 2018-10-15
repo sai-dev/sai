@@ -503,3 +503,15 @@ bool UCTNode::valid() const {
 bool UCTNode::active() const {
     return m_status == ACTIVE;
 }
+
+UCTNode* UCTNode::select_child(int move) {
+    auto selected = static_cast<UCTNodePointer*>(nullptr);
+
+    for (auto& child : m_children) {
+        if (child.get_move() == move) {
+            selected = &child;
+            break;
+        }
+    }
+    return selected->get();
+}

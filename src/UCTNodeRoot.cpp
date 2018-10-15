@@ -230,5 +230,16 @@ void UCTNode::prepare_root_node(int color,
         auto alpha = cfg_noise_value * 361.0f / BOARD_SQUARES;
         dirichlet_noise(0.25f, alpha);
     }
+
+    if (cfg_japanese_mode) {
+        for (auto& child : m_children) {
+            auto score = child->get_score();
+            score *= 0.8f;
+            if (child->get_move() == FastBoard::PASS) {
+                score += 0.2f;
+            }
+            child->set_score(score);
+        }
+    }
 }
 

@@ -404,7 +404,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     auto bestscore = first_child->get_eval(color);
 
     // do we want to fiddle with the best move because of the rule set?
-    if (passflag & UCTSearch::NOPASS) {
+    if (passflag & UCTSearch::NOPASS || cfg_japanese_mode) {
         // were we going to pass?
         if (bestmove == FastBoard::PASS) {
             UCTNode * nopass = m_root->get_nopass_child(m_rootstate);
@@ -731,7 +731,26 @@ int UCTSearch::think(int color, passflag_t passflag) {
     dump_stats(m_rootstate, *m_root);
 
     int bestmove = get_best_move(passflag);
+    if (cfg_japanese_mode) {
+        const auto bestmove_nodeptr = m_root->select_child(bestmove);
+        const auto passmove_nodeptr = m_root->select_child(FastBoard::PASS);
+        if (bestmove_nodeptr != nullptr && passmove_nodeptr != nullptr) {
+            const auto bestmove_eval = bestmove_nodeptr->get_eval(color);
+            auto bestmove_alpkt = bestmove_nodeptr->get_net_alpkt();
+            const auto passmove_eval = passmove_nodeptr->get_eval(color);
+            auto passmove_alpkt = passmove_nodeptr->get_net_alpkt();
+            if (color == FastBoard::WHITE) {
+                bestmove_alpkt *= -1.0;
+                passmove_alpkt *= -1.0;
+            }
+            myprintf("Pass winrate drop: %5.2f%% points drop: %.2f-%.2f=%.2f.\n",
+                     (bestmove_eval - passmove_eval)*100.0f,
+                     bestmove_alpkt, passmove_alpkt,
+                     bestmove_alpkt - passmove_alpkt);
+        }
+    }
 
+    
     Training::record(m_rootstate, *m_root);
 
     const auto alpkt = m_root->get_net_alpkt();

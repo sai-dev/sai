@@ -57,6 +57,7 @@ static void parse_commandline(int argc, char *argv[]) {
     gen_desc.add_options()
         ("help,h", "Show commandline options.")
         ("gtp,g", "Enable GTP mode.")
+        ("japanese,j", "Enable Japanese scoring mode.")
         ("threads,t", po::value<int>()->default_value(cfg_num_threads),
                       "Number of threads to use.")
         ("playouts,p", po::value<int>(),
@@ -231,6 +232,10 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("gtp")) {
         cfg_gtp_mode = true;
+    }
+
+    if (vm.count("japanese")) {
+        cfg_japanese_mode = true;
     }
 
     if (!vm["threads"].defaulted()) {

@@ -50,6 +50,7 @@ using namespace Utils;
 
 // Configuration flags
 bool cfg_gtp_mode;
+bool cfg_japanese_mode;
 bool cfg_allow_pondering;
 int cfg_num_threads;
 int cfg_max_threads;
@@ -89,6 +90,7 @@ float cfg_blunder_thr;
 
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
+    cfg_japanese_mode = false;
     cfg_allow_pondering = true;
     cfg_max_threads = std::max(1, std::min(SMP::get_num_cpus(), MAX_CPUS));
 #ifdef USE_OPENCL

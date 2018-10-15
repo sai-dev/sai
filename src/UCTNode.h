@@ -100,6 +100,7 @@ public:
     UCTNode* get_nopass_child(FastState& state) const;
     std::unique_ptr<UCTNode> find_child(const int move);
     void inflate_all_children();
+    UCTNode* select_child(int move);
 
 private:
     enum Status : char {
