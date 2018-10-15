@@ -1,18 +1,18 @@
 // This simple program generates a v1 weights file
 // for Leela Zero and sends it to stdout.
 // The parameter VHEADS states the number of value heads
-// e.g. 1 for LZ and 2 for SAI
+// e.g. 1 for LZ and 2 for SAI (double head type W)
 
 #include <iostream>
 #include <random>
 #include <cmath>
 
-#define PLANES 18
+#define PLANES 17        // was 18
 #define LAYERS 3
 #define FILTERS 128
 #define GOBAN_AREA 49    // still on 7x7
 #define MOVES 50         // still on 7x7
-#define VHEADFILTERS 256
+#define VHEADFILTERS 64
 #define VHEADS 2
  
 int weights_line (int input, int output) // a line of n weights

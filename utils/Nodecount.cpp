@@ -7,6 +7,7 @@
 */
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <cmath>
 #include <algorithm>
@@ -14,19 +15,26 @@
 
 #define VISITS 250
 #define GOBAN_SIZE 7
-#define LOW_THR 0.0005f
-#define LRG_N 3000
+#define LOW_THR 0.0005
+#define LRG_N 1000.0
 
-const std::vector<int> default_visits={250,160,100,60,40};
+const std::vector<int> default_visits={250,160,100,60,40,502,472,432,402,372,342,312,282,252,222,192,162,132,102,72,42};
 
-unsigned long int gcd_denum(std::vector<float> q) {
+unsigned long int gcd_denum(std::vector<double> q) {
     std::sort(q.begin(),q.end());
 
     unsigned long int den=1, m=0;
     for (auto &p : q) {
-	if (p == 0.0f)
+	if (p == 0.0)
 	    continue;
-	for ( m=1 ; 0 != ((int)round(LRG_N*p*den*m) % LRG_N) ; m++);
+	for ( m=1 ; 0 != ((int)round(LRG_N*p*den*m) % int(LRG_N)) ; m++);
+        // std::cout << "p: " << p
+        //           << ", m: " << m
+        //           << ", den: " << den
+        //           << ", N: " << (int)round(LRG_N*p*den*m)
+        //           << std::setprecision(11)
+        //           << ", M: " << LRG_N*p*den
+        //           << std::endl;
 	den *= m;
     }
     // if(den > 249) {
@@ -41,57 +49,6 @@ unsigned long int gcd_denum(std::vector<float> q) {
 }
 
 
-unsigned long int gcd_denum_bad(const std::vector<float> &x) {
-    std::vector<float> q,dq;
-
-    q = x;
-    while (q.size()>1) {
-	q.emplace_back(0.0f);
-	std::sort(q.begin(),q.end());
-	for (size_t i=0 ; i+1<q.size(); ++i) {
-	    auto diff = q[i+1]-q[i];
-	    if (diff > LOW_THR) {
-		dq.emplace_back(diff);
-	    }
-	}
-	q = dq;
-	dq.clear();
-    }
-
-    auto y = 1.0f/q[0];
-    auto denum = (unsigned long int)round(y);
-
-    if (denum==250) {
-	std::cout << "Denum rounded to " << denum
-		  << " force changed to 249" << std::endl;
-	denum--;
-    }
-    else if (denum==83) {
-	std::cout << "Denum rounded to " << denum
-		  << " force changed to 249" << std::endl;
-	denum*=3;
-	y*=3;
-    }
-    
-    
-    //    std::cout << "Denumerator " << denum << std::endl;
-    if (std::abs(y-denum) > 0.1f) {
-	std::cout << "Warning: denumerator " << denum
-		  << " obtained from rough rounding of " << y
-		  << std::endl;
-    }
-
-    for (auto &p : x) {
-	if (0 != ((int)round(1000*p*denum) % 1000)) {
-	    std::cout << "Warning: p=" << p
-		      << " denum=" << denum
-		      << " p*denum=" << p*denum
-		      << std::endl;
-	}
-    }
-
-    return denum;
-}
 
 
 struct freq_it {
@@ -166,12 +123,12 @@ int main(int argc, char* argv[]){
     //    std::cout << "." << buf << "." << std::endl;
     
     // maximum probability of a move
-    float maxprb=0;
+    double maxprb=0;
     
-    std::vector<float> polprb;
+    std::vector<double> polprb;
     for (int i=0; i<GOBAN_SIZE*GOBAN_SIZE+1; i++) {
 
-      float prob;
+      double prob;
 	
       // line 18 has the 50 probabilities, all of which are fractions
       // like k/99
@@ -185,6 +142,7 @@ int main(int argc, char* argv[]){
 
     //    std::cout << polprb.size() << " probabilities read." << std::endl;
     denum = gcd_denum(polprb);
+    for (; 0 == (denum % 2) ; denum >>= 1);
     add_freq(denum, freq);
     if (denum != cfg_visits-1) {
 	auto i = default_visits.size();

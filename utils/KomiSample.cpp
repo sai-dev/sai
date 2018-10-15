@@ -2,11 +2,20 @@
 #include <string>
 #include <cmath>
 
-#define MULT 20  // 40
+#define MULT 20  // 40 
 #define COEFF 1.0f
-#define RESERVE 0.3f
-#define OFFICIAL_KOMI 9.5f
-#define SHIFT 0.5f
+#define RESERVE 0.0 // 0.3f
+#define OFFICIAL_KOMI 9.0 // 9.5f
+#define SHIFT 0.0 // 0.5f
+constexpr double step=0.5;
+
+double distrib (double x, double mean, double dev) {
+    return 1.0/(1.0+std::exp(-(x-mean)/dev));
+}
+
+double inv_dist (double p, double mean, double dev) {
+    return mean + dev * std::log(p/(1.0-p));
+}
 
 int main (int argc, char* argv[]) {
 
@@ -21,34 +30,32 @@ int main (int argc, char* argv[]) {
     std::string tmp;
     std::cin >> tmp;
     const auto alpha = std::stof(tmp);
-
+    const auto mean = alpha + SHIFT;
+    
     std::cin >> tmp;
     const auto beta = std::stof(tmp);
+    const auto dev = 1.0/(beta*COEFF);
 
     //    std::cout << "Read parameters: alpha=" << alpha
     //	      << ", beta=" << beta << std::endl
     //	      << "Sample size " << N
     //	      << ", coefficient " << COEFF << std::endl;
 
-    const unsigned int N = std::lround(totalgames/MULT);
-    const unsigned int n = std::lround(N*(1.0f-RESERVE));
-    
-    const float lowest = 0.5f + std::floor(alpha - std::log(2*n-1)
-					   / beta / COEFF);
+    const unsigned int blocks = std::lround(totalgames*(1.0-RESERVE)/double(MULT));
+    const unsigned int reserved_games = totalgames - blocks*MULT;
 
-    const float highest = 0.5f + std::floor(alpha + std::log(2*n-1)
-					   / beta / COEFF);
+    const auto lowest_real  = inv_dist(0.5/blocks, mean, dev) - 0.5 * step;
+    const auto highest_real = inv_dist(1.0 - 0.5/blocks, mean, dev) + 0.5 * step;
+    const auto lowest_komi  = OFFICIAL_KOMI + step * std::ceil( (lowest_real - OFFICIAL_KOMI) / step );
+    const auto highest_komi = OFFICIAL_KOMI + step * std::ceil( (highest_real - OFFICIAL_KOMI) / step - 1.0 );
 
-    //    std::cout << "Komi values between " << lowest
-    //	      << " and " << highest << std::endl;
-
-    for (auto komi = lowest ; komi < highest+0.5f ; komi+=1.0f) {
-	const auto games = std::lround(n/(1.0f+std::exp(-beta*COEFF*(std::ceil(komi)-SHIFT-alpha))))
-	    - std::lround(n/(1.0f+std::exp(-beta*COEFF*(std::floor(komi)-SHIFT-alpha))))
-	    + (komi==OFFICIAL_KOMI ? N-n : 0);
+    for (auto k = lowest_komi ; k < highest_komi + 0.5*step ; k += step) {
+	const auto games = std::round(blocks * distrib(k + 0.5*step, mean, dev))
+            -std::round(blocks * distrib(k - 0.5*step, mean, dev))
+	    + (std::abs(k-OFFICIAL_KOMI) < 0.5*step ? reserved_games : 0);
 	if (games>0) {
 	    std::cout << "curl -F number_to_play=" << games * MULT
-		      << " -F komi=" << komi
+		      << " -F komi=" << k
 		      << " -F other_options=\"${SAI_OTHEROPTIONS}\" $KOMIS_CMD_STRING"
 		      << std::endl;
 	}
