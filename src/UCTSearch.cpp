@@ -741,15 +741,27 @@ int UCTSearch::think(int color, passflag_t passflag) {
             const auto passmove_eval = passmove_nodeptr->get_eval(color);
             auto passmove_alpkt = passmove_nodeptr->get_net_alpkt();
             auto passmove_median_alpkt = passmove_nodeptr->estimate_alpkt();
+            const auto delta = bestmove_median_alpkt - passmove_median_alpkt;
+            const auto komi = m_rootstate.get_komi();
+            const auto delta_mesh = std::abs(std::round(bestmove_median_alpkt + komi)
+                                             -  std::round(passmove_median_alpkt + komi));
+            const auto freq_pass = float(passmove_nodeptr->get_visits()) 
+                / float(m_root->get_visits());
+
+            if (freq_pass > 0.1 && delta_mesh < 0.5 && delta < 0.25) {
+                bestmove = FastBoard::PASS;
+            }
             if (color == FastBoard::WHITE) {
                 bestmove_alpkt *= -1.0;
                 passmove_alpkt *= -1.0;
                 bestmove_median_alpkt *= -1.0;
                 passmove_median_alpkt *= -1.0;
             }
-            myprintf("Pass winrate drop: %5.2f%%.\n"
+            myprintf("Freq_pass: %5.2f, delta: %.2f, mesh: %.2f.\n"
+                     "Pass winrate drop: %5.2f%%.\n"
                      "Points drop (net): %.2f-%.2f=%.2f.\n"
                      "Points drop (subtree median): %.2f-%.2f=%.2f.\n",
+                     freq_pass*100.0f, delta, delta_mesh,
                      (bestmove_eval - passmove_eval)*100.0f,
                      bestmove_alpkt, passmove_alpkt,
                      bestmove_alpkt - passmove_alpkt,
