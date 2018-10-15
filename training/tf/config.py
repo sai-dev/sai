@@ -48,7 +48,9 @@ RESIDUAL_BLOCKS = 3
 POLICY_OUTPUTS = 2
 INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
               # 0: only komi in input (17 input planes)
-
+WEIGHTS_FILE_VER = "17" #  1: LZ
+                        # 17: 'advanced features'
+              
 # Network structure -- Sai value head
 # Value head type can be:
 SINGLE = 1 # (Leela Zero)

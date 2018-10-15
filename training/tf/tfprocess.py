@@ -405,7 +405,7 @@ class TFProcess:
     def save_leelaz_weights(self, filename):
         with open(filename, "w") as file:
             # Version tag
-            file.write("1")
+            file.write(WEIGHTS_FILE_VER)
             for weights in self.weights:
                 # Newline unless last line (single bias)
                 file.write("\n")
