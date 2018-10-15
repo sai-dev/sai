@@ -101,6 +101,7 @@ public:
     std::unique_ptr<UCTNode> find_child(const int move);
     void inflate_all_children();
     UCTNode* select_child(int move);
+    float estimate_alpkt() const;
 
 private:
     enum Status : char {
@@ -114,6 +115,7 @@ private:
     void accumulate_eval(float eval);
     void kill_superkos(const KoState& state);
     void dirichlet_noise(float epsilon, float alpha);
+    void get_subtree_alpkts(std::vector<float> & vector) const;
 
     // Note : This class is very size-sensitive as we are going to create
     // tens of millions of instances of these.  Please put extra caution

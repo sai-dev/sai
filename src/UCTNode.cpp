@@ -515,3 +515,21 @@ UCTNode* UCTNode::select_child(int move) {
     }
     return selected->get();
 }
+
+void UCTNode::get_subtree_alpkts(std::vector<float> & vector) const {
+    vector.emplace_back(get_net_alpkt());
+    for (auto& child : m_children) {
+        if (child.get_visits() > 0) {
+            child->get_subtree_alpkts(vector);
+        }
+    }
+    return;
+}
+
+float UCTNode::estimate_alpkt() const {
+    std::vector<float> subtree_alpkts;
+
+    get_subtree_alpkts(subtree_alpkts);
+
+    return Utils::median(subtree_alpkts);
+}

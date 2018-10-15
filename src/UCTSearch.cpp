@@ -737,16 +737,25 @@ int UCTSearch::think(int color, passflag_t passflag) {
         if (bestmove_nodeptr != nullptr && passmove_nodeptr != nullptr) {
             const auto bestmove_eval = bestmove_nodeptr->get_eval(color);
             auto bestmove_alpkt = bestmove_nodeptr->get_net_alpkt();
+            auto bestmove_median_alpkt = bestmove_nodeptr->estimate_alpkt();
             const auto passmove_eval = passmove_nodeptr->get_eval(color);
             auto passmove_alpkt = passmove_nodeptr->get_net_alpkt();
+            auto passmove_median_alpkt = passmove_nodeptr->estimate_alpkt();
             if (color == FastBoard::WHITE) {
                 bestmove_alpkt *= -1.0;
                 passmove_alpkt *= -1.0;
+                bestmove_median_alpkt *= -1.0;
+                passmove_median_alpkt *= -1.0;
             }
-            myprintf("Pass winrate drop: %5.2f%% points drop: %.2f-%.2f=%.2f.\n",
+            myprintf("Pass winrate drop: %5.2f%%.\n"
+                     "Points drop (net): %.2f-%.2f=%.2f.\n"
+                     "Points drop (subtree median): %.2f-%.2f=%.2f.\n",
                      (bestmove_eval - passmove_eval)*100.0f,
                      bestmove_alpkt, passmove_alpkt,
-                     bestmove_alpkt - passmove_alpkt);
+                     bestmove_alpkt - passmove_alpkt,
+                     bestmove_median_alpkt, passmove_median_alpkt,
+                     bestmove_median_alpkt - passmove_median_alpkt
+                     );
         }
     }
 

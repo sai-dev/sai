@@ -19,6 +19,7 @@
 #include "config.h"
 #include "Utils.h"
 
+#include <algorithm>
 #include <mutex>
 #include <cstdarg>
 #include <cstdio>
@@ -189,4 +190,15 @@ float Utils::log_sigmoid(float x) {
         return -std::sqrt(ul*ll);
     }
     return std::log(sigmoid(x,1.0f,0.0f).first);
+}
+
+float Utils::median(std::vector<float> & sample){
+    sort(sample.begin(), sample.end());
+    const auto len = sample.size();
+
+    if(len % 2) {
+        return sample[len/2];
+    }
+
+    return 0.5 * sample[len/2] + 0.5 * sample[len/2-1];
 }

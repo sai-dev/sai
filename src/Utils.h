@@ -37,7 +37,8 @@ namespace Utils {
     bool input_pending();
     float sigmoid_interval_avg(float alpkt, float beta, float s, float t);
     float log_sigmoid(float x);
-    
+    float median(std::vector<float> & sample);
+
     template<class T>
     void atomic_add(std::atomic<T> &f, T d) {
         T old = f.load();
