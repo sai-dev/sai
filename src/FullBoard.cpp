@@ -194,3 +194,35 @@ void FullBoard::reset_board(int size) {
     calc_hash();
     calc_ko_hash();
 }
+
+bool FullBoard::remove_dead_stones(const FullBoard & tt_endboard) {
+    std::vector<int> alive_stones;
+    
+    for (int i = 0; i < m_boardsize; i++) {
+        for (int j = 0; j < m_boardsize; j++) {
+            int vertex = get_vertex(i, j);
+            const auto currcolor = get_square(vertex);
+            const auto endcolor = tt_endboard.get_square(vertex);
+            if (currcolor == endcolor) {
+                alive_stones.push_back(vertex);
+            }
+        }
+    }
+    for (int i = 0; i < m_boardsize; i++) {
+        for (int j = 0; j < m_boardsize; j++) {
+            int vertex = get_vertex(i, j);
+            const auto currcolor = get_square(vertex);
+            const auto endcolor = tt_endboard.get_square(vertex);
+            if (currcolor != EMPTY && currcolor != endcolor) {
+                m_prisoners[!currcolor] += remove_string(vertex);
+            }
+        }
+    }
+    for (auto vertex : alive_stones) {
+        if (get_square(vertex) == EMPTY) {
+            return false;
+        }
+    }
+    return true;
+}
+

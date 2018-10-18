@@ -36,6 +36,7 @@ public:
 
     void reset_board(int size);
     void display_board(int lastmove = -1) const;
+    bool remove_dead_stones(const FullBoard & tt_endboard);
 
     std::uint64_t m_hash;
     std::uint64_t m_ko_hash;

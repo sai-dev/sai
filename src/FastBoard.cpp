@@ -254,8 +254,15 @@ void FastBoard::remove_neighbour(const int vtx, const int color) {
 }
 
 int FastBoard::calc_reach_color(int color) const {
-    auto reachable = 0;
     auto bd = std::vector<bool>(m_maxsq, false);
+
+    return calc_reach_color(color, bd);
+}
+
+
+int FastBoard::calc_reach_color(int color, std::vector<bool> & bd) const {
+    auto reachable = 0;
+    bd.resize(m_maxsq);
     auto open = std::queue<int>();
     for (auto i = 0; i < m_boardsize; i++) {
         for (auto j = 0; j < m_boardsize; j++) {
@@ -264,6 +271,8 @@ int FastBoard::calc_reach_color(int color) const {
                 reachable++;
                 bd[vertex] = true;
                 open.push(vertex);
+            } else {
+                bd[vertex] = false;
             }
         }
     }
@@ -593,4 +602,26 @@ int FastBoard::get_index(const int vertex) const {
 
 int FastBoard::get_vertex(const int index) const {
     return get_vertex(index % BOARD_SIZE, index / BOARD_SIZE);
+}
+
+
+void FastBoard::find_dame() {
+    auto black = std::vector<bool>(m_maxsq, false);
+    auto white = std::vector<bool>(m_maxsq, false);
+
+    calc_reach_color(BLACK, black);
+    calc_reach_color(WHITE, white);
+
+    for (int i = 0; i < m_boardsize; i++) {
+        for (int j = 0; j < m_boardsize; j++) {
+            int vertex = get_vertex(i, j);
+
+            m_dame[vertex] = black[vertex] && white[vertex];
+        }
+    }
+}
+
+
+bool FastBoard::is_dame(int vertex) const {
+    return m_dame[vertex];
 }

@@ -104,7 +104,10 @@ public:
 
     int liberties_to_capture(int vtx) const;
     int get_sym_move(const int vertex, const int symmetry) const;
-        
+
+    void find_dame();
+    bool is_dame(int vertex) const;
+
 protected:
     /*
         bit masks to detect eyes on neighbors
@@ -130,6 +133,9 @@ protected:
     int m_boardsize;
     int m_squaresize;
 
+    std::array<bool, MAXSQ> m_dame;
+    
+    int calc_reach_color(int color, std::vector<bool> & bd) const;
     int calc_reach_color(int color) const;
 
     int count_neighbours(const int color, const int i) const;

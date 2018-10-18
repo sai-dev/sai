@@ -53,7 +53,7 @@ public:
     void sort_children(int color);
     void sort_children_by_policy();
     UCTNode& get_best_root_child(int color);
-    UCTNode* uct_select_child(int color, bool is_root);
+    UCTNode* uct_select_child(int color, bool is_root, int max_visits);
 
     size_t count_nodes() const;
     SMP::Mutex& get_mutex();
@@ -97,6 +97,7 @@ public:
                            GameState& state);
 
     UCTNode* get_first_child() const;
+    UCTNode* get_second_child() const;
     UCTNode* get_nopass_child(FastState& state) const;
     std::unique_ptr<UCTNode> find_child(const int move);
     void inflate_all_children();

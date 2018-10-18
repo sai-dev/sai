@@ -51,6 +51,14 @@ UCTNode* UCTNode::get_first_child() const {
     return m_children.front().get();
 }
 
+UCTNode* UCTNode::get_second_child() const {
+    if (m_children.size() < 2) {
+        return nullptr;
+    }
+
+    return m_children[1].get();
+}
+
 void UCTNode::kill_superkos(const KoState& state) {
     for (auto& child : m_children) {
         auto move = child->get_move();

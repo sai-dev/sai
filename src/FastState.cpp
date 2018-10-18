@@ -49,6 +49,10 @@ void FastState::set_komi(float komi) {
     m_komi = komi;
 }
 
+void FastState::add_komi(float delta) {
+    m_komi += delta;
+}
+
 void FastState::reset_game(void) {
     reset_board();
 
@@ -234,3 +238,4 @@ bool FastState::is_symmetry_invariant(const int symmetry) const {
     
     return true;
 }
+

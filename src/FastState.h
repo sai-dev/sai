@@ -38,6 +38,7 @@ public:
     bool is_move_legal(int color, int vertex) const;
 
     void set_komi(float komi);
+    void add_komi(float delta);
     float get_komi() const;
     void set_handicap(int hcap);
     int get_handicap() const;
@@ -58,7 +59,7 @@ public:
     void set_blunder_state(bool state);
     bool is_blunder();
     bool is_symmetry_invariant(const int symmetry) const;
-
+    
     FullBoard board;
 
     float m_komi;

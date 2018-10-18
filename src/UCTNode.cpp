@@ -350,7 +350,7 @@ void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
 }
 
-UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
+UCTNode* UCTNode::uct_select_child(int color, bool is_root, int max_visits) {
     LOCK(get_mutex(), lock);
 
     // Count parentvisits manually to avoid issues with transpositions.
@@ -393,12 +393,18 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
             continue;
         }
 
+        const auto visits = child.get_visits();
+        
+        if (max_visits > 0 && visits >= max_visits) {
+            continue;
+        }
+
         auto winrate = fpu_eval;
-        if (child.get_visits() > 0) {
+        if (visits > 0) {
             winrate = child.get_eval(color);
         }
         auto psa = child.get_score();
-        auto denom = 1.0 + child.get_visits();
+        auto denom = 1.0 + visits;
         auto puct = cfg_puct * psa * (numerator / denom);
         auto value = winrate + puct;
         assert(value > std::numeric_limits<double>::lowest());
@@ -414,7 +420,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
 	}
     }
 
-    assert(best != nullptr);
+    //    assert(best != nullptr);
     best->inflate();
 #ifndef NDEBUG
     best->get()->set_urgency(best_value, b_psa, b_q,

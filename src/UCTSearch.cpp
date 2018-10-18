@@ -161,7 +161,8 @@ float UCTSearch::get_min_psa_ratio() const {
 }
 
 SearchResult UCTSearch::play_simulation(GameState & currstate,
-                                        UCTNode* const node) {
+                                        UCTNode* const node,
+                                        bool endgame) {
     const auto color = currstate.get_to_move();
     auto result = SearchResult{};
 
@@ -199,20 +200,24 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     }
 
     if (node->has_children() && !result.valid()) {
-        auto next = node->uct_select_child(color, node == m_root.get());
-        auto move = next->get_move();
-	    next->set_eval_bonus_father(node->get_eval_bonus());
-    	next->set_eval_base_father(node->get_eval_base());
+        auto next = node->uct_select_child(color,
+                                           node == m_root.get(),
+                                           endgame ? FAST_ROLL_OUT_VISITS : 0);
+        if (next != nullptr) {
+            auto move = next->get_move();
+            next->set_eval_bonus_father(node->get_eval_bonus());
+            next->set_eval_base_father(node->get_eval_base());
 
-        currstate.play_move(move);
-        if (move != FastBoard::PASS && currstate.superko()) {
-            next->invalidate();
-        } else {
+            currstate.play_move(move);
+            if (move != FastBoard::PASS && currstate.superko()) {
+                next->invalidate();
+            } else {
 #ifndef NDEBUG
-            std::string tmp = currstate.move_to_text(move);
-	    myprintf("UCT selected move %4s.\n", tmp.c_str());
+                std::string tmp = currstate.move_to_text(move);
+                myprintf("UCT selected move %4s.\n", tmp.c_str());
 #endif
-            result = play_simulation(currstate, next);
+                result = play_simulation(currstate, next, endgame);
+            }
         }
     }
 
@@ -261,21 +266,24 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
 
 #ifdef NDEBUG
         myprintf("%4s -> %7d (V: %5.2f%%) (N: %5.2f%%) PV: %s\n",
-#else
-        myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %.2f, den: %d) "
-                 "(V: %5.2f%%) (N: %5.2f%%) PV: %s\n",
-#endif
                  move.c_str(),
                  node->get_visits(),
-#ifndef NDEBUG
+                 node->get_visits() ? node->get_eval(color)*100.0f : 0.0f,
+                 node->get_score() * 100.0f,
+                 pv.c_str());
+#else
+        myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %.2f, den: %d) "
+                          "(V: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+                 move.c_str(),
+                 node->get_visits(),
                  node->get_urgency()[0] * 100.0f,
                  node->get_urgency()[2] * 100.0f,
 		 node->get_urgency()[4],
 		 int(node->get_urgency()[3]),
-#endif
                  node->get_visits() ? node->get_eval(color)*100.0f : 0.0f,
                  node->get_score() * 100.0f,
                  pv.c_str());
+#endif
     }
     tree_stats(parent);
 }
@@ -731,45 +739,29 @@ int UCTSearch::think(int color, passflag_t passflag) {
     dump_stats(m_rootstate, *m_root);
 
     int bestmove = get_best_move(passflag);
+    float est_score;
     if (cfg_japanese_mode) {
-        const auto bestmove_nodeptr = m_root->select_child(bestmove);
-        const auto passmove_nodeptr = m_root->select_child(FastBoard::PASS);
-        if (bestmove_nodeptr != nullptr && passmove_nodeptr != nullptr) {
-            const auto bestmove_eval = bestmove_nodeptr->get_eval(color);
-            auto bestmove_alpkt = bestmove_nodeptr->get_net_alpkt();
-            auto bestmove_median_alpkt = bestmove_nodeptr->estimate_alpkt();
-            const auto passmove_eval = passmove_nodeptr->get_eval(color);
-            auto passmove_alpkt = passmove_nodeptr->get_net_alpkt();
-            auto passmove_median_alpkt = passmove_nodeptr->estimate_alpkt();
-            const auto delta = bestmove_median_alpkt - passmove_median_alpkt;
-            const auto komi = m_rootstate.get_komi();
-            const auto delta_mesh = std::abs(std::round(bestmove_median_alpkt + komi)
-                                             -  std::round(passmove_median_alpkt + komi));
-            const auto freq_pass = float(passmove_nodeptr->get_visits()) 
-                / float(m_root->get_visits());
-
-            if (freq_pass > 0.1 && delta_mesh < 0.5 && delta < 0.25) {
-                bestmove = FastBoard::PASS;
+        if (!is_better_move(bestmove, FastBoard::PASS, est_score)) {
+            GameState chn_endstate = m_rootstate;
+            chn_endstate.add_komi(est_score);
+            fast_roll_out(chn_endstate, m_root.get());
+            
+            FullBoard jap_endboard = m_rootstate.board;
+            bestmove = FastBoard::PASS;
+            if (jap_endboard.remove_dead_stones(chn_endstate.board)) {
+                jap_endboard.find_dame();
+                for (const auto& node : m_root->get_children()) {
+                    const auto move = node->get_move();
+                    if (!jap_endboard.is_dame(move))
+                        continue;
+                    bestmove = is_better_move(FastBoard::PASS, move, est_score) ?
+                        FastBoard::PASS : move;
+                    break;
+                }
             }
-            if (color == FastBoard::WHITE) {
-                bestmove_alpkt *= -1.0;
-                passmove_alpkt *= -1.0;
-                bestmove_median_alpkt *= -1.0;
-                passmove_median_alpkt *= -1.0;
-            }
-            myprintf("Freq_pass: %5.2f, delta: %.2f, mesh: %.2f.\n"
-                     "Pass winrate drop: %5.2f%%.\n"
-                     "Points drop (net): %.2f-%.2f=%.2f.\n"
-                     "Points drop (subtree median): %.2f-%.2f=%.2f.\n",
-                     freq_pass*100.0f, delta, delta_mesh,
-                     (bestmove_eval - passmove_eval)*100.0f,
-                     bestmove_alpkt, passmove_alpkt,
-                     bestmove_alpkt - passmove_alpkt,
-                     bestmove_median_alpkt, passmove_median_alpkt,
-                     bestmove_median_alpkt - passmove_median_alpkt
-                     );
         }
     }
+
 
     
     Training::record(m_rootstate, *m_root);
@@ -860,4 +852,111 @@ void UCTSearch::set_visit_limit(int visits) {
 
 float SearchResult::eval_with_bonus(float xbar, float xbase) {
     return Utils::sigmoid_interval_avg(m_alpkt, m_beta, xbase, xbar);
+}
+
+bool UCTSearch::is_better_move(int move1, int move2, float & estimated_score) {
+    bool is_better = true;
+
+    const auto move1_nodeptr = m_root->select_child(move1);
+    const auto move2_nodeptr = m_root->select_child(move2);
+    if (move1_nodeptr == nullptr || move2_nodeptr == nullptr) {
+        return false;
+    }
+    explore_move(move1);
+    explore_move(move2);
+
+    const auto color = m_rootstate.get_to_move();
+    const auto move1_eval = move1_nodeptr->get_eval(color);
+    const auto move2_eval = move2_nodeptr->get_eval(color);
+    auto move1_alpkt = move1_nodeptr->get_net_alpkt();
+    auto move2_alpkt = move2_nodeptr->get_net_alpkt();
+    auto move1_median_alpkt = move1_nodeptr->estimate_alpkt();
+    auto move2_median_alpkt = move2_nodeptr->estimate_alpkt();
+    const auto delta = move1_median_alpkt - move2_median_alpkt;
+    const auto komi = m_rootstate.get_komi();
+    estimated_score = std::round(move1_median_alpkt + komi) - komi;
+    const auto delta_mesh = std::abs(estimated_score + komi
+                                     -  std::round(move2_median_alpkt + komi));
+    // const auto freq_pass = float(passmove_nodeptr->get_visits()) 
+    //     / float(m_root->get_visits());
+    
+    if (//freq_pass > 0.1 &&
+        delta_mesh < 0.5 && delta < 0.25) {
+        is_better = false;
+    }
+    if (color == FastBoard::WHITE) {
+        move1_alpkt *= -1.0;
+        move2_alpkt *= -1.0;
+        move1_median_alpkt *= -1.0;
+        move2_median_alpkt *= -1.0;
+    }
+    myprintf("Delta: %.2f, mesh: %.2f.\n"
+             "Move2 winrate drop: %5.2f%%.\n"
+             "Points drop (net): %.2f-%.2f=%.2f.\n"
+             "Points drop (subtree median): %.2f-%.2f=%.2f.\n",
+             //freq_pass*100.0f,
+             delta, delta_mesh,
+             (move1_eval - move2_eval)*100.0f,
+             move1_alpkt, move2_alpkt,
+             move1_alpkt - move2_alpkt,
+             move1_median_alpkt, move2_median_alpkt,
+             move1_median_alpkt - move2_median_alpkt
+             );
+
+    return is_better;
+}
+
+void UCTSearch::fast_roll_out(GameState & state, UCTNode * rootptr) {
+    auto curr_root = rootptr;
+    do {
+        int consec_invalid = 0;
+        auto chosenmove = FastBoard::PASS;
+        
+        do {
+            auto currstate = std::make_unique<GameState>(state);
+            
+            auto result = play_simulation(*currstate, curr_root, true);
+            if (result.valid()) {
+                increment_playouts();
+                consec_invalid = 0;
+            } else {
+                consec_invalid++;
+            }
+            curr_root->sort_children(currstate->get_to_move());
+            const auto first = curr_root->get_first_child();
+            const auto second = curr_root->get_second_child();
+            if (first == nullptr || second == nullptr || consec_invalid >= 3) {
+                break;
+            }
+            if (first->get_visits() < FAST_ROLL_OUT_VISITS ||
+                second->get_visits() < FAST_ROLL_OUT_VISITS) {
+                continue;
+            }
+            const auto first_move = first->get_move();
+            const auto second_move = second->get_move();
+            if (first_move != FastBoard::PASS) {
+                chosenmove = first_move;
+            } else if (first->estimate_alpkt() > second->estimate_alpkt() + 0.5) {
+                chosenmove = first_move;
+            } else {
+                chosenmove = second_move;
+            }
+            break;
+        } while (true);
+        
+        state.play_move(chosenmove);
+        curr_root = curr_root->select_child(chosenmove);
+    } while(state.get_passes() < 2);
+}
+
+void UCTSearch::explore_move(int move) {
+    const auto nodeptr = m_root->select_child(move);
+
+    while (nodeptr->get_visits() < EXPLORE_MOVE_VISITS) {
+        auto currstate = std::make_unique<GameState>(m_rootstate);
+        currstate->play_move(move);
+        
+        play_simulation(*currstate, nodeptr);
+    }
+    return;    
 }

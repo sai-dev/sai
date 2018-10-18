@@ -95,6 +95,9 @@ public:
     static constexpr auto UNLIMITED_PLAYOUTS =
         std::numeric_limits<int>::max() / 2;
 
+    static constexpr auto FAST_ROLL_OUT_VISITS = 10;
+    static constexpr auto EXPLORE_MOVE_VISITS = 30;
+
     UCTSearch(GameState& g);
     int think(int color, passflag_t passflag = NORMAL);
     void set_playout_limit(int playouts);
@@ -102,8 +105,13 @@ public:
     void ponder();
     bool is_running() const;
     void increment_playouts();
-    SearchResult play_simulation(GameState& currstate, UCTNode* const node);
-
+    SearchResult play_simulation(GameState& currstate,
+                                 UCTNode* const node,
+                                 bool endgame = false);
+    bool is_better_move(int move1, int move2, float & estimated_score);
+    void explore_move(int move);
+    void fast_roll_out(GameState & state, UCTNode * rootptr);
+    
 private:
     float get_min_psa_ratio() const;
     void dump_stats(FastState& state, UCTNode& parent);
