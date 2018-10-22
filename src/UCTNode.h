@@ -81,6 +81,7 @@ public:
     float get_net_eval() const;
     float get_net_beta() const;
     float get_net_alpkt() const;
+    void set_values(float value, float alpkt, float beta);
 #ifndef NDEBUG
     void set_urgency(float urgency, float psa, float q,
                      float num, float den);
@@ -88,13 +89,16 @@ public:
 #endif
     void virtual_loss(void);
     void virtual_loss_undo(void);
+    void clear_visits(void);
+    void clear_children_visits(void);
     void update(float eval);
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
     bool randomize_first_proportionally();
     void prepare_root_node(int color,
                            std::atomic<int>& nodecount,
-                           GameState& state);
+                           GameState& state,
+                           bool fast_roll_out = false);
 
     UCTNode* get_first_child() const;
     UCTNode* get_second_child() const;
@@ -102,7 +106,7 @@ public:
     std::unique_ptr<UCTNode> find_child(const int move);
     void inflate_all_children();
     UCTNode* select_child(int move);
-    float estimate_alpkt() const;
+    float estimate_alpkt(const GameState& parent_state) const;
 
 private:
     enum Status : char {

@@ -95,7 +95,7 @@ public:
     static constexpr auto UNLIMITED_PLAYOUTS =
         std::numeric_limits<int>::max() / 2;
 
-    static constexpr auto FAST_ROLL_OUT_VISITS = 10;
+    static constexpr auto FAST_ROLL_OUT_VISITS = 20;
     static constexpr auto EXPLORE_MOVE_VISITS = 30;
 
     UCTSearch(GameState& g);
@@ -110,7 +110,6 @@ public:
                                  bool endgame = false);
     bool is_better_move(int move1, int move2, float & estimated_score);
     void explore_move(int move);
-    void fast_roll_out(GameState & state, UCTNode * rootptr);
     
 private:
     float get_min_psa_ratio() const;
@@ -127,6 +126,7 @@ private:
     int get_best_move(passflag_t passflag);
     void update_root();
     bool advance_to_new_rootstate();
+    void fast_roll_out();
 
     GameState & m_rootstate;
     std::unique_ptr<GameState> m_last_rootstate;

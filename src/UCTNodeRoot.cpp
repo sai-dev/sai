@@ -48,6 +48,7 @@ UCTNode* UCTNode::get_first_child() const {
         return nullptr;
     }
 
+    m_children.front().inflate();
     return m_children.front().get();
 }
 
@@ -56,6 +57,7 @@ UCTNode* UCTNode::get_second_child() const {
         return nullptr;
     }
 
+    m_children[1].inflate();
     return m_children[1].get();
 }
 
@@ -207,7 +209,8 @@ void UCTNode::inflate_all_children() {
 
 void UCTNode::prepare_root_node(int color,
                                 std::atomic<int>& nodes,
-                                GameState& root_state) {
+                                GameState& root_state,
+                                bool fast_roll_out) {
     float root_value, root_alpkt, root_beta;
 
     const auto had_children = has_children();
@@ -233,6 +236,10 @@ void UCTNode::prepare_root_node(int color,
     // This also removes a lot of special cases.
     kill_superkos(root_state);
 
+    if (fast_roll_out) {
+        return;
+    }
+    
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size
         auto alpha = cfg_noise_value * 361.0f / BOARD_SQUARES;

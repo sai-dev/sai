@@ -235,6 +235,19 @@ void UCTNode::virtual_loss_undo() {
     m_virtual_loss -= VIRTUAL_LOSS_COUNT;
 }
 
+void UCTNode::clear_visits() {
+    m_visits = 0;
+    m_blackevals = 0;
+}
+
+void UCTNode::clear_children_visits() {
+    for (const auto& child : m_children) {
+        if(child.is_inflated()) {
+            child.get()->clear_visits();
+        }
+    }
+}
+
 void UCTNode::update(float eval) {
     m_visits++;
     accumulate_eval(eval);
@@ -287,6 +300,13 @@ float UCTNode::get_net_beta() const {
 float UCTNode::get_net_alpkt() const {
     return m_net_alpkt;
 }
+
+void UCTNode::set_values(float value, float alpkt, float beta) {
+    m_net_eval = value;
+    m_net_alpkt = alpkt;
+    m_net_beta = beta;
+}
+
 
 void UCTNode::set_score(float score) {
     m_score = score;
@@ -421,7 +441,10 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root, int max_visits) {
     }
 
     //    assert(best != nullptr);
-    best->inflate();
+    if(best->get_visits() == 0) {
+        best->inflate();
+        best->get()->set_values(m_net_eval, m_net_alpkt, m_net_beta);
+    }
 #ifndef NDEBUG
     best->get()->set_urgency(best_value, b_psa, b_q,
                              b_denom, numerator);
@@ -516,10 +539,11 @@ UCTNode* UCTNode::select_child(int move) {
     for (auto& child : m_children) {
         if (child.get_move() == move) {
             selected = &child;
-            break;
+            selected->inflate();
+            return selected->get();
         }
     }
-    return selected->get();
+    return nullptr;
 }
 
 void UCTNode::get_subtree_alpkts(std::vector<float> & vector) const {
@@ -532,8 +556,21 @@ void UCTNode::get_subtree_alpkts(std::vector<float> & vector) const {
     return;
 }
 
-float UCTNode::estimate_alpkt() const {
+float UCTNode::estimate_alpkt(const GameState& parent_state) const {
     std::vector<float> subtree_alpkts;
+
+    // const auto passes = parent_state.get_passes() +
+    //     (get_move() == FastBoard::PASS ? 1 : 0);
+    // myprintf("==> alpkt estimation <==\n"
+    //          "parent passes: %d, test move: %s, score: %f\n",
+    //          parent_state.get_passes(),
+    //          parent_state.board.move_to_text(get_move()).c_str(),
+    //          parent_state.final_score());
+    // if (passes >= 2) {
+    //     auto test = std::make_unique<GameState>(parent_state);
+    //     test->undo_move()
+    //     return parent_state.final_score();
+    // }
 
     get_subtree_alpkts(subtree_alpkts);
 

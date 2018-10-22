@@ -23,8 +23,10 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <iostream>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <tuple>
 
@@ -185,8 +187,14 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 
     if (node->expandable()) {
         if (currstate.get_passes() >= 2) {
-            auto score = currstate.final_score();
-            result = SearchResult::from_score(score);
+            if (cfg_japanese_mode && !endgame) {
+                result = SearchResult::from_eval(node->get_net_eval(),
+                                                 node->get_net_alpkt(),
+                                                 node->get_net_beta());
+            } else {
+                auto score = currstate.final_score();
+                result = SearchResult::from_score(score);
+            }
         } else if (m_nodes < MAX_TREE_SIZE) {
 	    float value, alpkt, beta;
 	    const auto had_children = node->has_children();
@@ -205,6 +213,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                                            endgame ? FAST_ROLL_OUT_VISITS : 0);
         if (next != nullptr) {
             auto move = next->get_move();
+            myprintf(" %s", currstate.board.move_to_text(move).c_str());
             next->set_eval_bonus_father(node->get_eval_bonus());
             next->set_eval_base_father(node->get_eval_base());
 
@@ -742,22 +751,45 @@ int UCTSearch::think(int color, passflag_t passflag) {
     float est_score;
     if (cfg_japanese_mode) {
         if (!is_better_move(bestmove, FastBoard::PASS, est_score)) {
-            GameState chn_endstate = m_rootstate;
-            chn_endstate.add_komi(est_score);
-            fast_roll_out(chn_endstate, m_root.get());
+            auto chn_endstate = std::make_unique<GameState>(m_rootstate);
+            myprintf("State copied. Komi %f\n", chn_endstate->get_komi());
+            chn_endstate->display_state();
+            chn_endstate->add_komi(est_score);
+            myprintf("Komi modified to %f. Roll-out starting.\n",
+                     chn_endstate->get_komi());
+            std::string a;
+            std::cin >> a;
+
+            auto fro_tree = std::make_unique<UCTSearch>(*chn_endstate);
+            fro_tree->fast_roll_out();
+            myprintf("Roll-out completed.\n");
+            chn_endstate->display_state();
+            std::cin >> a;
             
-            FullBoard jap_endboard = m_rootstate.board;
+            auto jap_endboard = std::make_unique<FullBoard>(m_rootstate.board);
             bestmove = FastBoard::PASS;
-            if (jap_endboard.remove_dead_stones(chn_endstate.board)) {
-                jap_endboard.find_dame();
+            if (jap_endboard->remove_dead_stones(chn_endstate->board)) {
+                myprintf("Removal of dead stones completed.\n");
+                jap_endboard->display_board();
+                std::cin >> a;
+                jap_endboard->find_dame();
                 for (const auto& node : m_root->get_children()) {
                     const auto move = node->get_move();
-                    if (!jap_endboard.is_dame(move))
+                    myprintf("Considering move %s...",
+                             jap_endboard->move_to_text(move).c_str());
+                    if (!jap_endboard->is_dame(move)) {
+                        myprintf(" Not dame.\n");
                         continue;
+                    }
+                    myprintf(" Is dame.\n");
                     bestmove = is_better_move(FastBoard::PASS, move, est_score) ?
                         FastBoard::PASS : move;
-                    break;
                 }
+                myprintf("Chosen move is %s.\n",
+                         jap_endboard->move_to_text(bestmove).c_str());
+            } else {
+                myprintf ("Removal didn't work!\n");
+                std::cin >> a;
             }
         }
     }
@@ -865,18 +897,28 @@ bool UCTSearch::is_better_move(int move1, int move2, float & estimated_score) {
     explore_move(move1);
     explore_move(move2);
 
+    if (move2 == FastBoard::PASS) {
+        myprintf("--> move2 is PASS <--\nPasses: %d\n", m_rootstate.get_passes());
+    }
+    
     const auto color = m_rootstate.get_to_move();
     const auto move1_eval = move1_nodeptr->get_eval(color);
     const auto move2_eval = move2_nodeptr->get_eval(color);
-    auto move1_alpkt = move1_nodeptr->get_net_alpkt();
-    auto move2_alpkt = move2_nodeptr->get_net_alpkt();
-    auto move1_median_alpkt = move1_nodeptr->estimate_alpkt();
-    auto move2_median_alpkt = move2_nodeptr->estimate_alpkt();
-    const auto delta = move1_median_alpkt - move2_median_alpkt;
+    auto move1_score = move1_nodeptr->get_net_alpkt();
+    auto move2_score = move2_nodeptr->get_net_alpkt();
+    auto move1_median_score = move1_nodeptr->estimate_alpkt(m_rootstate);
+    auto move2_median_score = move2_nodeptr->estimate_alpkt(m_rootstate);
     const auto komi = m_rootstate.get_komi();
-    estimated_score = std::round(move1_median_alpkt + komi) - komi;
+    estimated_score = std::round(move1_median_score + komi) - komi;
     const auto delta_mesh = std::abs(estimated_score + komi
-                                     -  std::round(move2_median_alpkt + komi));
+                                     -  std::round(move2_median_score + komi));
+    if (color == FastBoard::WHITE) {
+        move1_score *= -1.0;
+        move2_score *= -1.0;
+        move1_median_score *= -1.0;
+        move2_median_score *= -1.0;
+    }
+    const auto delta = move1_median_score - move2_median_score;
     // const auto freq_pass = float(passmove_nodeptr->get_visits()) 
     //     / float(m_root->get_visits());
     
@@ -884,69 +926,95 @@ bool UCTSearch::is_better_move(int move1, int move2, float & estimated_score) {
         delta_mesh < 0.5 && delta < 0.25) {
         is_better = false;
     }
-    if (color == FastBoard::WHITE) {
-        move1_alpkt *= -1.0;
-        move2_alpkt *= -1.0;
-        move1_median_alpkt *= -1.0;
-        move2_median_alpkt *= -1.0;
-    }
     myprintf("Delta: %.2f, mesh: %.2f.\n"
-             "Move2 winrate drop: %5.2f%%.\n"
+             "Move2 (%s) winrate drop: %5.2f%%.\n"
              "Points drop (net): %.2f-%.2f=%.2f.\n"
              "Points drop (subtree median): %.2f-%.2f=%.2f.\n",
              //freq_pass*100.0f,
-             delta, delta_mesh,
+             delta, delta_mesh, m_rootstate.board.move_to_text(move2).c_str(),
              (move1_eval - move2_eval)*100.0f,
-             move1_alpkt, move2_alpkt,
-             move1_alpkt - move2_alpkt,
-             move1_median_alpkt, move2_median_alpkt,
-             move1_median_alpkt - move2_median_alpkt
+             move1_score, move2_score,
+             move1_score - move2_score,
+             move1_median_score, move2_median_score,
+             move1_median_score - move2_median_score
              );
 
     return is_better;
 }
 
-void UCTSearch::fast_roll_out(GameState & state, UCTNode * rootptr) {
-    auto curr_root = rootptr;
+void UCTSearch::fast_roll_out() {
+    auto step = 0;
+    // consider changing side to move here
+    // consider putting time management here
+
     do {
         int consec_invalid = 0;
         auto chosenmove = FastBoard::PASS;
+
+        update_root();
         
+        m_root->prepare_root_node(m_rootstate.board.get_to_move(),
+                                  m_nodes, m_rootstate, true);
+
+        myprintf("Step %d. ", step++);
         do {
-            auto currstate = std::make_unique<GameState>(state);
+            myprintf("[");
+            auto currstate = std::make_unique<GameState>(m_rootstate);
+            myprintf(":");
             
-            auto result = play_simulation(*currstate, curr_root, true);
+            //            std::vector<int> children;
+            //            std::vector<int> visits;
+            auto result = play_simulation(*currstate, m_root.get(), true);
             if (result.valid()) {
                 increment_playouts();
                 consec_invalid = 0;
             } else {
                 consec_invalid++;
             }
-            curr_root->sort_children(currstate->get_to_move());
-            const auto first = curr_root->get_first_child();
-            const auto second = curr_root->get_second_child();
+            myprintf("% d", consec_invalid);
+            m_root->sort_children(m_rootstate.get_to_move());
+            myprintf(" ] ");
+            const auto first = m_root->get_first_child();
+            myprintf("(%d",first->get_move());
+            const auto second = m_root->get_second_child();
             if (first == nullptr || second == nullptr || consec_invalid >= 3) {
+                myprintf("|--) ");
                 break;
             }
+            myprintf("|%d) ", second->get_move());
+            const auto sign = m_rootstate.get_to_move() ==
+                FastBoard::WHITE ? -1.0 : 1.0;
+            const auto first_move = first->get_move();
+            const auto second_move = second->get_move();
+            const auto first_score = sign * first->estimate_alpkt(m_rootstate);
+            const auto second_score = sign * second->estimate_alpkt(m_rootstate);
+            myprintf("First: %s, %d, %.2f. Second: %s, %d, %.2f.\n",
+                     m_rootstate.board.move_to_text(first_move).c_str(),
+                     first->get_visits(),
+                     first_score,
+                     m_rootstate.board.move_to_text(second_move).c_str(),
+                     second->get_visits(),
+                     second_score
+                     );
             if (first->get_visits() < FAST_ROLL_OUT_VISITS ||
                 second->get_visits() < FAST_ROLL_OUT_VISITS) {
                 continue;
             }
-            const auto first_move = first->get_move();
-            const auto second_move = second->get_move();
             if (first_move != FastBoard::PASS) {
                 chosenmove = first_move;
-            } else if (first->estimate_alpkt() > second->estimate_alpkt() + 0.5) {
-                chosenmove = first_move;
-            } else {
+            } else if (second_score > first_score + 0.75) {
                 chosenmove = second_move;
+            } else {
+                chosenmove = FastBoard::PASS;
             }
             break;
         } while (true);
-        
-        state.play_move(chosenmove);
-        curr_root = curr_root->select_child(chosenmove);
-    } while(state.get_passes() < 2);
+
+        m_last_rootstate = std::make_unique<GameState>(m_rootstate);
+        myprintf("Chosen move: %s", m_rootstate.board.move_to_text(chosenmove).c_str());
+        m_rootstate.play_move(chosenmove);
+        m_rootstate.display_state();
+    } while(m_rootstate.get_passes() < 2);
 }
 
 void UCTSearch::explore_move(int move) {
@@ -957,6 +1025,7 @@ void UCTSearch::explore_move(int move) {
         currstate->play_move(move);
         
         play_simulation(*currstate, nodeptr);
+        myprintf("*");
     }
     return;    
 }
