@@ -370,7 +370,9 @@ void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
 }
 
-UCTNode* UCTNode::uct_select_child(int color, bool is_root, int max_visits) {
+UCTNode* UCTNode::uct_select_child(int color, bool is_root,
+                                   int max_visits,
+                                   std::vector<int> move_list) {
     LOCK(get_mutex(), lock);
 
     // Count parentvisits manually to avoid issues with transpositions.
@@ -412,9 +414,24 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root, int max_visits) {
         if (!child.active()) {
             continue;
         }
+        
+        auto is_listed = false;
+        for (auto& listed : move_list) {
+            if (child.get_move() == listed) {
+                is_listed = true;
+                break;
+            }
+        }
+        if (!is_listed && move_list.size() > 0) {
+            continue;
+        }
 
         const auto visits = child.get_visits();
-        
+
+        // If max_visits is specified, then stop choosing nodes that
+        // already have enough visits. This guarantees that
+        // exploration is wide enough and not too deep when doing fast
+        // roll-outs in the endgame exploration.
         if (max_visits > 0 && visits >= max_visits) {
             continue;
         }
@@ -556,21 +573,8 @@ void UCTNode::get_subtree_alpkts(std::vector<float> & vector) const {
     return;
 }
 
-float UCTNode::estimate_alpkt(const GameState& parent_state) const {
+float UCTNode::estimate_alpkt() const {
     std::vector<float> subtree_alpkts;
-
-    // const auto passes = parent_state.get_passes() +
-    //     (get_move() == FastBoard::PASS ? 1 : 0);
-    // myprintf("==> alpkt estimation <==\n"
-    //          "parent passes: %d, test move: %s, score: %f\n",
-    //          parent_state.get_passes(),
-    //          parent_state.board.move_to_text(get_move()).c_str(),
-    //          parent_state.final_score());
-    // if (passes >= 2) {
-    //     auto test = std::make_unique<GameState>(parent_state);
-    //     test->undo_move()
-    //     return parent_state.final_score();
-    // }
 
     get_subtree_alpkts(subtree_alpkts);
 

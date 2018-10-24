@@ -256,18 +256,23 @@ void FastBoard::remove_neighbour(const int vtx, const int color) {
 int FastBoard::calc_reach_color(int color) const {
     auto bd = std::vector<bool>(m_maxsq, false);
 
-    return calc_reach_color(color, bd);
+    return calc_reach_color(color, EMPTY, bd, false);
 }
 
 
-int FastBoard::calc_reach_color(int color, std::vector<bool> & bd) const {
+int FastBoard::calc_reach_color(int color,
+                                int spread_color,
+                                std::vector<bool> & bd,
+                                bool territory) const {
     auto reachable = 0;
     bd.resize(m_maxsq);
     auto open = std::queue<int>();
     for (auto i = 0; i < m_boardsize; i++) {
         for (auto j = 0; j < m_boardsize; j++) {
-            auto vertex = get_vertex(i, j);
-            if (m_square[vertex] == color) {
+            const auto vertex = get_vertex(i, j);
+            const auto peek = territory ?
+                int(m_territory[vertex]) : int(m_square[vertex]);
+            if (peek == color) {
                 reachable++;
                 bd[vertex] = true;
                 open.push(vertex);
@@ -283,7 +288,9 @@ int FastBoard::calc_reach_color(int color, std::vector<bool> & bd) const {
 
         for (auto k = 0; k < 4; k++) {
             auto neighbor = vertex + m_dirs[k];
-            if (!bd[neighbor] && m_square[neighbor] == EMPTY) {
+            const auto peek = territory ?
+                int(m_territory[neighbor]) : int(m_square[neighbor]);
+            if (!bd[neighbor] && peek == spread_color) {
                 reachable++;
                 bd[neighbor] = true;
                 open.push(neighbor);
@@ -299,6 +306,19 @@ float FastBoard::area_score(float komi) const {
     auto black = calc_reach_color(BLACK);
     return black - white - komi;
 }
+
+
+float FastBoard::territory_score(float komi) {
+    const auto territory = compute_territory();
+    display_board();
+    myprintf ("Scoring:\n"
+              "black t: %d, white t: %d, black p: %d, white p: %d, komi: %.1f",
+              territory.first, territory.second, get_prisoners(BLACK),
+              get_prisoners(WHITE), komi);
+    return territory.first - territory.second - komi
+        + get_prisoners(BLACK) - get_prisoners(WHITE);
+}
+
 
 void FastBoard::display_board(int lastmove) const {
     int boardsize = get_boardsize();
@@ -430,8 +450,6 @@ std::string FastBoard::move_to_text(int move) const {
     column--;
     row--;
 
-    // myprintf("Move: %d, m_squaresize: %d, row: %d.\n",
-    // 	     move, m_squaresize,);
     assert(move == FastBoard::PASS
            || move == FastBoard::RESIGN
            || (row >= 0 && row < m_boardsize));
@@ -606,22 +624,107 @@ int FastBoard::get_vertex(const int index) const {
 
 
 void FastBoard::find_dame() {
+    std::vector<int> tmp;
+    find_dame(tmp);
+}
+
+
+void FastBoard::find_dame(std::vector<int>& all_dames) {
+    all_dames.clear();
     auto black = std::vector<bool>(m_maxsq, false);
     auto white = std::vector<bool>(m_maxsq, false);
 
-    calc_reach_color(BLACK, black);
-    calc_reach_color(WHITE, white);
+    calc_reach_color(BLACK, EMPTY, black, false);
+    calc_reach_color(WHITE, EMPTY, white, false);
 
     for (int i = 0; i < m_boardsize; i++) {
         for (int j = 0; j < m_boardsize; j++) {
             int vertex = get_vertex(i, j);
-
-            m_dame[vertex] = black[vertex] && white[vertex];
+            if (black[vertex] && white[vertex]) {
+                m_territory[vertex] = DAME;
+                all_dames.push_back(vertex);
+            }
         }
     }
 }
 
 
+void FastBoard::find_seki() {
+    auto black_seki = std::vector<bool>(m_maxsq, false);
+    auto white_seki = std::vector<bool>(m_maxsq, false);
+
+    calc_reach_color(DAME, B_STONE, black_seki, true);
+    calc_reach_color(DAME, W_STONE, white_seki, true);
+
+    for (int i = 0; i < m_boardsize; i++) {
+        for (int j = 0; j < m_boardsize; j++) {
+            int vertex = get_vertex(i, j);
+            if ((black_seki[vertex] || white_seki[vertex])
+                && m_territory[vertex] != DAME) {
+                m_territory[vertex] = SEKI;
+            }
+        }
+    }
+}
+
+
+std::pair<int,int> FastBoard::find_territory() {
+    auto b_terr_count = 0;
+    auto w_terr_count = 0;
+
+    auto seki_eye = std::vector<bool>(m_maxsq, false);
+    auto b_territory = std::vector<bool>(m_maxsq, false);
+    auto w_territory = std::vector<bool>(m_maxsq, false);
+
+    calc_reach_color(SEKI, EMPTY_I, seki_eye, true);
+    calc_reach_color(B_STONE, EMPTY_I, b_territory, true);
+    calc_reach_color(W_STONE, EMPTY_I, w_territory, true);
+
+    for (int i = 0; i < m_boardsize; i++) {
+        for (int j = 0; j < m_boardsize; j++) {
+            int vertex = get_vertex(i, j);
+            if (seki_eye[vertex] && m_territory[vertex] != SEKI) {
+                m_territory[vertex] = SEKI_EYE;
+            } else if (b_territory[vertex] && m_territory[vertex] != B_STONE) {
+                m_territory[vertex] = B_TERR;
+                b_terr_count++;
+            } else if (w_territory[vertex] && m_territory[vertex] != W_STONE) {
+                m_territory[vertex] = W_TERR;
+                w_terr_count++;
+            }
+        }
+    }
+    return std::make_pair(b_terr_count, w_terr_count);
+}
+
+
+std::pair<int,int> FastBoard::compute_territory() {
+    reset_territory();
+    find_dame();
+    find_seki();
+    return find_territory();
+}
+
+
+void FastBoard::reset_territory() {
+    for (int vertex = 0 ; vertex < m_maxsq ; vertex++) {
+        switch(m_square[vertex]) {
+        case BLACK:
+            m_territory[vertex] = B_STONE;
+            break;
+        case WHITE:
+            m_territory[vertex] = W_STONE;
+            break;
+        case EMPTY:
+            m_territory[vertex] = EMPTY_I;
+            break;
+        case INVAL:
+            m_territory[vertex] = INVAL_I;
+            break;
+        }
+    }
+}
+
 bool FastBoard::is_dame(int vertex) const {
-    return m_dame[vertex];
+    return m_territory[vertex] == DAME;
 }

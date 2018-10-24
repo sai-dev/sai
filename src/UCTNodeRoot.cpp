@@ -226,7 +226,13 @@ void UCTNode::prepare_root_node(int color,
     //    root_eval = get_net_eval(color);
     //    root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
 
+#ifndef NDEBUG
     myprintf("NN eval=%f. Agent eval=%f\n", get_net_eval(color), get_agent_eval(color));
+#else
+    if (!fast_roll_out) {
+        myprintf("NN eval=%f. Agent eval=%f\n", get_net_eval(color), get_agent_eval(color));
+    }
+#endif
 
     // There are a lot of special cases where code assumes
     // all children of the root are inflated, so do that.

@@ -456,7 +456,17 @@ bool GTP::execute(GameState & game, std::string xinput) {
         game.display_legal(game.get_to_move());
         return true;
     } else if (command.find("final_score") == 0) {
-        float ftmp = game.final_score();
+        float ftmp;
+        if (!cfg_japanese_mode) {
+            ftmp = game.final_score();
+        } else {
+            ftmp = search->final_japscore();
+            if (ftmp > BOARD_SQUARES * 10.0) {
+                gtp_fail_printf(id, "japanese scoring failed "
+                                "while trying to remove dead groups");
+                return true;
+            }
+        }
         /* white wins */
         if (ftmp < -0.0001f) {
             gtp_printf(id, "W+%3.1f", float(fabs(ftmp)));

@@ -106,10 +106,8 @@ public:
     bool is_running() const;
     void increment_playouts();
     SearchResult play_simulation(GameState& currstate,
-                                 UCTNode* const node,
-                                 bool endgame = false);
-    bool is_better_move(int move1, int move2, float & estimated_score);
-    void explore_move(int move);
+                                 UCTNode* const node);
+    float final_japscore();
     
 private:
     float get_min_psa_ratio() const;
@@ -126,6 +124,11 @@ private:
     int get_best_move(passflag_t passflag);
     void update_root();
     bool advance_to_new_rootstate();
+    void select_playable_dame(FullBoard *board);
+    void select_dame_sequence(FullBoard *board);
+    bool is_stopping (int move) const;
+    bool is_better_move(int move1, int move2, float & estimated_score);
+    void explore_move(int move);
     void fast_roll_out();
 
     GameState & m_rootstate;
@@ -136,6 +139,29 @@ private:
     std::atomic<bool> m_run{false};
     int m_maxplayouts;
     int m_maxvisits;
+
+    // Advanced search parameters
+    
+    // Max number of visits per node: nodes with this or more visits
+    // are never selected. Acts on first generation children of root
+    // node, since the deeper generations always have fewer visits.
+    // If equal to 0 it is ignored.
+    int m_per_node_maxvisits = 0;
+
+    // List of moves allowed as first generation choices during the
+    // search. Only applies to the first move in the simulation.
+    // If empty it is ignored.
+    std::vector<int> m_allowed_root_children = {};
+
+    // If, during the search, any of these vertexes is the move of a
+    // node with at least m_stopping_visits, the flag is set to
+    // true.  If the vector is empty or the visits are 0 it is
+    // ignored.
+    std::vector<int> m_stopping_moves = {};
+    int m_stopping_visits = 0;
+    bool m_stopping_flag = false;
+
+    int m_bestmove = FastBoard::PASS;
 
     std::list<Utils::ThreadGroup> m_delete_futures;
 };

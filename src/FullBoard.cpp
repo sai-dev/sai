@@ -198,33 +198,46 @@ void FullBoard::reset_board(int size) {
 bool FullBoard::remove_dead_stones(const FullBoard & tt_endboard) {
     std::vector<int> alive_stones;
 
+#ifndef NDEBUG
     myprintf("Must Remove dead stones!\n");
-
     display_board();
     tt_endboard.display_board();
-    
     myprintf ("\n   ");
     print_columns();
+#endif
+    
     for (int j = m_boardsize-1; j >= 0; j--) {
+#ifndef NDEBUG
         myprintf("%2d ", j+1);
+#endif
         for (int i = 0; i < m_boardsize; i++) {
             int vertex = get_vertex(i, j);
             const auto currcolor = get_square(vertex);
             const auto endcolor = tt_endboard.get_square(vertex);
             if (currcolor == EMPTY) {
+#ifndef NDEBUG
                 myprintf (". ");
+#endif
             } else if (currcolor == endcolor) {
                 alive_stones.push_back(vertex);
+#ifndef NDEBUG
                 myprintf ("A ");
+#endif
             } else {
+#ifndef NDEBUG
                 myprintf ("v ");
+#endif
             }
         }
+#ifndef NDEBUG
         myprintf("%2d\n", j+1);
+#endif
     }
+#ifndef NDEBUG
     myprintf("   ");
     print_columns();
     myprintf("\n");
+#endif
 
     
     for (int i = 0; i < m_boardsize; i++) {

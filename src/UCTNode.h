@@ -53,7 +53,9 @@ public:
     void sort_children(int color);
     void sort_children_by_policy();
     UCTNode& get_best_root_child(int color);
-    UCTNode* uct_select_child(int color, bool is_root, int max_visits);
+    UCTNode* uct_select_child(int color, bool is_root,
+                              int max_visits,
+                              std::vector<int> move_list);
 
     size_t count_nodes() const;
     SMP::Mutex& get_mutex();
@@ -106,7 +108,7 @@ public:
     std::unique_ptr<UCTNode> find_child(const int move);
     void inflate_all_children();
     UCTNode* select_child(int move);
-    float estimate_alpkt(const GameState& parent_state) const;
+    float estimate_alpkt() const;
 
 private:
     enum Status : char {
