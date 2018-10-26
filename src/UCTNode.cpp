@@ -64,6 +64,10 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     if (!expandable(min_psa_ratio)) {
         return false;
     }
+
+    const auto to_move = state.board.get_to_move();
+    const auto komi = state.get_komi();
+
     // acquire the lock
     LOCK(get_mutex(), lock);
     // no successors in final state
@@ -85,9 +89,6 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     const auto raw_netlist = Network::get_scored_moves(
         &state, Network::Ensemble::RANDOM_SYMMETRY);
 
-    const auto to_move = state.board.get_to_move();
-    const auto komi = state.get_komi();
-
     beta = m_net_beta = raw_netlist.beta;
     value = raw_netlist.value; // = m_net_value
 
@@ -103,13 +104,6 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
         m_eval_base = result_extended.eval_base;
         m_agent_eval = result_extended.agent_eval;
         m_net_eval = result_extended.pi;
-
-#ifndef NDEBUG
-        myprintf("--> NN:   alpha=%.2f, beta=%.3f, pass=%.3f, "
-            "alpkt=%.2f, pi=%.3f, x_bar=%.2f, x_base=%.2f\n\n",
-            raw_netlist.alpha, raw_netlist.beta, raw_netlist.policy_pass,
-            m_net_alpkt, m_net_eval, m_eval_bonus, m_eval_base);
-#endif
 
     } else {
         m_net_alpkt = -komi;
@@ -307,7 +301,6 @@ void UCTNode::set_values(float value, float alpkt, float beta) {
     m_net_beta = beta;
 }
 
-
 void UCTNode::set_score(float score) {
     m_score = score;
 }
@@ -372,7 +365,8 @@ void UCTNode::accumulate_eval(float eval) {
 
 UCTNode* UCTNode::uct_select_child(int color, bool is_root,
                                    int max_visits,
-                                   std::vector<int> move_list) {
+                                   std::vector<int> move_list,
+                                   bool nopass) {
     LOCK(get_mutex(), lock);
 
     // Count parentvisits manually to avoid issues with transpositions.
@@ -414,7 +408,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root,
         if (!child.active()) {
             continue;
         }
-        
+
         auto is_listed = false;
         for (auto& listed : move_list) {
             if (child.get_move() == listed) {
@@ -443,6 +437,12 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root,
         auto psa = child.get_score();
         auto denom = 1.0 + visits;
         auto puct = cfg_puct * psa * (numerator / denom);
+
+        if (nopass && child.get_move() == FastBoard::PASS) {
+            puct = 0.0;
+            winrate -= 0.05;
+        }
+        
         auto value = winrate + puct;
         assert(value > std::numeric_limits<double>::lowest());
 
@@ -457,7 +457,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root,
 	}
     }
 
-    //    assert(best != nullptr);
+    assert(best != nullptr);
     if(best->get_visits() == 0) {
         best->inflate();
         best->get()->set_values(m_net_eval, m_net_alpkt, m_net_beta);
@@ -563,20 +563,36 @@ UCTNode* UCTNode::select_child(int move) {
     return nullptr;
 }
 
-void UCTNode::get_subtree_alpkts(std::vector<float> & vector) const {
+void UCTNode::get_subtree_alpkts(std::vector<float> & vector,
+                                 int passes,
+                                 bool is_tromptaylor_scoring) const {
+    auto children_visits = 0;
+
     vector.emplace_back(get_net_alpkt());
     for (auto& child : m_children) {
-        if (child.get_visits() > 0) {
-            child->get_subtree_alpkts(vector);
+        const auto child_visits = child.get_visits();
+        if (child_visits > 0) {
+            const auto pass = (child.get_move() == FastBoard::PASS) ? 1 : 0;
+            child->get_subtree_alpkts(vector, ++passes * pass,
+                                      is_tromptaylor_scoring);
+                       children_visits += child_visits;
         }
     }
+
+    const auto missing_nodes = get_visits() - children_visits - 1;
+    if (missing_nodes > 0 && is_tromptaylor_scoring) {
+        const std::vector<float> rep(missing_nodes, get_net_alpkt());
+        vector.insert(vector.end(), std::begin(rep), std::end(rep));
+    }
+
     return;
 }
 
-float UCTNode::estimate_alpkt() const {
+float UCTNode::estimate_alpkt(int passes,
+                              bool is_tromptaylor_scoring) const {
     std::vector<float> subtree_alpkts;
 
-    get_subtree_alpkts(subtree_alpkts);
+    get_subtree_alpkts(subtree_alpkts, passes, is_tromptaylor_scoring);
 
     return Utils::median(subtree_alpkts);
 }

@@ -38,6 +38,7 @@ namespace Utils {
     float sigmoid_interval_avg(float alpkt, float beta, float s, float t);
     float log_sigmoid(float x);
     float median(std::vector<float> & sample);
+    float winner (float score);
 
     template<class T>
     void atomic_add(std::atomic<T> &f, T d) {

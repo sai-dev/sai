@@ -32,6 +32,7 @@
 #include "FastState.h"
 #include "GameState.h"
 #include "UCTNode.h"
+#include "Utils.h"
 
 
 class SearchResult {
@@ -44,13 +45,7 @@ public:
         return SearchResult(value, alpkt, beta);
     }
     static SearchResult from_score(float board_score) {
-        if (board_score > 0.0001f) {
-            return SearchResult(1.0f, board_score, 10.0f);
-        } else if (board_score < -0.0001f) {
-            return SearchResult(0.0f, board_score, 10.0f);
-        } else {
-            return SearchResult(0.5f, board_score, 10.0f);
-        }
+        return SearchResult(Utils::winner(board_score), board_score, 10.0f);
     }
 private:
     explicit SearchResult(float value, float alpkt, float beta)
@@ -112,7 +107,8 @@ public:
 private:
     float get_min_psa_ratio() const;
     void dump_stats(FastState& state, UCTNode& parent);
-    void print_move_choices_by_policy(KoState& state, UCTNode& parent, int at_least_as_many, float probab_threash);
+    void print_move_choices_by_policy(KoState& state, UCTNode& parent,
+                                      int at_least_as_many, float probab_threash);
     void tree_stats(const UCTNode& node);
     std::string get_pv(FastState& state, UCTNode& parent);
     void dump_analysis(int playouts);
@@ -129,6 +125,7 @@ private:
     bool is_stopping (int move) const;
     bool is_better_move(int move1, int move2, float & estimated_score);
     void explore_move(int move);
+    void explore_root_nopass();
     void fast_roll_out();
 
     GameState & m_rootstate;
@@ -141,6 +138,7 @@ private:
     int m_maxvisits;
 
     // Advanced search parameters
+    bool m_chn_scoring = true;
     
     // Max number of visits per node: nodes with this or more visits
     // are never selected. Acts on first generation children of root
@@ -160,7 +158,8 @@ private:
     std::vector<int> m_stopping_moves = {};
     int m_stopping_visits = 0;
     bool m_stopping_flag = false;
-
+    bool m_nopass = false;
+    
     int m_bestmove = FastBoard::PASS;
 
     std::list<Utils::ThreadGroup> m_delete_futures;

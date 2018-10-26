@@ -167,32 +167,24 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     const auto color = currstate.get_to_move();
     auto result = SearchResult{};
 
-#ifndef NDEBUG
-    const auto lastmove = currstate.get_last_move();
-    const std::string tmp = lastmove ? currstate.move_to_text(lastmove)
-	: "empty";
-
-    myprintf("\nSimulation step: at move %i, or %s.\n"
-	     "Visits=%i, blackevals=%.2f, net_eval=%.3f, x_bar=%.2f, x_base=%.2f.\n",
-	     lastmove, tmp.c_str(),
-	     node->get_visits(),
-	     node->get_blackevals(),
-	     node->get_net_eval(color),
-	     node->get_eval_bonus(),
-         node->get_eval_base());
-#endif
-
     node->virtual_loss();
 
     if (node->expandable()) {
         if (currstate.get_passes() >= 2) {
-            if (cfg_japanese_mode && m_per_node_maxvisits == 0) {
+            if (cfg_japanese_mode && m_chn_scoring) {
                 result = SearchResult::from_eval(node->get_net_eval(),
                                                  node->get_net_alpkt(),
                                                  node->get_net_beta());
+#ifndef NDEBUG
+                myprintf(": Chn (net) %.3f\n", node->get_net_alpkt());
+#endif
             } else {
                 auto score = currstate.final_score();
                 result = SearchResult::from_score(score);
+                node->set_values(Utils::winner(score), score, 10.0f);
+#ifndef NDEBUG
+                myprintf(": TT (score) %.3f\n", score);
+#endif
             }
         } else if (m_nodes < MAX_TREE_SIZE) {
 	    float value, alpkt, beta;
@@ -202,6 +194,13 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                                       get_min_psa_ratio());
             if (!had_children && success) {
                 result = SearchResult::from_eval(value, alpkt, beta);
+#ifndef NDEBUG
+                myprintf(": new %.3f\n", alpkt);
+#endif
+            } else {
+#ifndef NDEBUG
+                myprintf(": create_children() failed!\n");
+#endif
             }
         }
     }
@@ -210,10 +209,10 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         auto next = node->uct_select_child(color,
                                            node == m_root.get(),
                                            m_per_node_maxvisits,
-                                           m_allowed_root_children);
+                                           m_allowed_root_children,
+                                           m_nopass);
         if (next != nullptr) {
             auto move = next->get_move();
-            //            myprintf(" %s", currstate.board.move_to_text(move).c_str());
             next->set_eval_bonus_father(node->get_eval_bonus());
             next->set_eval_base_father(node->get_eval_base());
 
@@ -222,13 +221,17 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                 next->invalidate();
             } else {
 #ifndef NDEBUG
-                std::string tmp = currstate.move_to_text(move);
-                myprintf("UCT selected move %4s.\n", tmp.c_str());
+                myprintf("%4s:%2d ",
+                         currstate.move_to_text(move).c_str(), next->get_visits());
 #endif
-                //                myprintf(",");
 
+                const auto allowed = m_allowed_root_children;
                 m_allowed_root_children = {};
+                if (m_nopass) {
+                    currstate.set_passes(0);
+                }
                 result = play_simulation(currstate, next);
+                m_allowed_root_children = allowed;
                 if (m_stopping_flag && node == m_root.get()) {
                     m_bestmove = move;
                 }
@@ -238,15 +241,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 
     if (result.valid()) {
 	const auto eval = is_mult_komi_net ?
-	    result.eval_with_bonus(node->get_eval_bonus_father(), node->get_eval_base_father()) : result.eval();
-#ifndef NDEBUG
-	myprintf("Last move was %s. Visits=%i, blackevals=%f, "
-		 "bonus=%f, eval=%f.\n"
-		 "About to update blackevals with %f\n",
-		 tmp.c_str(), node->get_visits(), node->get_blackevals(),
-		 node->get_eval_bonus(), 
-		 result.eval(), eval);
-#endif
+	    result.eval_with_bonus(node->get_eval_bonus_father(),
+                                   node->get_eval_base_father()) : result.eval();
         node->update(eval);
         if (m_stopping_visits >= 1 && m_stopping_moves.size() >= 1) {
             if (node->get_visits() >= m_stopping_visits) {
@@ -718,9 +714,6 @@ int UCTSearch::think(int color, passflag_t passflag) {
     bool keeprunning = true;
     int last_update = 0;
     do {
-#ifndef NDEBUG
-	myprintf("\n\nSimulation starts from root.\n");
-#endif
         auto currstate = std::make_unique<GameState>(m_rootstate);
 
         auto result = play_simulation(*currstate, m_root.get());
@@ -768,7 +761,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
             chn_endstate->add_komi(est_score);
 #ifndef NDEBUG
             chn_endstate->display_state();
-            myprintf("Komi modified to %f. Roll-out starting.\n",
+            myprintf("Komi modified to %.1f. Roll-out starting.\n",
                      chn_endstate->get_komi());
 #endif
             auto FRO_tree = std::make_unique<UCTSearch>(*chn_endstate);
@@ -840,14 +833,14 @@ void UCTSearch::select_playable_dame(FullBoard *board) {
     for (const auto& node : m_root->get_children()) {
         const auto move = node->get_move();
 #ifndef NDEBUG
-        myprintf("Considering move %s...",
+        myprintf("Considering move %s...\n",
                  board->move_to_text(move).c_str());
 #endif
         if (!board->is_dame(move)) {
             continue;
         }
 #ifndef NDEBUG
-        myprintf(" Is dame.\n");
+        myprintf("         Dame found!\n");
 #endif
         float est_score;
         if (!is_better_move(FastBoard::PASS, move, est_score)) {
@@ -888,7 +881,7 @@ void UCTSearch::select_dame_sequence(FullBoard *board) {
     // sequences leading to a dame being played,
     // without losing points.
 #ifndef NDEBUG
-    myprintf("No playable dame directly playable. Looking for longer sequences.\n");
+    myprintf("No dame directly playable. Looking for longer sequences.\n");
 #endif
     
     const auto stop_visits = m_stopping_visits;
@@ -978,10 +971,13 @@ bool UCTSearch::is_better_move(int move1, int move2, float & estimated_score) {
     explore_move(move2);
 
     const auto color = m_rootstate.get_to_move();
+    const auto passes = m_rootstate.get_passes() + 1;
+    const auto move1_passes = passes * (move1 == FastBoard::PASS ? 1 : 0);
+    const auto move2_passes = passes * (move2 == FastBoard::PASS ? 1 : 0);
     auto move1_score = move1_nodeptr->get_net_alpkt();
     auto move2_score = move2_nodeptr->get_net_alpkt();
-    auto move1_median_score = move1_nodeptr->estimate_alpkt();
-    auto move2_median_score = move2_nodeptr->estimate_alpkt();
+    auto move1_median_score = move1_nodeptr->estimate_alpkt(move1_passes);
+    auto move2_median_score = move2_nodeptr->estimate_alpkt(move2_passes);
     const auto komi = m_rootstate.get_komi();
     estimated_score = std::round(move1_median_score + komi) - komi;
     const auto delta_mesh = std::abs(estimated_score + komi
@@ -994,17 +990,17 @@ bool UCTSearch::is_better_move(int move1, int move2, float & estimated_score) {
     }
     const auto delta = move1_median_score - move2_median_score;
     
-    if (delta_mesh < 0.5 && delta < 0.25) {
+    if (delta_mesh < 0.5 && delta < 0.5) {
         is_better = false;
     }
 #ifndef NDEBUG
     const auto move1_eval = move1_nodeptr->get_eval(color);
     const auto move2_eval = move2_nodeptr->get_eval(color);
-    myprintf("Delta: %.2f, mesh: %.2f.\n"
+    myprintf("Komi: %.1f, delta: %.2f, mesh: %.2f.\n"
              "Move2 (%s) winrate drop: %5.2f%%.\n"
              "Points drop (net): %.2f-%.2f=%.2f.\n"
              "Points drop (subtree median): %.2f-%.2f=%.2f.\n",
-             delta, delta_mesh, m_rootstate.board.move_to_text(move2).c_str(),
+             komi, delta, delta_mesh, m_rootstate.board.move_to_text(move2).c_str(),
              (move1_eval - move2_eval)*100.0f,
              move1_score, move2_score,
              move1_score - move2_score,
@@ -1017,10 +1013,6 @@ bool UCTSearch::is_better_move(int move1, int move2, float & estimated_score) {
 }
 
 void UCTSearch::fast_roll_out() {
-#ifndef NDEBUG
-    auto step = 0;
-#endif
-    // consider changing side to move here
     // consider putting time management here
 
     // Explore tree for at most 120% of FAST_ROLL_OUT_VISITS
@@ -1030,7 +1022,23 @@ void UCTSearch::fast_roll_out() {
     // the two moves after sort is meaningful.
     const auto old_maxvisits = m_per_node_maxvisits;
     m_per_node_maxvisits = FAST_ROLL_OUT_VISITS + FAST_ROLL_OUT_VISITS / 5;
-    
+
+    // Double pass is scored with Tromp-Taylor in this tree,
+    // so that the exploration leads to actually capturing all
+    // the dead stones. (Since the komi was set as to result
+    // in a jigo with perfect play.)
+    const auto scoring = m_chn_scoring;
+    m_chn_scoring = false;
+
+    // Last move was chosen by scoring double pass with Chinese score
+    // estimation, so there may have been a pass as last move with the
+    // current player losing and not removing dead stones, so set
+    // passes to zero before starting roll-out.
+    m_rootstate.set_passes(0);
+
+#ifndef NDEBUG
+    auto step = 0;
+#endif
     do {
         int consec_invalid = 0;
         auto chosenmove = FastBoard::PASS;
@@ -1041,15 +1049,11 @@ void UCTSearch::fast_roll_out() {
                                   m_nodes, m_rootstate, true);
 
 #ifndef NDEBUG
-        myprintf("Step %d. ", step++);
+        myprintf("Fast roll-out. Step %d. Komi %f\n", step++, m_rootstate.get_komi());
 #endif
         do {
             auto currstate = std::make_unique<GameState>(m_rootstate);
 
-            // Double pass is scored with Tromp-Taylor in this tree,
-            // so that the exploration leads to actually capturing all
-            // the dead stones. (Since the komi was set as to result
-            // in a jigo with perfect play.)
             auto result = play_simulation(*currstate, m_root.get());
 
             if (result.valid()) {
@@ -1059,36 +1063,55 @@ void UCTSearch::fast_roll_out() {
                 consec_invalid++;
             }
             m_root->sort_children(m_rootstate.get_to_move());
-            const auto first = m_root->get_first_child();
-            const auto second = m_root->get_second_child();
+            const auto second = m_root->get_nopass_child(m_rootstate);
+            const auto first = m_root->select_child(FastBoard::PASS);            
+            //            const auto second = m_root->get_second_child();
             if (first == nullptr || second == nullptr || consec_invalid >= 3) {
                 break;
             }
+
+            const auto first_move = FastBoard::PASS;
+            const auto second_move = second->get_move();
+
+            if (second_move == FastBoard::PASS) {
+                break;
+            }
+
             if (first->get_visits() < FAST_ROLL_OUT_VISITS ||
                 second->get_visits() < FAST_ROLL_OUT_VISITS) {
                 continue;
             }
-            const auto first_move = first->get_move();
-            const auto second_move = second->get_move();
-            // Preferring not to pass, we choose the first move if it
-            // is not pass
-            if (first_move != FastBoard::PASS) {
-                chosenmove = first_move;
-                break;
-            }
 
-            // We choose the non-pass move, even if it is the
-            // second best by UCT, if it doesn't seem to lose
-            // points. 
+#ifndef NDEBUG
+
+            myprintf("Roll-out step ends.\n"
+                     "Best two moves (visits) are %s (%d) and %s (%d).\n",
+                     m_rootstate.board.move_to_text(first_move).c_str(),
+                     first->get_visits(),
+                     m_rootstate.board.move_to_text(second_move).c_str(),
+                     second->get_visits());
+#endif
+            // We choose the non-pass move if it doesn't seem to lose
+            // points.
             const auto sign = m_rootstate.get_to_move() ==
                 FastBoard::WHITE ? -1.0 : 1.0;
-            const auto first_score = sign * first->estimate_alpkt();
-            const auto second_score = sign * second->estimate_alpkt();
+            const auto first_score = sign *
+                first->estimate_alpkt(m_rootstate.get_passes()+1, true);
+            const auto second_score = sign *
+                second->estimate_alpkt(0, true);
             
+#ifndef NDEBUG
+            myprintf("Score estimation: %s=%f, %s=%f.\n",
+                     m_rootstate.board.move_to_text(first_move).c_str(),
+                     first_score,
+                     m_rootstate.board.move_to_text(second_move).c_str(),
+                     second_score);
+#endif
+
             if (second_score > first_score - 0.5) {
                 chosenmove = second_move;
                 // If the best move is pass and the second-best loses
-                // points, we finally pass
+                // points, we pass
             } else {
                 chosenmove = FastBoard::PASS;
             }
@@ -1104,24 +1127,35 @@ void UCTSearch::fast_roll_out() {
     } while(m_rootstate.get_passes() < 2);
 
     m_per_node_maxvisits = old_maxvisits;
+    m_chn_scoring = scoring;
 }
 
 void UCTSearch::explore_move(int move) {
     const auto nodeptr = m_root->select_child(move);
-    if (nodeptr == nullptr) {
-    }
 
     const auto allowed = m_allowed_root_children;
     
     while (nodeptr->get_visits() < EXPLORE_MOVE_VISITS) {
         auto currstate = std::make_unique<GameState>(m_rootstate);
+        const auto nopass_old = m_nopass;
 
+        m_nopass = true;
         m_allowed_root_children = {move};
         play_simulation(*currstate, m_root.get());
+        m_nopass = nopass_old;
     }
     m_allowed_root_children = allowed;
+}
 
-    return;    
+void UCTSearch::explore_root_nopass() {
+    while (m_root->get_visits() < EXPLORE_MOVE_VISITS) {
+        auto currstate = std::make_unique<GameState>(m_rootstate);
+        const auto nopass_old = m_nopass;
+
+        m_nopass = true;
+        play_simulation(*currstate, m_root.get());
+        m_nopass = nopass_old;
+    }
 }
 
 bool UCTSearch::is_stopping (int move) const {
@@ -1143,14 +1177,19 @@ float UCTSearch::final_japscore() {
     m_root->prepare_root_node(m_rootstate.board.get_to_move(),
                               m_nodes, m_rootstate, true);
 
-    explore_move(FastBoard::PASS);
+    explore_root_nopass();
+
     
     const auto komi = m_rootstate.get_komi();
     const auto estimated_score =
-        std::round(m_root->estimate_alpkt() + komi) - komi;
+        std::round(m_root->estimate_alpkt(0) + komi);
+#ifndef NDEBUG
+    myprintf("Estimated Chinese score of the board: %f.\n",
+             estimated_score);
+#endif
     
     auto chn_endstate = std::make_unique<GameState>(m_rootstate);
-    chn_endstate->add_komi(estimated_score);
+    chn_endstate->set_komi(estimated_score);
     auto FRO_tree = std::make_unique<UCTSearch>(*chn_endstate);
 
     FRO_tree->fast_roll_out();

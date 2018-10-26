@@ -195,10 +195,32 @@ float Utils::log_sigmoid(float x) {
 float Utils::median(std::vector<float> & sample){
     sort(sample.begin(), sample.end());
     const auto len = sample.size();
-
+    float result;
     if(len % 2) {
-        return sample[len/2];
+        result = sample[len/2];
+    } else {
+        result = 0.5 * sample[len/2] + 0.5 * sample[len/2-1];
+    }
+#ifndef NDEBUG
+    myprintf("Median over %d values.\n", len);
+    for (auto& x : sample) {
+        myprintf("%.1f ", x);
+    }
+    myprintf("\nResult is: %.1f\n", result);
+#endif
+    return result;
+}
+
+
+float Utils::winner(float board_score) {
+    if (board_score > 0.0001f) {
+        return 1.0f;
     }
 
-    return 0.5 * sample[len/2] + 0.5 * sample[len/2-1];
+    if (board_score < -0.0001f) {
+        return 0.0f;
+    }
+
+    return 0.5f;
+
 }

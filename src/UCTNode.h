@@ -32,6 +32,7 @@
 #include "Network.h"
 #include "SMP.h"
 #include "UCTNodePointer.h"
+#include "UCTSearch.h"
 
 class UCTNode {
 public:
@@ -55,7 +56,8 @@ public:
     UCTNode& get_best_root_child(int color);
     UCTNode* uct_select_child(int color, bool is_root,
                               int max_visits,
-                              std::vector<int> move_list);
+                              std::vector<int> move_list,
+                              bool nopass = false);
 
     size_t count_nodes() const;
     SMP::Mutex& get_mutex();
@@ -108,7 +110,7 @@ public:
     std::unique_ptr<UCTNode> find_child(const int move);
     void inflate_all_children();
     UCTNode* select_child(int move);
-    float estimate_alpkt() const;
+    float estimate_alpkt(int passes, bool is_tromptaylor_scoring = false) const;
 
 private:
     enum Status : char {
@@ -122,7 +124,8 @@ private:
     void accumulate_eval(float eval);
     void kill_superkos(const KoState& state);
     void dirichlet_noise(float epsilon, float alpha);
-    void get_subtree_alpkts(std::vector<float> & vector) const;
+    void get_subtree_alpkts(std::vector<float> & vector, int passes,
+                            bool is_tromptaylor_scoring) const;
 
     // Note : This class is very size-sensitive as we are going to create
     // tens of millions of instances of these.  Please put extra caution
