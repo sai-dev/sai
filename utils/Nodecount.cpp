@@ -16,7 +16,8 @@
 #define VISITS 250
 #define GOBAN_SIZE 7
 #define LOW_THR 0.0005
-#define LRG_N 1000.0
+#define LRG_N 2000000.0
+#define MAX_DENUM 1000
 
 const std::vector<int> default_visits={250,160,100,60,40,502,472,432,402,372,342,312,282,252,222,192,162,132,102,72,42};
 
@@ -27,7 +28,12 @@ unsigned long int gcd_denum(std::vector<double> q) {
     for (auto &p : q) {
 	if (p == 0.0)
 	    continue;
-	for ( m=1 ; 0 != ((int)round(LRG_N*p*den*m) % int(LRG_N)) ; m++);
+        auto x = p;
+        for ( ; x<0.1 ; x*=10.0);
+        const auto lrg_n = 0.5/0.000001 * x / p;
+        
+	for ( m=1 ; den*m <= 8*MAX_DENUM
+                  && 0 != ((int)round(int(lrg_n/(den*m))*p*den*m) % int(lrg_n/(den*m))) ; m++);
         // std::cout << "p: " << p
         //           << ", m: " << m
         //           << ", den: " << den
