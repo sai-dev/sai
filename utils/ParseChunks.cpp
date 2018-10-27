@@ -106,7 +106,7 @@ int main(){
 	// been subtracted, because after the last position there is no
 	// more tree re-use
 	if (!chknil && stm == 0) {
-	    assert (winner == 1 || winner == -1);
+	    assert (winner == 0 || winner == 1 || winner == -1);
 	    ++games;
 	    if (lastwinner == 1) {
 		++stats[j].bwg;
