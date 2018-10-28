@@ -76,6 +76,7 @@ int cfg_random_min_visits;
 float cfg_random_temp;
 std::uint64_t cfg_rng_seed;
 bool cfg_dumbpass;
+bool cfg_recordvisits;
 #ifdef USE_OPENCL
 std::vector<int> cfg_gpus;
 bool cfg_sgemm_exhaustive;
@@ -167,6 +168,7 @@ void GTP::setup_default_parameters() {
     cfg_random_min_visits = 1;
     cfg_random_temp = 1.0f;
     cfg_dumbpass = false;
+    cfg_recordvisits = false;
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;

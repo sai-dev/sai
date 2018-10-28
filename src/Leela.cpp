@@ -72,6 +72,9 @@ static void parse_commandline(int argc, char *argv[]) {
                      "Lambda value")
         ("mu",  po::value<float>()->default_value(cfg_mu),
                      "Mu value")
+        ("symm", "Exploit symmetries by collapsing policy values of "
+         "equivalent moves to a single one, chosen randomly. When writing "
+         "training data, split the visit count evenly among equivalent moves.")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
@@ -125,9 +128,8 @@ static void parse_commandline(int argc, char *argv[]) {
 	    po::value<float>()->default_value(cfg_blunder_thr),
 	    "If visits ratio with best is less than this, it's a blunder. "
 	    "Don't save training data for moves before last blunder.")
-        ("symm", "Exploit symmetries by collapsing policy values of "
-         "equivalent moves to a single one, chosen randomly. When writing "
-         "training data, split the visit count evenly among equivalent moves.")
+        ("recordvisits", "Don't normalize visits to probabilities "
+         "when writing training info.")
         ;
 #ifdef USE_TUNER
     po::options_description tuner_desc("Tuning options");
@@ -317,6 +319,10 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("cpu-only")) {
         cfg_cpu_only = true;
+    }
+
+    if (vm.count("recordvisits")) {
+        cfg_recordvisits = true;
     }
 
     if (vm.count("playouts")) {

@@ -199,6 +199,13 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
         return;
     }
 
+    // If --recordvisits option is used, then the training data
+    // includes the actual number of visits for each move, instead of
+    // probabilities. This number can be not integer in case of symmetries.
+    if (cfg_recordvisits) {
+        sum_visits = 1.0;
+    }
+
     std::vector<int> stabilizer_subgroup;
 
     for (auto i = 0; i < 8; i++) {
