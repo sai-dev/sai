@@ -1070,7 +1070,6 @@ void UCTSearch::fast_roll_out() {
                 break;
             }
 
-            const auto first_move = FastBoard::PASS;
             const auto second_move = second->get_move();
 
             if (second_move == FastBoard::PASS) {
@@ -1084,6 +1083,7 @@ void UCTSearch::fast_roll_out() {
 
 #ifndef NDEBUG
 
+            const auto first_move = FastBoard::PASS;
             myprintf("Roll-out step ends.\n"
                      "Best two moves (visits) are %s (%d) and %s (%d).\n",
                      m_rootstate.board.move_to_text(first_move).c_str(),

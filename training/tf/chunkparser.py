@@ -219,6 +219,10 @@ class ChunkParser:
             return False, None
         if not(len(probabilities) == BOARD_SQUARES + 1):
             return False, None
+        # Renormalize probabilities so that sum is 1 independently
+        # from rounding of single numbers. Moreover if --recordvisits
+        # is used in leelaz the visits number is converted to actual
+        # probabilities here.
         probabilities = probabilities/sum(probabilities)
         
         probs = probabilities.tobytes()
