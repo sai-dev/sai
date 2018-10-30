@@ -361,7 +361,7 @@ void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
 }
 
-UCTNode* UCTNode::uct_select_child(int color, bool is_root,
+UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
                                    int max_visits,
                                    std::vector<int> move_list,
                                    bool nopass) {
@@ -382,6 +382,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root,
     const auto numerator = std::sqrt(double(parentvisits));
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
     // Estimated eval for unknown nodes = original parent NN eval - reduction
+    const auto color = currstate.get_to_move();
     const auto fpu_eval = cfg_fpuzero ? 0.5f : get_agent_eval(color) - fpu_reduction;
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
@@ -434,6 +435,12 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root,
         if (nopass && child.get_move() == FastBoard::PASS) {
             puct = 0.0;
             winrate -= 0.05;
+        }
+
+        if (child.get_move() == FastBoard::PASS && get_move() == FastBoard::PASS) {
+            const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) *
+                currstate.final_score();
+            winrate = Utils::winner(score);
         }
 
         auto value = winrate + puct;
