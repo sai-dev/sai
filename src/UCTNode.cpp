@@ -446,7 +446,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             winrate -= 0.05;
         }
 
-        if (child.get_move() == FastBoard::PASS && get_move() == FastBoard::PASS) {
+        if (child.get_move() == FastBoard::PASS && currstate.get_passes() >= 1) {
             const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) * 
                 currstate.final_score();
             winrate = Utils::winner(score);
