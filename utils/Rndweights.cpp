@@ -8,10 +8,10 @@
 #include <cmath>
 
 #define PLANES 17        // was 18
-#define LAYERS 3
-#define FILTERS 128
-#define GOBAN_AREA 49    // still on 7x7
-#define MOVES 50         // still on 7x7
+#define LAYERS 2
+#define FILTERS 64
+#define GOBAN_AREA 81    // now on 9x9
+#define MOVES 82
 #define VHEADFILTERS 64
 #define VHEADS 2
  
