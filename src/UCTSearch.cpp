@@ -164,7 +164,6 @@ float UCTSearch::get_min_psa_ratio() const {
 
 SearchResult UCTSearch::play_simulation(GameState & currstate,
                                         UCTNode* const node) {
-    const auto color = currstate.get_to_move();
     auto result = SearchResult{};
 
     node->virtual_loss();
@@ -206,7 +205,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     }
 
     if (node->has_children() && !result.valid()) {
-        auto next = node->uct_select_child(color,
+        auto next = node->uct_select_child(currstate,
                                            node == m_root.get(),
                                            m_per_node_maxvisits,
                                            m_allowed_root_children,

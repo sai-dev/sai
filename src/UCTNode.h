@@ -54,7 +54,7 @@ public:
     void sort_children(int color);
     void sort_children_by_policy();
     UCTNode& get_best_root_child(int color);
-    UCTNode* uct_select_child(int color, bool is_root,
+    UCTNode* uct_select_child(const GameState & currstate, bool is_root,
                               int max_visits,
                               std::vector<int> move_list,
                               bool nopass = false);
