@@ -428,20 +428,44 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         } else if (child.get_visits() > 0) {
             winrate = child.get_eval(color);
         }
-        const auto psa = child.get_policy();
-        const auto denom = 1.0 + child.get_visits();
-        auto puct = cfg_puct * psa * (numerator / denom);
+        auto psa = child.get_policy();
 
         if (nopass && child.get_move() == FastBoard::PASS) {
-            puct = 0.0;
+            psa = 0.0;
             winrate -= 0.05;
         }
 
-        if (child.get_move() == FastBoard::PASS && currstate.get_passes() >= 1) {
+        // If the move to explore is a second pass, Tromp-Taylor score
+        // is checked.
+
+        // If the position appears to be losing, then exploration
+        // should be restricted as much as possible.  This is
+        // particularly important when there are dead stones and the
+        // position is actually winning, as in that case even a small
+        // number if visits could change the average probability
+        // significantly for the parent node.
+
+        // If the position appears to be winning, one must consider
+        // that maybe a larger victory could be achieved: if lambda is
+        // positive the average winrate holds this information, while
+        // T.T. score at official komi does not, so in this case we
+        // only adjust fpu to help the learning in the first
+        // generations.
+
+        if (child.get_move() == FastBoard::PASS &&
+            currstate.get_passes() >= 1) {
             const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) *
                 currstate.final_score();
-            winrate = Utils::winner(score);
+            if (score < -0.001) {
+                winrate = 0.0;
+                psa = 0.0;
+            } else if (visits == 0) {
+                winrate = Utils::winner(score);
+            }
         }
+
+        const auto denom = 1.0 + visits;
+        const auto puct = cfg_puct * psa * (numerator / denom);
 
         auto value = winrate + puct;
         assert(value > std::numeric_limits<double>::lowest());
