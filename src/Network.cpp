@@ -1087,6 +1087,7 @@ Network::Netresult Network::get_scored_moves(
     }
 
     if (!skip_cache) {
+        myprintf (".");
         // See if we already have this in the cache.
         if (NNCache::get_NNCache().lookup(state->board.get_hash(), result)) {
             return result;
