@@ -78,7 +78,7 @@ bool UCTNode::create_children(Network & network,
     }
 
     const auto raw_netlist = network.get_output(
-        &state, Network::Ensemble::RANDOM_SYMMETRY);
+        &state, Network::Ensemble::RANDOM_SYMMETRY, -1, cfg_symm_nonrandom);
 
     beta = m_net_beta = raw_netlist.beta;
     value = raw_netlist.value; // = m_net_value
@@ -130,7 +130,11 @@ bool UCTNode::create_children(Network & network,
                     taken_already[j] = true;
                     taken_policy += raw_netlist.policy[j];
 
-                    const auto u = unif_law(Random::get_Rng());
+                    auto u = unif_law(Random::get_Rng());
+                    if (cfg_symm_nonrandom) {
+                        const auto p = state.board.get_xy(j_vertex);
+                        u = p.first + 2.001 * p.second;
+                    }
                     if (u > max_u) {
                         max_u = u;
                         rnd_vertex = j_vertex;

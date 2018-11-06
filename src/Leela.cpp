@@ -75,6 +75,9 @@ static void parse_commandline(int argc, char *argv[]) {
         ("symm", "Exploit symmetries by collapsing policy values of "
          "equivalent moves to a single one, chosen randomly. When writing "
          "training data, split the visit count evenly among equivalent moves.")
+        ("nrsymm", "Same as --symm, but the move is chosen to be "
+         "in the general direction of the 'polite' eightth of the board, "
+         "instead of randomly. Disable NNCache.")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
@@ -374,8 +377,12 @@ static void parse_commandline(int argc, char *argv[]) {
     }
     if (vm.count("symm")) {
         cfg_exploit_symmetries = true;
+        cfg_symm_nonrandom = false;
     }
-
+    if (vm.count("nrsymm")) {
+        cfg_exploit_symmetries = true;
+        cfg_symm_nonrandom = true;
+    }
     if (vm.count("timemanage")) {
         auto tm = vm["timemanage"].as<std::string>();
         if (tm == "auto") {
