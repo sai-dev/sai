@@ -3,7 +3,7 @@
 #include <cmath>
 
 #define MULT 20  // 40 
-#define COEFF 1.0f
+#define COEFF 2.0f  // shrink coefficient for dispersion
 #define RESERVE 0.0 // 0.3f
 #define OFFICIAL_KOMI 9.0 // 9.5f
 #define SHIFT 0.0 // 0.5f
