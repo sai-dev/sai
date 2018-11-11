@@ -14,7 +14,7 @@
 #include <algorithm>
 
 //#define VISITS 160
-#define GOBAN_SIZE 7
+#define GOBAN_SIZE 9
 
 struct one_komi_stats {
     float komi;

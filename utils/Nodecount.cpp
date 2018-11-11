@@ -14,7 +14,7 @@
 #include <vector>
 
 #define VISITS 250
-#define GOBAN_SIZE 7
+#define GOBAN_SIZE 9
 #define LOW_THR 0.0005
 #define LRG_N 2000000.0
 #define MAX_DENUM 1000

@@ -38,13 +38,13 @@ TRAIN_SHUFFLE_BITS=19 # was 20
 TEST_SHUFFLE_BITS=16  # was 19
 
 # Board size and number of squares in a board. Board size must be an odd number!
-BOARD_SIZE = 7
+BOARD_SIZE = 9
 BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 
 # Network structure -- common part
 
 RESIDUAL_FILTERS = 128
-RESIDUAL_BLOCKS = 3
+RESIDUAL_BLOCKS = 6
 POLICY_OUTPUTS = 2
 INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
               # 0: only komi in input (17 input planes)
@@ -63,16 +63,16 @@ VALUE_HEAD_TYPE = DOUBLE_Y
 VAL_OUTPUTS = 2
 VBE_OUTPUTS = 1 # only for double W
 VAL_CHANS = 256
-VBE_CHANS = 128 # only for double W and Y
+VBE_CHANS = 192 # only for double W and Y
 
 # Learning rate
-LEARN_RATE = 0.0010
+LEARN_RATE = 0.0003
 
 # Outputs new network after the specified number of training steps
-TRAINING_STEPS = 10000
+TRAINING_STEPS = 50000
 
 # Display intermediate output after the specified number of training steps
-INFO_STEPS = 500
+INFO_STEPS = 5000
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 10000
+MAX_TRAINING_STEPS = 50000
