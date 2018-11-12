@@ -827,6 +827,32 @@ int UCTSearch::think(int color, passflag_t passflag) {
 }
 
 
+
+void UCTSearch::dump_evals(int color, int req_playouts) {
+    update_root();
+    m_rootstate.board.set_to_move(color);
+    m_root->prepare_root_node(color, m_nodes, m_rootstate);
+
+    auto n = 0;
+    auto prev_eval = 0.0;
+    std::vector<float> eval_sample;
+    do {
+        auto currstate = std::make_unique<GameState>(m_rootstate);
+
+        auto result = play_simulation(*currstate, m_root.get());
+        if (result.valid()) {
+	  increment_playouts();
+          n++;
+          const auto curr_eval = m_root->get_blackevals();
+          eval_sample.push_back(curr_eval - prev_eval);
+          myprintf("%3.0f ", 1000.0*Utils::median(eval_sample));
+          //          myprintf("%3.0f ", 1000.0*(curr_eval / m_root->get_visits()));
+          prev_eval = curr_eval;
+        }
+    } while (n < req_playouts);
+}
+    
+
 void UCTSearch::select_playable_dame(FullBoard *board) {
     
     for (const auto& node : m_root->get_children()) {
