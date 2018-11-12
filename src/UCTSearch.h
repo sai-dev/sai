@@ -100,6 +100,7 @@ public:
 
     UCTSearch(GameState& g, Network & network);
     int think(int color, passflag_t passflag = NORMAL);
+    void dump_evals(int color, int req_playouts);
     void set_playout_limit(int playouts);
     void set_visit_limit(int visits);
     void ponder();

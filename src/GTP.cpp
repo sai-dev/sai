@@ -709,6 +709,38 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 #endif
         myprintf("\n");
         return;
+    } else if (command.find("eval") == 0) {
+        std::istringstream cmdstream(command);
+        std::string tmp;
+
+        cmdstream >> tmp;  // eat eval
+
+        auto playouts = 1000;
+        cmdstream >> tmp;  // number of playouts
+
+        if (!cmdstream.fail()) {
+            playouts = std::stoi(tmp);
+        }
+
+        int who;
+        cmdstream >> tmp;  // [side to move]
+
+        if (cmdstream.fail()) {
+            who=game.get_to_move();
+        } else {
+            if (tmp == "w" || tmp == "white") {
+                who = FastBoard::WHITE;
+            } else if (tmp == "b" || tmp == "black") {
+                who = FastBoard::BLACK;
+            } else {
+                gtp_fail_printf(id, "syntax error");
+                return 1;
+            }
+        }
+        game.set_to_move(who);
+        search->dump_evals(who, playouts);
+        myprintf("\n");
+        return;
     } else if (command.find("heatmap") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
