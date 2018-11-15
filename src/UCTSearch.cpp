@@ -496,9 +496,9 @@ int UCTSearch::get_best_move(passflag_t passflag) {
             // end the game immediately?
             float score = m_rootstate.final_score();
             // do we lose by passing?
-            if ((score >= 0.0f && color == FastBoard::WHITE)
+            if ((score > -0.001f  && color == FastBoard::WHITE)
                 ||
-                (score <= 0.0f && color == FastBoard::BLACK)) {
+                (score < 0.001f && color == FastBoard::BLACK)) {
                 myprintf("Passing loses or ties; I'll play on.\n");
             } else {
                 myprintf("Passing wins; I'll pass out.\n");
