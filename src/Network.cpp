@@ -1087,7 +1087,6 @@ Network::Netresult Network::get_scored_moves(
     }
 
     if (!skip_cache) {
-        myprintf (".");
         // See if we already have this in the cache.
         if (NNCache::get_NNCache().lookup(state->board.get_hash(), result)) {
             return result;
@@ -1116,8 +1115,10 @@ Network::Netresult Network::get_scored_moves(
         result = get_scored_moves_internal(state, rand_sym);
     }
 
-    // Insert result into cache.
-    NNCache::get_NNCache().insert(state->board.get_hash(), result);
+    if (!cfg_symm_nonrandom) {
+        // Insert result into cache.
+        NNCache::get_NNCache().insert(state->board.get_hash(), result);
+    }
 
     return result;
 }

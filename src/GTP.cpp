@@ -80,6 +80,7 @@ bool cfg_sgemm_exhaustive;
 bool cfg_tune_only;
 #endif
 float cfg_puct;
+float cfg_policy_temp;
 float cfg_softmax_temp;
 float cfg_fpu_reduction;
 std::string cfg_weightsfile;
@@ -114,6 +115,7 @@ void GTP::setup_default_parameters() {
     cfg_tune_only = false;
 #endif
     cfg_puct = 0.8f;
+    cfg_policy_temp = 1.0f;
     cfg_softmax_temp = 1.0f;
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign

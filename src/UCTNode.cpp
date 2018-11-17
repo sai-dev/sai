@@ -132,7 +132,7 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
         if (state.is_move_legal(to_move, vertex) && !taken_already[i]) {
             auto taken_policy = 0.0f;
             auto max_u = 0.0f;
-            auto rnd_vertex = vertex;
+            auto chosen_vertex = vertex;
             for (auto sym : stabilizer_subgroup) {
                 const auto j_vertex = state.board.get_sym_move(vertex, sym);
                 const auto j = state.board.get_index(j_vertex);
@@ -140,23 +140,29 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
                     taken_already[j] = true;
                     taken_policy += raw_netlist.policy[j];
 
-                    auto u = unif_law(Random::get_Rng());
+                    auto u = 0.0f;
                     if (cfg_symm_nonrandom) {
                         const auto p = state.board.get_xy(j_vertex);
                         u = p.first + 2.001 * p.second;
+                    } else {
+                        u = unif_law(Random::get_Rng());
                     }
                     if (u > max_u) {
                         max_u = u;
-                        rnd_vertex = j_vertex;
+                        chosen_vertex = j_vertex;
                     }
                 }
             }
-            nodelist.emplace_back(taken_policy, rnd_vertex);
-            legal_sum += taken_policy;
+            const auto warm_policy = std::pow(taken_policy,
+                                              1.0f/cfg_policy_temp);
+            nodelist.emplace_back(warm_policy, chosen_vertex);
+            legal_sum += warm_policy;
         }
     }
-    nodelist.emplace_back(raw_netlist.policy_pass, FastBoard::PASS);
-    legal_sum += raw_netlist.policy_pass;
+    const auto warm_pass_policy = std::pow(raw_netlist.policy_pass,
+                                           1.0f/cfg_policy_temp);
+    nodelist.emplace_back(warm_pass_policy, FastBoard::PASS);
+    legal_sum += warm_pass_policy;
 
     if (legal_sum > std::numeric_limits<float>::min()) {
         // re-normalize after removing illegal moves.
@@ -448,6 +454,9 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             winrate -= 0.05;
         }
 
+        // Experimental modification -- not applied in jap-score mode
+        // as it is not clear if it could break it.
+
         // If the move to explore is a second pass, Tromp-Taylor score
         // is checked.
 
@@ -465,7 +474,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         // only adjust fpu to help the learning in the first
         // generations.
 
-        if (child.get_move() == FastBoard::PASS &&
+        if (!nopass && child.get_move() == FastBoard::PASS &&
             currstate.get_passes() >= 1) {
             const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) * 
                 currstate.final_score();
