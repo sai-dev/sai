@@ -956,8 +956,10 @@ Network::Netresult Network::get_output(
         }
     }
 
-    // Insert result into cache.
-    m_nncache.insert(state->board.get_hash(), result);
+    if (!cfg_symm_nonrandom) {
+        // Insert result into cache.
+        m_nncache.insert(state->board.get_hash(), result);
+    }
 
     return result;
 }

@@ -71,6 +71,7 @@ extern precision_t cfg_precision;
 #endif
 extern float cfg_puct;
 extern float cfg_softmax_temp;
+extern float cfg_policy_temp;
 extern float cfg_fpu_reduction;
 extern float cfg_fpu_root_reduction;
 extern std::string cfg_logfile;
