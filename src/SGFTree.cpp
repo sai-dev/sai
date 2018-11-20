@@ -49,12 +49,12 @@ void SGFTree::init_state() {
     m_state.init_game(std::min(BOARD_SIZE, 19), 7.5f);
 }
 
-KoState * SGFTree::get_state() {
+const KoState * SGFTree::get_state(void) const {
     assert(m_initialized);
     return &m_state;
 }
 
-SGFTree * SGFTree::get_child(size_t count) {
+const SGFTree * SGFTree::get_child(size_t count) const {
     if (count < m_children.size()) {
         assert(m_initialized);
         return &(m_children[count]);
@@ -66,8 +66,8 @@ SGFTree * SGFTree::get_child(size_t count) {
 // This follows the entire line, and doesn't really need the intermediate
 // states, just the moves. As a consequence, states that contain more than
 // just moves won't have any effect.
-GameState SGFTree::follow_mainline_state(unsigned int movenum) {
-    auto link = static_cast<SGFTree*>(this);
+GameState SGFTree::follow_mainline_state(unsigned int movenum) const {
+    const auto* link = this;
     // This initializes a starting state from a KoState and
     // sets up the game history.
     GameState result(get_state());
@@ -341,7 +341,7 @@ int SGFTree::string_to_vertex(const std::string& movestring) const {
     return vtx;
 }
 
-int SGFTree::get_move(int tomove) {
+int SGFTree::get_move(int tomove) const {
     std::string colorstring;
 
     if (tomove == FastBoard::BLACK) {
@@ -351,7 +351,6 @@ int SGFTree::get_move(int tomove) {
     }
 
     auto it = m_properties.find(colorstring);
-
     if (it != end(m_properties)) {
         std::string movestring = it->second;
         return string_to_vertex(movestring);
@@ -377,10 +376,10 @@ FastBoard::vertex_t SGFTree::get_winner() const {
     return m_winner;
 }
 
-std::vector<int> SGFTree::get_mainline() {
+std::vector<int> SGFTree::get_mainline() const {
     std::vector<int> moves;
 
-    auto link = this;
+    const auto* link = this;
     auto tomove = link->m_state.get_to_move();
     link = link->get_child(0);
 
