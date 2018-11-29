@@ -24,25 +24,15 @@
 #include <QFileInfo>
 #include "Game.h"
 
-Game::Game(const QString& weights, const QString& opt, const QString& binary,
-           const QStringList& commands) :
+Game::Game(const Engine& engine) :
     QProcess(),
-    m_cmdLine(""),
-    m_binary(binary),
-    m_commands(commands),
+    m_engine(engine),
     m_resignation(false),
     m_blackToMove(true),
     m_blackResigned(false),
     m_passes(0),
     m_moveNum(0)
 {
-#ifdef WIN32
-    m_binary.append(".exe");
-#endif
-    if (!QFileInfo::exists(m_binary)) {
-        m_binary.remove(0, 2); // ./leelaz -> leelaz
-    }
-    m_cmdLine = m_binary + " " + opt + " " + weights;
     m_fileName = QUuid::createUuid().toRfc4122().toHex();
 }
 
@@ -172,7 +162,7 @@ void Game::checkVersion(const VersionTuple &min_version) {
 }
 
 bool Game::gameStart(const VersionTuple &min_version) {
-    start(m_cmdLine);
+    start(m_engine.getCmdLine());
     if (!waitForStarted()) {
         error(Game::NO_LEELAZ);
         return false;
@@ -181,7 +171,7 @@ bool Game::gameStart(const VersionTuple &min_version) {
     // check any return values.
     checkVersion(min_version);
     QTextStream(stdout) << "Engine has started." << endl;
-    for (auto command : m_commands) {
+    for (auto command : m_engine.m_commands) {
         QTextStream(stdout) << command << endl;
         if (!sendGtpCommand(command))
         {
@@ -371,7 +361,7 @@ bool Game::komi(float komi) {
     return sendGtpCommand(qPrintable("komi " + QString::number(komi)));
 }
 
-bool Game::fixSgf(QString& weightFile, bool resignation) {
+bool Game::fixSgf(const QString& weightFile, const bool resignation) {
     QFile sgfFile(m_fileName + ".sgf");
     if (!sgfFile.open(QIODevice::Text | QIODevice::ReadOnly)) {
         return false;
