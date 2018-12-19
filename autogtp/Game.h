@@ -67,7 +67,7 @@ public:
     bool nextMove();
     bool getScore();
     bool loadSgf(const QString &fileName);
-    bool loadSgf(const QString &fileName, int moves);
+    bool loadSgf(const QString &fileName, const int moves);
     bool writeSgf();
     bool komi(float komi);
     bool loadTraining(const QString &fileName);

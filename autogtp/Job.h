@@ -84,8 +84,7 @@ public:
 private:
     Engine m_engineFirst;
     Engine m_engineSecond;
-    QString m_sgfFirst;
-    QString m_sgfSecond;
+    QString m_sgf;
 };
 
 class WaitJob : public Job {

@@ -73,24 +73,25 @@ Result ProductionJob::execute(){
         return res;
     }
     if (!m_sgf.isEmpty()) {
-        if (m_restore) {
+        if (m_moves == 0) {
             game.loadSgf(m_sgf);
+        } else {
+            game.loadSgf(m_sgf, m_moves);
+        }
+        game.setMovesCount(m_moves);
+        if (m_restore) {
             game.loadTraining(m_sgf);
-            game.setMovesCount(m_moves);
-            QFile::remove(m_sgf + ".sgf");
             QFile::remove(m_sgf + ".train");
         } else {
             // find komi from options... not very elegant, but in this way
             // we do not need to modify the Job and Order classes.
             QRegExp rx("--komi ([-+.0-9]+)");
-            rx.indexIn(m_option);
+            rx.indexIn(m_engine.m_options);
             QStringList list = rx.capturedTexts();
             float komi = list.at(1).toFloat();
-            game.loadSgf(m_sgf, m_moves+1);
             game.komi(komi);
-            game.setMovesCount(m_moves);
-            QFile::remove(m_sgf + ".sgf");
         }
+        QFile::remove(m_sgf + ".sgf");
     }
     do {
         game.move();
@@ -117,9 +118,9 @@ Result ProductionJob::execute(){
         res.add("moves", QString::number(game.getMovesCount()));
         break;
     case STORING:
-        res.type(Result::StoreSelfPlayed);
         game.writeSgf();
         game.saveTraining();
+        res.type(Result::StoreSelfPlayed);
         res.add("sgf", game.getFile());
         res.add("moves", QString::number(game.getMovesCount()));
         break;
@@ -146,19 +147,21 @@ Result ValidationJob::execute(){
     if (!first.gameStart(m_leelazMinVersion)) {
         return res;
     }
-    if (!m_sgfFirst.isEmpty()) {
-        first.loadSgf(m_sgfFirst);
-        first.setMovesCount(m_moves);
-        QFile::remove(m_sgfFirst + ".sgf");
-    }
     Game second(m_engineSecond);
     if (!second.gameStart(m_leelazMinVersion)) {
         return res;
     }
-    if (!m_sgfSecond.isEmpty()) {
-        second.loadSgf(m_sgfSecond);
+    if (!m_sgf.isEmpty()) {
+        if (m_moves == 0) {
+            first.loadSgf(m_sgf);
+            second.loadSgf(m_sgf);
+        } else {
+            first.loadSgf(m_sgf, m_moves);
+            second.loadSgf(m_sgf, m_moves);
+        }
+        first.setMovesCount(m_moves);
         second.setMovesCount(m_moves);
-        QFile::remove(m_sgfSecond + ".sgf");
+        QFile::remove(m_sgf + ".sgf");
     }
 
     QString wmove = "play white ";
@@ -186,25 +189,22 @@ Result ValidationJob::execute(){
 
     switch (m_state.load()) {
     case RUNNING:
-        res.add("moves", QString::number(first.getMovesCount()));
-       QTextStream(stdout) << "Game has ended." << endl;
+        QTextStream(stdout) << "Game has ended." << endl;
         if (first.getScore()) {
             res.add("score", first.getResult());
             res.add("winner", first.getWinnerName());
             first.writeSgf();
             first.fixSgf(m_engineSecond.getNetworkFile(),
-                         (res.parameters()["score"] == "B+Resign"));
+                (res.parameters()["score"] == "B+Resign"));
             res.add("file", first.getFile());
         }
-        // Game is finished, send the result
         res.type(Result::Win);
+        res.add("moves", QString::number(first.getMovesCount()));
         break;
     case STORING:
-        res.type(Result::StoreMatch);
         first.writeSgf();
-        second.writeSgf();
-        res.add("sgfFirst", first.getFile());
-        res.add("sgfSecond", second.getFile());
+        res.type(Result::StoreMatch);
+        res.add("sgf", first.getFile());
         res.add("moves", QString::number(first.getMovesCount()));
         break;
     default:
@@ -221,15 +221,8 @@ void ValidationJob::init(const Order &o) {
     m_engineFirst.m_options = " " + o.parameters()["options"] + m_gpu + " -g -q -w ";
     m_engineSecond.m_network = "networks/" + o.parameters()["secondNet"] + ".gz";
     m_engineSecond.m_options = " " + o.parameters()["options"] + m_gpu + " -g -q -w ";
-    if (o.type() == Order::RestoreMatch) {
-        m_sgfFirst = o.parameters()["sgfFirst"];
-        m_sgfSecond = o.parameters()["sgfSecond"];
-        m_moves = o.parameters()["moves"].toInt();
-    } else {
-        m_sgfFirst = "";
-        m_sgfSecond = "";
-        m_moves = 0;
-    }
+    m_sgf = o.parameters()["sgf"];
+    m_moves = o.parameters()["moves"].toInt();
 }
 
 Result WaitJob::execute(){
