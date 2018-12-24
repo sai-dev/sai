@@ -95,7 +95,8 @@ public:
 
     UCTSearch(GameState& g);
     int think(int color, passflag_t passflag = NORMAL);
-    void dump_evals(int color, int req_playouts);
+    void dump_evals(int req_playouts, std::string & dump_str);
+    void dump_evals_recursion(std::string & dump_str, UCTNode* const node);
     void set_playout_limit(int playouts);
     void set_visit_limit(int visits);
     void ponder();
@@ -119,7 +120,7 @@ private:
     size_t prune_noncontenders(int elapsed_centis = 0, int time_for_move = 0);
     bool stop_thinking(int elapsed_centis = 0, int time_for_move = 0) const;
     int get_best_move(passflag_t passflag);
-    void update_root();
+    void update_root(bool is_evaluating = false);
     bool advance_to_new_rootstate();
     void select_playable_dame(FullBoard *board);
     void select_dame_sequence(FullBoard *board);
@@ -137,6 +138,8 @@ private:
     std::atomic<bool> m_run{false};
     int m_maxplayouts;
     int m_maxvisits;
+
+    int m_nodecounter=0;
 
     // Advanced search parameters
     bool m_chn_scoring = true;

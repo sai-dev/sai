@@ -26,6 +26,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <tuple>
@@ -122,7 +123,7 @@ bool UCTSearch::advance_to_new_rootstate() {
     return true;
 }
 
-void UCTSearch::update_root() {
+void UCTSearch::update_root(bool is_evaluating) {
     // Definition of m_playouts is playouts per search call.
     // So reset this count now.
     m_playouts = 0;
@@ -131,7 +132,7 @@ void UCTSearch::update_root() {
     auto start_nodes = m_root->count_nodes();
     #endif
 
-    if (!advance_to_new_rootstate() || !m_root) {
+    if ( (!advance_to_new_rootstate() && !is_evaluating) || !m_root) {
         m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
     }
     // Clear last_rootstate to prevent accidental use.
@@ -192,6 +193,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                 node->create_children(m_nodes, currstate, value, alpkt, beta,
                                       get_min_psa_ratio());
             if (!had_children && success) {
+                node->set_progid(m_nodecounter++);
                 result = SearchResult::from_eval(value, alpkt, beta);
 #ifndef NDEBUG
                 myprintf(": new %.3f\n", alpkt);
@@ -828,30 +830,74 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
 
 
-void UCTSearch::dump_evals(int color, int req_playouts) {
-    update_root();
-    m_rootstate.board.set_to_move(color);
-    m_root->prepare_root_node(color, m_nodes, m_rootstate);
+void UCTSearch::dump_evals(int req_playouts, std::string & dump_str) {
+    update_root(true);
+    //    m_rootstate.board.set_to_move(color);
+    m_root->prepare_root_node(m_rootstate.board.get_to_move(), m_nodes, m_rootstate);
 
-    auto n = 0;
-    auto prev_eval = 0.0;
-    std::vector<float> eval_sample;
-    do {
+    for (auto n=0 ; n < req_playouts ; n++) {
+        // todo: check rootnode visits instead than playouts
+        
         auto currstate = std::make_unique<GameState>(m_rootstate);
 
         auto result = play_simulation(*currstate, m_root.get());
-        if (result.valid()) {
-	  increment_playouts();
-          n++;
-          const auto curr_eval = m_root->get_blackevals();
-          eval_sample.push_back(curr_eval - prev_eval);
-          myprintf("%3.0f ", 1000.0*Utils::median(eval_sample));
-          //          myprintf("%3.0f ", 1000.0*(curr_eval / m_root->get_visits()));
-          prev_eval = curr_eval;
+        if (!result.valid()) {
+            myprintf("Invalid result at n=%d.\n",n);
+        } else {
+        increment_playouts();
         }
-    } while (n < req_playouts);
+    }
+
+    dump_evals_recursion(dump_str, m_root.get());
 }
+
+void UCTSearch::dump_evals_recursion(std::string & dump_str, UCTNode* const node) {
+    auto color = m_rootstate.board.get_to_move(); // todo: correct color to alternate
+    node->sort_children(color);
+    myprintf("dump_evals_recursion() -> linked children: %d\n", node->get_children().size());
+    std::vector<UCTNode *> visited_children;
+    for (auto it = node->get_children().crbegin() ;
+         it != node->get_children().crend() ; ++it) {
+        myprintf("[");
+        //        if ( !(it->is_inflated()) ) {
+        //            continue;
+        //        }
+        if ( it->get_visits()!=0 ) {
+            myprintf(".");
+            visited_children.push_back((*it).get());
+        }
+        myprintf("]");
+    }
+    myprintf("\nVisited children: %d\n", visited_children.size());
     
+    
+    std::stringstream ss;
+    ss << m_rootstate.board.move_to_text(node->get_move());
+    ss << "," << node->get_progid();
+    ss << "," << node->get_score();
+    ss << "," << node->get_net_eval();
+    ss << "," << node->get_net_alpkt();
+    ss << "," << node->get_net_beta();
+    ss << "," << node->get_eval_bonus();
+    ss << "," << node->get_eval_base();
+    ss << "," << node->get_eval_bonus_father();
+    ss << "," << node->get_eval_base_father();
+    ss << "," << node->get_visits();
+    ss << "," << node->get_agent_eval(FastBoard::BLACK);
+    ss << "," << visited_children.size();
+    for (auto childptr : visited_children) {
+        ss << "," << childptr->get_visits();
+    }
+    ss << std::endl;
+    
+    dump_str.append(ss.str());
+
+    for (auto childptr : visited_children) {
+        myprintf("@");
+        dump_evals_recursion(dump_str, childptr);
+    }
+}
+
 
 void UCTSearch::select_playable_dame(FullBoard *board) {
     

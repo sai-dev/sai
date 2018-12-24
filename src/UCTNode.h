@@ -86,6 +86,8 @@ public:
     float get_net_beta() const;
     float get_net_alpkt() const;
     void set_values(float value, float alpkt, float beta);
+    void set_progid(int id);
+    int get_progid() const;
 #ifndef NDEBUG
     void set_urgency(float urgency, float psa, float q,
                      float num, float den);
@@ -147,6 +149,7 @@ private:
     float m_eval_base{0.0f}; // x base
     float m_eval_base_father{0.0f}; // x base of father node
     float m_eval_bonus_father{0.0f}; // x bar of father node
+    int m_progid{-1}; // progressive unique identifier
 #ifndef NDEBUG
     std::array<float, 5> m_last_urgency;
 #endif
