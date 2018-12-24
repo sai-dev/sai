@@ -95,14 +95,14 @@ float Network::benchmark_time(int centiseconds) {
     // As a sanity run, try one run with self check.
     // Isn't enough to guarantee correctness but better than nothing,
     // plus for large nets self-check takes a while (1~3 eval per second)
-    get_output(&state, Ensemble::RANDOM_SYMMETRY, -1, true, true);
+    get_output(&state, Ensemble::RANDOM_SYMMETRY, -1, false, true, true);
 
     const Time start;
     for (auto i = 0; i < cpus; i++) {
         tg.add_task([this, &runcount, start, centiseconds, state]() {
             while (true) {
                 runcount++;
-                get_output(&state, Ensemble::RANDOM_SYMMETRY, -1, true);
+                get_output(&state, Ensemble::RANDOM_SYMMETRY, -1, false);
                 const Time end;
                 const auto elapsed = Time::timediff_centis(start, end);
                 if (elapsed >= centiseconds) {
@@ -129,7 +129,7 @@ void Network::benchmark(const GameState* const state, const int iterations) {
         tg.add_task([this, &runcount, iterations, state]() {
             while (runcount < iterations) {
                 runcount++;
-                get_output(state, Ensemble::RANDOM_SYMMETRY, -1, true);
+                get_output(state, Ensemble::RANDOM_SYMMETRY, -1, false);
             }
         });
     }
@@ -978,14 +978,14 @@ bool Network::probe_cache(const GameState* const state,
 }
 
 Network::Netresult Network::get_output(
-    const GameState* const state, const Ensemble ensemble,
-    const int symmetry, const bool skip_cache, const bool force_selfcheck) {
+    const GameState* const state, const Ensemble ensemble, const int symmetry,
+    const bool read_cache, const bool write_cache, const bool force_selfcheck) {
     Netresult result;
     if (state->board.get_boardsize() != BOARD_SIZE) {
         return result;
     }
 
-    if (!skip_cache) {
+    if (read_cache) {
         // See if we already have this in the cache.
         if (probe_cache(state, result)) {
             return result;
@@ -1038,7 +1038,7 @@ Network::Netresult Network::get_output(
         }
     }
 
-    if (!cfg_symm_nonrandom) {
+    if (write_cache) {
         // Insert result into cache.
         m_nncache.insert(state->board.get_hash(), result);
     }
@@ -1146,7 +1146,7 @@ Network::Netresult Network::get_output_internal(
         result.beta = 1.0f;
         result.is_sai = false;
     }
-    
+
     for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
         const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
         result.policy[sym_idx] = outputs[idx];
