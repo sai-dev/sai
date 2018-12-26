@@ -947,7 +947,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 }
 
 
-void UCTSearch::dump_evals(int req_playouts, std::string & dump_str) {
+void UCTSearch::dump_evals(int req_playouts, std::string & dump_str, std::string & sgf_str) {
     update_root(true);
     //    m_rootstate.board.set_to_move(color);
     m_root->prepare_root_node(m_network, m_rootstate.board.get_to_move(), m_nodes, m_rootstate);
@@ -964,39 +964,34 @@ void UCTSearch::dump_evals(int req_playouts, std::string & dump_str) {
         }
     }
 
-    dump_evals_recursion(dump_str, m_root.get());
+    auto color = m_rootstate.board.get_to_move();
+    dump_evals_recursion(dump_str, m_root.get(), -2, color, sgf_str);
 }
 
-void UCTSearch::dump_evals_recursion(std::string & dump_str, UCTNode* const node) {
-    auto color = m_rootstate.board.get_to_move(); // todo: correct color to alternate
+void UCTSearch::dump_evals_recursion(std::string & dump_str,  UCTNode* const node,
+                                     int father_progid, int color,
+                                     std::string & sgf_str) {
     node->sort_children(color);
-    myprintf("dump_evals_recursion() -> linked children: %d\n", node->get_children().size());
     std::vector<UCTNode *> visited_children;
-    for (auto it = node->get_children().crbegin() ;
-         it != node->get_children().crend() ; ++it) {
-        myprintf("[");
-        //        if ( !(it->is_inflated()) ) {
-        //            continue;
-        //        }
-        if ( it->get_visits()!=0 ) {
-            myprintf(".");
-            visited_children.push_back((*it).get());
+    for (const UCTNodePointer& it : node->get_children()) {
+        const auto n=it.get_visits();
+        if ( it.get_visits()!=0 ) {
+            visited_children.push_back(it.get());
         }
-        myprintf("]");
     }
-    myprintf("\nVisited children: %d\n", visited_children.size());
 
     std::stringstream ss;
     ss << m_rootstate.board.move_to_text(node->get_move());
     ss << "," << node->get_progid();
+    ss << "," << father_progid;
     ss << "," << node->get_score();
     ss << "," << node->get_net_eval();
     ss << "," << node->get_net_alpkt();
     ss << "," << node->get_net_beta();
     ss << "," << node->get_eval_bonus();
     ss << "," << node->get_eval_base();
-    ss << "," << node->get_eval_bonus_father();
-    ss << "," << node->get_eval_base_father();
+    //    ss << "," << node->get_eval_bonus_father();
+    //    ss << "," << node->get_eval_base_father();
     ss << "," << node->get_visits();
     ss << "," << node->get_agent_eval(FastBoard::BLACK);
     ss << "," << visited_children.size();
@@ -1007,9 +1002,22 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str, UCTNode* const node
 
     dump_str.append(ss.str());
 
+    if (father_progid >= -1) {
+        std::string movestr = m_rootstate.board.move_to_text_sgf(node->get_move());
+        if (color==FastBoard::BLACK) {
+            sgf_str.append(" ;W[" + movestr + "]");
+        } else {
+            sgf_str.append(" ;B[" + movestr + "]");
+        }
+    }
+
     for (auto childptr : visited_children) {
-        myprintf("@");
-        dump_evals_recursion(dump_str, childptr);
+        sgf_str.append(" (");
+        dump_evals_recursion(dump_str, childptr, node->get_progid(), 1-color, sgf_str);
+        sgf_str.append(")");
+    }
+    if (visited_children.size()) {
+        sgf_str.append("\n");
     }
 }
 

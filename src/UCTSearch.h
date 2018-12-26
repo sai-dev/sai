@@ -100,8 +100,9 @@ public:
 
     UCTSearch(GameState& g, Network & network);
     int think(int color, passflag_t passflag = NORMAL);
-    void dump_evals(int req_playouts, std::string & dump_str);
-    void dump_evals_recursion(std::string & dump_str, UCTNode* const node);
+    void dump_evals(int req_playouts, std::string & dump_str, std::string & sgf_str);
+    void dump_evals_recursion(std::string & dump_str, UCTNode* const node,
+                              int father_progid, int color, std::string & sgf_str);
     void set_playout_limit(int playouts);
     void set_visit_limit(int visits);
     void ponder();
