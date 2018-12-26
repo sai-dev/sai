@@ -594,20 +594,38 @@ bool GTP::execute(GameState & game, std::string xinput) {
         }
 
         std::string eval_string;
-
-        search->dump_evals(playouts, eval_string);
+        auto eval_sgf_string = SGFTree::state_to_string(game, 0);
+        while(eval_sgf_string.back() != ')') {
+            eval_sgf_string.pop_back();
+        }
+        eval_sgf_string.pop_back();
+        myprintf("%s\n",eval_sgf_string.c_str());
+        
+        search->dump_evals(playouts, eval_string, eval_sgf_string);
+        eval_sgf_string.append(")\n");
 
         cmdstream >> filename;
-
         if (cmdstream.fail()) {
-            // todo generate automatic filename
-            gtp_printf(id, "%s\n", eval_string.c_str());
-        } else {
-            std::ofstream out(filename);
-            out << eval_string;
-            out.close();
-            gtp_printf(id, "");
+            char num[8], komi[16], lambda[16], mu[16];
+            std::sprintf(num, "%03d", int(game.get_movenum()));
+            std::sprintf(komi, "%.1f", game.get_komi());
+            std::sprintf(lambda, "%.2f", cfg_lambda);
+            std::sprintf(mu, "%.2f", cfg_mu);
+            filename = std::string("sde-") + num + "-" + cfg_weightsfile.substr(0,4)
+                + "-" + komi + "-" + lambda + "-" + mu;
+            // todo code the position
+            //            gtp_printf(id, "%s\n", eval_string.c_str());
         }
+
+        std::ofstream out(filename + ".csv");
+        out << eval_string;
+        out.close();
+        
+        std::ofstream outsgf(filename + ".sgf");
+        outsgf << eval_sgf_string;
+        outsgf.close();
+
+        gtp_printf(id, "");
 
         return true;
     } else if (command.find("heatmap") == 0) {
