@@ -310,6 +310,7 @@ void UCTNode::set_policy(float policy) {
     m_policy = policy;
 }
 
+#ifdef USE_EVALCMD
 void UCTNode::set_progid(int id) {
     assert(m_progid == -1 && id >= 0);
     m_progid = id;
@@ -318,6 +319,7 @@ void UCTNode::set_progid(int id) {
 int UCTNode::get_progid() const {
     return m_progid;
 }
+#endif
 
 int UCTNode::get_visits() const {
     return m_visits;

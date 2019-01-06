@@ -102,6 +102,12 @@ static_assert(MAX_BATCH == 1, "MAX_BATCH != 1 not implemented");
  */
 #define USE_TUNER
 
+/*
+ * USE_EVALCMD: Expose the command eval, that writes on disk stats of
+ * the search tree.
+ */
+#define USE_EVALCMD
+
 static constexpr auto PROGRAM_NAME = "Leela Zero";
 static constexpr auto PROGRAM_VERSION = "0.16";
 
