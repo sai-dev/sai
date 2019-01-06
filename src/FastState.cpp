@@ -190,7 +190,10 @@ std::string FastState::move_to_text(int move) {
 }
 
 float FastState::final_score() const {
-    return board.area_score(get_komi() + get_handicap());
+    //    return board.area_score(get_komi() + get_handicap());
+    // there appears to be no good reason to correct komi with
+    // handicap stones number, for example sabaki doesn't
+    return board.area_score(get_komi());
 }
 
 float FastState::get_komi() const {
