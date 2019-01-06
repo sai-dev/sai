@@ -389,10 +389,19 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     // Count parentvisits manually to avoid issues with transpositions.
     auto total_visited_policy = 0.0f;
     auto parentvisits = size_t{0};
+
+    // fpu reduction is computed on parent agent_eval or on the
+    // largest of the children which have already been visited,
+    // whichever is larger.
+    const auto color = currstate.get_to_move();
+    auto max_eval = get_agent_eval(color);
+
     for (const auto& child : m_children) {
         if (child.valid()) {
             parentvisits += child.get_visits();
             if (child.get_visits() > 0) {
+                const auto child_eval = child.get_eval(color);
+                max_eval = std::max (max_eval, child_eval);
                 total_visited_policy += child.get_policy();
             }
         }
@@ -401,8 +410,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     const auto numerator = std::sqrt(double(parentvisits));
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
     // Estimated eval for unknown nodes = original parent NN eval - reduction
-    const auto color = currstate.get_to_move();
-    const auto fpu_eval = cfg_fpuzero ? 0.5f : get_agent_eval(color) - fpu_reduction;
+    const auto fpu_eval = cfg_fpuzero ? 0.5f : std::max(0.0f, max_eval - fpu_reduction) - fpu_reduction;
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
@@ -454,11 +462,8 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             winrate -= 0.05;
         }
 
-        // Experimental modification -- not applied in jap-score mode
-        // as it is not clear if it could break it.
-
-        // If the move to explore is a second pass, Tromp-Taylor score
-        // is checked.
+        // If the move to explore is a second pass, or a first pass
+        // but -d was not specified, Tromp-Taylor score is checked.
 
         // If the position appears to be losing, then exploration
         // should be restricted as much as possible.  This is
@@ -474,8 +479,9 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         // only adjust fpu to help the learning in the first
         // generations.
 
-        if (!nopass && child.get_move() == FastBoard::PASS &&
-            currstate.get_passes() >= 1) {
+
+        if (child.get_move() == FastBoard::PASS &&
+            ( currstate.get_passes() >= 1 || !cfg_dumbpass ) ) {
             const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) *
                 currstate.final_score();
             if (score < -0.001) {
