@@ -76,11 +76,18 @@
 #ifndef USE_CPU_ONLY
 #define USE_OPENCL
 #endif
+
 /*
  * USE_TUNER: Expose some extra command line parameters that allow tuning the
  * search algorithm.
  */
 #define USE_TUNER
+
+/*
+ * USE_EVALCMD: Expose the command eval, that writes on disk stats of
+ * the search tree.
+ */
+#define USE_EVALCMD
 
 #define PROGRAM_NAME "Leela Zero"
 #define PROGRAM_VERSION "0.15"

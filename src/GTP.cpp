@@ -581,7 +581,9 @@ bool GTP::execute(GameState & game, std::string xinput) {
 #endif
         myprintf("\n");
         return true;
-    } else if (command.find("eval") == 0) {
+    }
+#ifdef USE_EVALCMD
+      else if (command.find("eval") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp, filename;
 
@@ -628,7 +630,9 @@ bool GTP::execute(GameState & game, std::string xinput) {
         gtp_printf(id, "");
 
         return true;
-    } else if (command.find("heatmap") == 0) {
+    }
+#endif
+      else if (command.find("heatmap") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
         std::string symmetry;

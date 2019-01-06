@@ -193,7 +193,9 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                 node->create_children(m_nodes, currstate, value, alpkt, beta,
                                       get_min_psa_ratio());
             if (!had_children && success) {
+#ifdef USE_EVALCMD
                 node->set_progid(m_nodecounter++);
+#endif
                 result = SearchResult::from_eval(value, alpkt, beta);
 #ifndef NDEBUG
                 myprintf(": new %.3f\n", alpkt);
@@ -829,7 +831,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 }
 
 
-
+#ifdef USE_EVALCMD
 void UCTSearch::dump_evals(int req_playouts, std::string & dump_str, std::string & sgf_str) {
     update_root(true);
     //    m_rootstate.board.set_to_move(color);
@@ -904,7 +906,7 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,  UCTNode* const nod
         sgf_str.append("\n");
     }
 }
-
+#endif
 
 void UCTSearch::select_playable_dame(FullBoard *board) {
     

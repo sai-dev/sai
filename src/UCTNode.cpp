@@ -311,6 +311,7 @@ void UCTNode::set_values(float value, float alpkt, float beta) {
     m_net_beta = beta;
 }
 
+#ifdef USE_EVALCMD
 void UCTNode::set_progid(int id) {
     assert(m_progid == -1 && id >= 0);
     m_progid = id;
@@ -319,6 +320,7 @@ void UCTNode::set_progid(int id) {
 int UCTNode::get_progid() const {
     return m_progid;
 }
+#endif
 
 void UCTNode::set_score(float score) {
     m_score = score;
