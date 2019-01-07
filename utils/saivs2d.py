@@ -28,13 +28,17 @@ def build_process():
     xp = x[1:n,0:1]
     xm = np.transpose(x[0:1,1:n])
     xo = x[1:n,1:n]
-    r = tf.Variable(tf.truncated_normal([n-1, 1], mean=0.0, stddev=1.0, dtype=tf.float64))
-    ones = tf.ones([1, n-1], dtype = tf.float64)
-    rr = tf.matmul(r,ones)
-    y = tf.multiply(xo, tf.nn.softplus(tf.subtract(tf.transpose(rr), rr)))
-    zp = tf.multiply(xp, tf.nn.softplus(-r))
-    zm = tf.multiply(xm, tf.nn.softplus(r))
-    cost = tf.add(tf.reduce_sum(y), tf.reduce_sum(tf.add(zp, zm)))
+    r = tf.Variable(tf.truncated_normal([n-1, 2], mean=0.0, stddev=1.0, dtype=tf.float64))
+    rz = tf.Variable(tf.truncated_normal([1], mean=0.0, stddev=1.0, dtype=tf.float64))
+#    ones = tf.ones([1, n-1], dtype = tf.float64)
+#    rr = tf.matmul(r,ones)
+    y = tf.multiply(xo, tf.nn.softplus(tf.subtract(tf.multiply(tf.reshape(r[:,0],[1,n-1]),
+                                                               tf.reshape(r[:,1],[n-1,1])),
+                                                   tf.multiply(tf.reshape(r[:,1],[1,n-1]),
+                                                               tf.reshape(r[:,0],[n-1,1])))))
+    zp = tf.multiply(xp, tf.nn.softplus(tf.multiply(tf.reshape(r[:,0],[n-1,1]),rz)))
+    zm = tf.multiply(xm, tf.nn.softplus(-tf.multiply(tf.reshape(r[:,0],[n-1,1]),rz)))
+    cost = tf.reduce_sum(y) + tf.reduce_sum(tf.add(zp, zm)) + tf.reduce_sum(tf.squared_difference(r[:,1], tf.ones([n-1,1], dtype=tf.float64))) + tf.squared_difference(rz, 1.0)
 
     learning_rate = 0.002
     epochs = 100000
@@ -48,22 +52,27 @@ def build_process():
 
     with tf.Session(config=config) as sess:
 
-    
         sess.run(init)
     
         for i in list(range(epochs)):
             sess.run(optimizer)
             
-            if i % 100 == 0:
+                
+            if i % 500 == 0:
                 print(sess.run(cost))
 
+        savez=sess.run(rz)
         save=sess.run(r)
                 
-    outfile='sai29-ratings'
+    outfile='sai29-ratings-2d.csv'
     with open(outfile, "w") as file:
-        file.write("0.0\n")
+        file.write("0.0,")
+        file.write(str(float(savez)*400.0/np.log(10)))
+        file.write("\n")
         for x in list(save):
-            file.write(str(float(x)*400.0/np.log(10)))
+            file.write(str(float(x[0])*400.0/np.log(10)))
+            file.write(",")
+            file.write(str(float(x[1])*400.0/np.log(10)))
             file.write("\n")
             
 
