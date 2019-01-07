@@ -498,7 +498,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             if (score < -0.001) {
                 winrate = 0.0;
                 psa = 0.0;
-            } else if (visits == 0) {
+            } else if (visits == 0 && currstate.get_passes() >= 1) {
                 winrate = Utils::winner(score);
             }
         }
