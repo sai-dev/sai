@@ -133,7 +133,7 @@ class TFProcess:
         # Recalculate SWA weight batchnorm means and variances
         self.swa_recalc_bn = False
 
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=GPU_MEM_FRACTION)
         config = tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)
 
         self.session = tf.Session(config=config)
@@ -622,7 +622,13 @@ class TFProcess:
                                    output_channels=POLICY_OUTPUTS,
                                    name="policy_head")
         h_conv_pol_flat = tf.reshape(conv_pol, [-1, POLICY_OUTPUTS * BOARD_SQUARES])
-        W_fc1 = weight_variable([POLICY_OUTPUTS * BOARD_SQUARES, BOARD_SQUARES + 1])
+
+        POLICY_DENSE_INPUTS = POLICY_OUTPUTS * BOARD_SQUARES
+        # in the case of policy dependent komi, append subjective komi
+        if WEIGHTS_FILE_VER == "49":
+            h_conv_pol_flat = tf.concat([h_conv_pol_flat, x_komi], 1)
+            POLICY_DENSE_INPUTS += 1
+        W_fc1 = weight_variable("w_fc_1",[POLICY_DENSE_INPUTS, BOARD_SQUARES + 1])
         b_fc1 = bias_variable("b_fc_1",[BOARD_SQUARES + 1])
         self.add_weights(W_fc1)
         self.add_weights(b_fc1)

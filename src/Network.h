@@ -127,6 +127,7 @@ class Network
     size_t m_input_moves = size_t{DEFAULT_INPUT_MOVES};
     size_t m_input_planes = size_t{DEFAULT_COLOR_INPUT_PLANES};
     bool m_adv_features = false;
+    bool m_komi_policy = false;
     bool m_include_color = true;
     size_t m_policy_outputs = size_t{2};
     size_t m_val_outputs = size_t{1};

@@ -318,7 +318,9 @@ int Network::load_v1_network(std::istream& wtfile) {
 	    m_bn_pol_w2 = std::move(weights);
 
         } else if (linecount == plain_conv_wts + 4) {
-            assert (n_wts == m_policy_outputs*NUM_INTERSECTIONS*(NUM_INTERSECTIONS+1));
+            assert (n_wts == (m_policy_outputs * NUM_INTERSECTIONS
+                              + (m_komi_policy ? 1 : 0) )
+                              * POTENTIAL_MOVES );
 	    myprintf("%dx%d board.\n", BOARD_SIZE, BOARD_SIZE);
 	    m_ip_pol_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 5) {
@@ -506,7 +508,10 @@ int Network::load_network_file(const std::string& filename) {
         auto iss = std::stringstream{line};
         // First line is the file format version id
         iss >> format_version;
-        if (iss.fail() || (format_version != 1 && format_version != 2 && format_version != 17)) {
+        if (iss.fail() || (format_version != 1 &&
+			   format_version != 2 &&
+			   format_version != 17 &&
+			   format_version != 49)) {
             myprintf("Weights file is the wrong version.\n");
             return 1;
         } else {
@@ -525,9 +530,15 @@ int Network::load_network_file(const std::string& filename) {
             if (format_version == 17) {
 		        myprintf("Version 17 weights file (advanced board features).\n");
                 m_adv_features = true;
+                m_komi_policy = false;
+            } else if (format_version == 49) {
+		        myprintf("Version 49 weights file (komi policy + advanced board features).\n");
+		        m_adv_features = true;
+                m_komi_policy = true;
             } else {
-                m_adv_features = false;
-            }
+		        m_adv_features = false;
+                m_komi_policy = false;
+	        }
             return load_v1_network(buffer);
         }
     }
@@ -992,6 +1003,13 @@ Network::Netresult Network::get_output_internal(
     // Get the moves
     batchnorm<NUM_INTERSECTIONS>(m_policy_outputs, policy_data,
         m_bn_pol_w1.data(), m_bn_pol_w2.data());
+
+    if (m_komi_policy) {
+        float komi = state->get_komi();
+        komi *= ( state->get_to_move() == FastBoard::BLACK ? -1.0 : 1.0 );
+        policy_data.push_back(komi);
+    }
+
     const auto policy_out =
         innerproduct<false>(
             policy_data, m_ip_pol_w, m_ip_pol_b);
