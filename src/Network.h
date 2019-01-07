@@ -165,6 +165,7 @@ struct netarch {
     size_t input_moves = size_t{Network::DEFAULT_INPUT_MOVES};
     size_t input_planes = size_t{Network::DEFAULT_COLOR_INPUT_PLANES};
     bool adv_features = false;
+    bool komi_policy = false;
     bool include_color = true;
     size_t policy_outputs = size_t{2};
     size_t val_outputs = size_t{1};

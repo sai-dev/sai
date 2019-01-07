@@ -313,7 +313,9 @@ int Network::load_v1_network(std::istream& wtfile) {
 	    bn_pol_w2 = std::move(weights);
 
         } else if (linecount == plain_conv_wts + 4) {
-            assert (n_wts == arch.policy_outputs*BOARD_SQUARES*(BOARD_SQUARES+1));
+            assert (n_wts == (arch.policy_outputs * BOARD_SQUARES
+                              + (arch.komi_policy ? 1 : 0) )
+                              * (BOARD_SQUARES + 1) );
 	    myprintf("%dx%d board.\n", BOARD_SIZE, BOARD_SIZE);
 	    ip_pol_w = std::move(weights);
         } else if (linecount == plain_conv_wts + 5) {
@@ -504,7 +506,8 @@ int Network::load_network_file(const std::string& filename) {
         iss >> format_version;
         if (iss.fail() || (format_version != 1 &&
 			   format_version != 2 &&
-			   format_version != 17)) {
+			   format_version != 17 &&
+			   format_version != 49)) {
             myprintf("Weights file is the wrong version.\n");
             return 1;
         } else {
@@ -523,8 +526,14 @@ int Network::load_network_file(const std::string& filename) {
 	    if (format_version == 17) {
 		myprintf("Version 17 weights file (advanced board features).\n");
 		arch.adv_features = true;
-	    } else {
+                arch.komi_policy = false;
+	    } else if (format_version == 49) {
+		myprintf("Version 49 weights file (komi policy + advanced board features).\n");
+		arch.adv_features = true;
+                arch.komi_policy = true;
+            } else {
 		arch.adv_features = false;
+                arch.komi_policy = false;
 	    }
             return load_v1_network(buffer);
         }
@@ -1178,6 +1187,12 @@ Network::Netresult Network::get_scored_moves_internal(
     batchnorm<BOARD_SQUARES>(arch.policy_outputs, policy_data,
         bn_pol_w1.data(), bn_pol_w2.data());
 
+    if (arch.komi_policy) {
+        float komi = state->get_komi();
+        komi *= ( state->get_to_move() == FastBoard::BLACK ? -1.0 : 1.0 );
+        policy_data.push_back(komi);
+    }
+    
     const auto policy_out =
         innerproduct<false>(
             policy_data, ip_pol_w, ip_pol_b);
