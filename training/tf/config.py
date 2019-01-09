@@ -47,12 +47,12 @@ GPU_MEM_FRACTION = 0.4
 # In the case of "moving window" training set it is also reasonable to
 # reduce more and up to a factor equal to the number of times each chunk
 # enters a training.
-TRAIN_SHUFFLE_BITS=18 # was 20
-TEST_SHUFFLE_BITS=15  # was 19
+TRAIN_SHUFFLE_BITS=14
+TEST_SHUFFLE_BITS=12
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 # This should be between 2 and 4 times the ratio of N to M.
-DOWN_SAMPLE = 24
+DOWN_SAMPLE = 4
 
 # Network structure -- common part
 
@@ -64,6 +64,7 @@ INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
 WEIGHTS_FILE_VER = "49" #  1: LZ
                         # 17: 'advanced features'
                         # 49: 'advanced features' + 'komi policy'
+KOMI_POLICY_CHANS = 14 # only used for komi policy net format
               
 # Network structure -- Sai value head
 # Value head type can be:
@@ -83,7 +84,7 @@ VBE_CHANS = 256 # only for double W and Y
 LEARN_RATE = 0.0005
 
 # Outputs new network after the specified number of training steps
-TRAINING_STEPS = 4000
+TRAINING_STEPS = 2000
 
 # Display intermediate output after the specified number of training steps
 INFO_STEPS = 500

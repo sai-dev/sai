@@ -243,7 +243,7 @@ class TFProcess:
 
         # Calculate loss on policy head
         cross_entropy = \
-            tf.nn.softmax_cross_entropy_with_logits(labels=self.y_,
+            tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.y_,
                                                     logits=self.y_conv)
         self.policy_loss = tf.reduce_mean(cross_entropy)
 
@@ -626,8 +626,22 @@ class TFProcess:
         POLICY_DENSE_INPUTS = POLICY_OUTPUTS * BOARD_SQUARES
         # in the case of policy dependent komi, append subjective komi
         if WEIGHTS_FILE_VER == "49":
-            h_conv_pol_flat = tf.concat([h_conv_pol_flat, x_komi], 1)
-            POLICY_DENSE_INPUTS += 1
+            # layer 1 of komi policy
+            W_kpl1 = weight_variable("w_kpl_1",[POLICY_DENSE_INPUTS + 1, KOMI_POLICY_CHANS])
+            b_kpl1 = bias_variable("b_kpl_1",[KOMI_POLICY_CHANS])
+            self.add_weights(W_kpl1)
+            self.add_weights(b_kpl1)
+            h_kpl1 = tf.nn.relu(tf.add(tf.matmul(tf.concat([h_conv_pol_flat, x_komi], 1), W_kpl1), b_kpl1))
+
+            # layer2 of komi policy
+            W_kpl2 = weight_variable("w_kpl_2",[KOMI_POLICY_CHANS, KOMI_POLICY_CHANS])
+            b_kpl2 = bias_variable("b_kpl_2",[KOMI_POLICY_CHANS])
+            self.add_weights(W_kpl2)
+            self.add_weights(b_kpl2)
+            h_kpl2 = tf.nn.relu(tf.add(tf.matmul(h_kpl1, W_kpl2), b_kpl2))
+
+            h_conv_pol_flat = tf.concat([h_conv_pol_flat, h_kpl2], 1)
+            POLICY_DENSE_INPUTS += KOMI_POLICY_CHANS
         W_fc1 = weight_variable("w_fc_1",[POLICY_DENSE_INPUTS, BOARD_SQUARES + 1])
         b_fc1 = bias_variable("b_fc_1",[BOARD_SQUARES + 1])
         self.add_weights(W_fc1)
