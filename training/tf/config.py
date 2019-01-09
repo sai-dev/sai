@@ -19,6 +19,10 @@
 # 16 planes, 1 side to move, 1 x BOARD_SQUARES probs, 1 winner = 19 lines
 DATA_ITEM_LINES = 16 + 1 + 1 + 1
 
+# Board size and number of squares in a board. Board size must be an odd number!
+BOARD_SIZE = 9
+BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
+
 # Sane values are from 4096 to 64 or so.
 # You need to adjust the learning rate if you change this. Should be
 # a multiple of RAM_BATCH_SIZE. NB: It's rare that large batch sizes are
@@ -31,17 +35,24 @@ RAM_BATCH_SIZE = 128
 
 # Memory allocation
 GPU_MEM_FRACTION = 0.4
+
+# 20 bit should be about 2.2GB of RAM on 19x19 and 0.5GB on 9x9
+# Formula is M*S*(16/8+4) with M the shuffle buffer size, S the board
+# squares, 16 the history bit fields and (1/8, 4) the size of (bit,
+# float).
+# Sensible number is log2(N) with N actual number of training
+# positions i.e. about BOARD_SQUARES*N_GAMES. In this way, since the
+# dataset is augmented eightfold with symmetries, the actual density
+# of positions is about 1/8.
+# In the case of "moving window" training set it is also reasonable to
+# reduce more and up to a factor equal to the number of times each chunk
+# enters a training.
+TRAIN_SHUFFLE_BITS=18 # was 20
+TEST_SHUFFLE_BITS=15  # was 19
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
-DOWN_SAMPLE = 16
-
-# -- 2.2GB of RAM.
-TRAIN_SHUFFLE_BITS=15 # was 20
-TEST_SHUFFLE_BITS=12  # was 19
-
-# Board size and number of squares in a board. Board size must be an odd number!
-BOARD_SIZE = 9
-BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
+# This should be between 2 and 4 times the ratio of N to M.
+DOWN_SAMPLE = 24
 
 # Network structure -- common part
 
@@ -59,7 +70,7 @@ WEIGHTS_FILE_VER = "49" #  1: LZ
 SINGLE = 1 # (Leela Zero)
 DOUBLE_V = 2
 DOUBLE_Y = 3
-DOUBLE_T = 4 # last two tyoes are equivalent, changing
+DOUBLE_T = 4 # last two types are equivalent, changing
 DOUBLE_I = 5 # only the order of weights in the file
 
 VALUE_HEAD_TYPE = DOUBLE_Y
@@ -69,13 +80,13 @@ VAL_CHANS = 384
 VBE_CHANS = 256 # only for double W and Y
 
 # Learning rate
-LEARN_RATE = 0.001
+LEARN_RATE = 0.0005
 
 # Outputs new network after the specified number of training steps
 TRAINING_STEPS = 4000
 
 # Display intermediate output after the specified number of training steps
-INFO_STEPS = 800
+INFO_STEPS = 500
 
 # Maximum number of training steps (0 continue forever)
 MAX_TRAINING_STEPS = 16000
