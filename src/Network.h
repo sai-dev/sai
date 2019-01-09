@@ -112,7 +112,7 @@ public:
 					      const bool adv_features = false,
 					      const bool include_color = false);
 private:
-    static int load_v1_network(std::istream& wtfile);
+    static int load_v1_network(std::istream& wtfile, int format_version);
     static int load_network_file(const std::string& filename);
     static void process_bn_var(std::vector<float>& weights,
                                const float epsilon = 1e-5f);
@@ -168,6 +168,7 @@ struct netarch {
     bool komi_policy = false;
     bool include_color = true;
     size_t policy_outputs = size_t{2};
+    size_t komipolicy_chans = size_t{0};
     size_t val_outputs = size_t{1};
     size_t vbe_outputs = size_t{0};
     size_t val_chans = size_t{256};

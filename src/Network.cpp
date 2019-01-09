@@ -79,7 +79,13 @@ static std::vector<float> conv_pol_b;    // policy_outputs
 static std::vector<float> bn_pol_w1;     // policy_outputs
 static std::vector<float> bn_pol_w2;     // policy_outputs
 
-static std::vector<float> ip_pol_w;      // board_sq*policy_outputs*(board_sq+1)
+static std::vector<float> kp1_pol_w;      // (board_sq*policy_outputs+1)*komipolicy_chans
+static std::vector<float> kp1_pol_b;      // komipolicy_chans
+
+static std::vector<float> kp2_pol_w;      // komipolicy_chans*komipolicy_chans
+static std::vector<float> kp2_pol_b;      // board_sq*policy_outputs*(board_sq+1)
+
+static std::vector<float> ip_pol_w;      // (board_sq*policy_outputs + komipolicy_chans)*(board_sq+1)
 static std::vector<float> ip_pol_b;      // board_sq+1
 
 // Value head alpha (val=Value ALpha)
@@ -211,15 +217,19 @@ std::vector<float> Network::zeropad_U(const std::vector<float>& U,
 }
 
 //v1 refers to the actual weight file format, to be changed when/if the weight file format changes
-int Network::load_v1_network(std::istream& wtfile) {
+int Network::load_v1_network(std::istream& wtfile, int format_version) {
     // Count size of the network
-    myprintf("Detecting residual layers...");
-    // We are version 1 or 2
-    if (value_head_not_stm) {
-        myprintf("v%d...", 2);
-    } else {
-        myprintf("v%d...", 1);
+    myprintf("Detecting residual layers... v%d\n", format_version);
+
+    auto komipolicy_lines = 0;
+    arch.komipolicy_chans = 0; 
+    if (format_version == 49) {
+        // in this format there are 4 additional lines between policy
+        // 1x1 convolution and policy dense layer
+        
+        komipolicy_lines = 4;
     }
+    
     // First line was the version number
     auto linecount = size_t{1};
     int lastlines = 0;
@@ -231,6 +241,8 @@ int Network::load_v1_network(std::istream& wtfile) {
 
     bool is_head_line = false;
     linecount = 0;
+    auto n_wts_1st_layer = size_t{0};
+
     while (std::getline(wtfile, line)) {
         std::vector<float> weights;
         auto it_line = line.cbegin();
@@ -242,14 +254,24 @@ int Network::load_v1_network(std::istream& wtfile) {
             return 1;
         }
 	auto n_wts = weights.size();
-	size_t n_wts_1st_layer;
         if (!is_head_line) {
+            // we should be still in the convolutional tower
+            // (or we just exit)
+
             if (linecount % 4 == 0) {
-	      if (linecount == 0)
+                // first line of 4: holds convolutional weights
+
+                if (linecount == 0)
 		n_wts_1st_layer = n_wts;
+
+                // check if we are still in the resconv tower
 	      if (linecount==0 || n_wts==arch.channels*9*arch.channels)
+
+                  // yes: these are convolutional weights
                 conv_weights.emplace_back(weights);
 	      else {
+
+                  // no: first line of policy head [1x1 conv weights]
 		is_head_line = true;
 		arch.policy_outputs = n_wts/arch.channels;
 		assert (n_wts == arch.channels*arch.policy_outputs);
@@ -258,11 +280,12 @@ int Network::load_v1_network(std::istream& wtfile) {
 		plain_conv_layers = 1 + (arch.residual_blocks * 2);
 		plain_conv_wts = plain_conv_layers * 4;
 		assert(plain_conv_wts == linecount);
-		myprintf("%d blocks...%d policy outputs...", arch.residual_blocks, arch.policy_outputs);
-		lastlines = linecount - plain_conv_wts - 14;
+		myprintf(" %d blocks\n%d policy outputs", arch.residual_blocks, arch.policy_outputs);
 	      }
             } else if (linecount % 4 == 1) {
-	      if (linecount == 1) {
+                // second line of 4: holds convolutional biases
+
+                if (linecount == 1) {
 		  // second line of weights, holds the biases for the
 		  // input convolutional layer, hence its size gives
 		  // the number of channels of subsequent resconv
@@ -284,7 +307,7 @@ int Network::load_v1_network(std::istream& wtfile) {
 		      (arch.adv_features ? 4 : 2);
 
 		  assert (n_wts_1st_layer == arch.input_planes*9*arch.channels);
-		  myprintf("%d input planes...%d input moves... %d channels...",
+		  myprintf("%d input planes, %d input moves\n%d channels...",
 			   arch.input_planes,
 			   arch.input_moves,
 			   arch.channels);
@@ -302,23 +325,64 @@ int Network::load_v1_network(std::istream& wtfile) {
                 batchnorm_stddivs.emplace_back(weights);
             }
         } else if (linecount == plain_conv_wts + 1) {
-	    assert (n_wts == arch.policy_outputs);
+            // line 2 of policy head [1x1 convolutional biases]
+
+            assert (n_wts == arch.policy_outputs);
 	    conv_pol_b = std::move(weights);
         } else if (linecount == plain_conv_wts + 2) {
+            // line 3 of policy head [1x1 convolutional bn 1]
+
 	    assert (n_wts == arch.policy_outputs);
 	    bn_pol_w1 = std::move(weights);
         } else if (linecount == plain_conv_wts + 3) {
+            // line 4 of policy head [1x1 convolutional bn 2]
+
 	    process_bn_var(weights);
 	    assert (n_wts == arch.policy_outputs);
 	    bn_pol_w2 = std::move(weights);
 
-        } else if (linecount == plain_conv_wts + 4) {
+            // if the net has 'komi policy' layers, then their weigths
+            // go here
+        } else if (komipolicy_lines && linecount == plain_conv_wts + 4) {
+            // line 1 of komi policy layers
+
+            arch.komipolicy_chans = n_wts /
+                (BOARD_SQUARES * arch.policy_outputs + 1);
+            assert (n_wts == (BOARD_SQUARES * arch.policy_outputs + 1)
+                    * arch.komipolicy_chans);
+            kp1_pol_w = std::move(weights);
+        } else if (komipolicy_lines && linecount == plain_conv_wts + 5) {
+            // line 2 of komi policy layers
+
+            assert (n_wts == arch.komipolicy_chans);
+            kp1_pol_b = std::move(weights);
+        } else if (komipolicy_lines && linecount == plain_conv_wts + 6) {
+            // line 3 of komi policy layers
+
+            assert (n_wts == arch.komipolicy_chans * arch.komipolicy_chans);
+            kp2_pol_w = std::move(weights);
+        } else if (komipolicy_lines && linecount == plain_conv_wts + 7) {
+            // line 4 of komi policy layers
+
+            assert (n_wts == arch.komipolicy_chans);
+            kp2_pol_b = std::move(weights);
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 4) {
+            // line [-2] of policy head [dense layer weights]
+
+            // we do not check the board size here as it would be
+            // uselessly complicate
+
             assert (n_wts == (arch.policy_outputs * BOARD_SQUARES
-                              + (arch.komi_policy ? 1 : 0) )
+                              + arch.komipolicy_chans ) // assumes this is 0 when
+                                                        // komi policy is not used
                               * (BOARD_SQUARES + 1) );
-	    myprintf("%dx%d board.\n", BOARD_SIZE, BOARD_SIZE);
+
 	    ip_pol_w = std::move(weights);
-        } else if (linecount == plain_conv_wts + 5) {
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 5) {
+            // line [-1] of policy head [dense layer biases]
+            // check if the board size is correct
+
 	    if (n_wts != BOARD_SQUARES+1) {
                 const auto netboardsize = std::sqrt(n_wts-1);
                 myprintf("\nGiven network is for %.0fx%.0f, but this version "
@@ -326,48 +390,74 @@ int Network::load_v1_network(std::istream& wtfile) {
                          netboardsize, netboardsize, BOARD_SIZE, BOARD_SIZE);
                 return 1;
             }
-            
+
+            myprintf("\n%dx%d board.\n", BOARD_SIZE, BOARD_SIZE);
+
             ip_pol_b = std::move(weights);
 
-        } else if (linecount == plain_conv_wts + 6) {
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 6) {
+            // line 1 of value head [1x1 convolutional weights]
+
 	    arch.val_outputs = n_wts/arch.channels;
 	    assert (n_wts == arch.channels*arch.val_outputs);
 	    conv_val_w = std::move(weights);
-        } else if (linecount == plain_conv_wts + 7) {
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 7) {
+            // line 2 of value head [1x1 convolutional biases]
+
 	    assert (n_wts == arch.val_outputs);
             conv_val_b = std::move(weights);
-        } else if (linecount == plain_conv_wts + 8) {
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 8) {
+            // line 3 of value head [1x1 convolutional bn 1]
+
 	    assert (n_wts == arch.val_outputs);
             bn_val_w1 = std::move(weights);
-        } else if (linecount == plain_conv_wts + 9) {
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 9) {
+            // line 4 of value head [1x1 convolutional bn 2]
+
 	    assert (n_wts == arch.val_outputs);
             process_bn_var(weights);
             bn_val_w2 = std::move(weights);
 
-        } else if (linecount == plain_conv_wts + 10) {
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 10) {
+            // line 5 of value head [dense layer weights]
+
 	    arch.val_chans = n_wts/arch.val_outputs/(BOARD_SQUARES);
 	    assert (n_wts == arch.val_chans*arch.val_outputs*BOARD_SQUARES);
 	    ip1_val_w = std::move(weights);
-        } else if (linecount == plain_conv_wts + 11) {
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 11) {
+            // line 6 of value head [dense layer biases]
+
 	    assert (n_wts == arch.val_chans);
             ip1_val_b = std::move(weights);
-        } else if (linecount == plain_conv_wts + 12) {
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 12) {
+            // line 7 of value head [last unit(s) weights]
+
 	    arch.value_head_rets = n_wts/arch.val_chans;
 	    assert (n_wts == arch.val_chans*arch.value_head_rets);
 	    assert (arch.value_head_rets == 1 || arch.value_head_rets == 2);
 	    ip2_val_w = std::move(weights);
-        } else if (linecount == plain_conv_wts + 13) {
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 13) {
+            // line 8 of value head [last unit(s) biases]
+
 	    assert (n_wts == arch.value_head_rets);
             ip2_val_b = std::move(weights);
 
-        } else if (linecount >= plain_conv_wts + 14) {
+        } else if (linecount >= plain_conv_wts + komipolicy_lines + 14) {
+            // read the second value head, if present, store it
+            // temporarily and count how many lines long it is
+
 	    auto i = lastlines;
 	    assert (i>=0 && i<8);
             wts_2nd_val_head[i] = std::move(weights);
 	    n_wts_2nd_val_head[i] = n_wts;
+            lastlines++;
         }
         linecount++;
-	lastlines++;
     }
 
     if (lastlines == 8) {
@@ -535,7 +625,7 @@ int Network::load_network_file(const std::string& filename) {
 		arch.adv_features = false;
                 arch.komi_policy = false;
 	    }
-            return load_v1_network(buffer);
+            return load_v1_network(buffer, format_version);
         }
     }
     return 1;
@@ -1191,6 +1281,14 @@ Network::Netresult Network::get_scored_moves_internal(
         float komi = state->get_komi();
         komi *= ( state->get_to_move() == FastBoard::BLACK ? -1.0 : 1.0 );
         policy_data.push_back(komi);
+        const auto kp1 =
+            innerproduct<true>(policy_data, kp1_pol_w, kp1_pol_b);
+        const auto kp2 =
+            innerproduct<true>(kp1, kp2_pol_w, kp2_pol_b);
+        policy_data.pop_back();
+        for (auto & i : kp2) {
+            policy_data.push_back(i);
+        }
     }
     
     const auto policy_out =
