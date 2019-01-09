@@ -130,6 +130,7 @@ class Network
     bool m_komi_policy = false;
     bool m_include_color = true;
     size_t m_policy_outputs = size_t{2};
+    size_t m_komipolicy_chans = size_t{0};
     size_t m_val_outputs = size_t{1};
     size_t m_vbe_outputs = size_t{0};
     size_t m_val_chans = size_t{256};
@@ -137,7 +138,7 @@ class Network
     size_t m_value_head_rets = size_t{1};
 
   private:
-    int load_v1_network(std::istream &wtfile);
+    int load_v1_network(std::istream &wtfile, int format_version);
     int load_network_file(const std::string &filename);
 
     static std::vector<float> winograd_transform_f(const std::vector<float> &f,
@@ -194,8 +195,14 @@ class Network
     std::vector<float> m_bn_pol_w1; // policy_outputs
     std::vector<float> m_bn_pol_w2; // policy_outputs
 
-    std::vector<float> m_ip_pol_w; // board_sq*policy_outputs*(board_sq+1)
-    std::vector<float> m_ip_pol_b; // board_sq+1
+    std::vector<float> m_kp1_pol_w; // (board_sq*policy_outputs+1)*komipolicy_chans
+    std::vector<float> m_kp1_pol_b; // komipolicy_chans
+
+    std::vector<float> m_kp2_pol_w; // komipolicy_chans*komipolicy_chans
+    std::vector<float> m_kp2_pol_b; // board_sq*policy_outputs*(board_sq+1)
+
+    std::vector<float> m_ip_pol_w;  // (board_sq*policy_outputs + komipolicy_chans)*(board_sq+1)
+    std::vector<float> m_ip_pol_b;  // board_sq+1
 
     // Value head alpha (val=Value ALpha)
     std::vector<float> m_bn_val_w1; // val_outputs
