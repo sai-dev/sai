@@ -22,12 +22,14 @@ struct match {
     string hash2;
     int h1wins;
     int h2wins;
+    int n;
 };
 
 struct wincount {
     int idx1;
     int idx2;
     int wins;
+    int num;
 };
 
 typedef vector< vector<int> > tab_t;
@@ -37,46 +39,64 @@ vector<match> mats;
 vector<wincount> wins;
 
 
-string hook =
-    "fec1ac47a2db190bb39345e5c9466d305d22ecac95f45cb9d6fbd28f40720126";
+void get_first_line(ifstream& data, string& s, const int header_lines = 4) {
+    auto j = 0;
+    auto position = data.tellg();
+    do {
+        position = data.tellg();
+        getline(data, s);
+        j++;
+    } while (s.front() != '{');
+    data.seekg(position);
+    if (j-1 != header_lines) {
+        // Different number of header lines were expected
+        cout << "Skipped " << j-1
+             << " header lines. Did something change?" << endl;
+    }
+}
 
 
-void load_netsdata() {
+void load_netsdata(string filename, string hook) {
     ifstream netsdata;
 
-    netsdata.open("sai29-netdata.xls");
+    netsdata.open(filename);
     if (!netsdata) {
-        cerr << "Unable to open nets data file.";
+        cerr << "Unable to open nets data file " << filename
+             << "." << endl;
         exit (1);
     }
 
     string s;
-    getline(netsdata, s);
-    getline(netsdata, s);
-    getline(netsdata, s);
+    get_first_line(netsdata, s, 4); // Four header lines are expected
 
     auto i = 0;
+    bool hookfound = false;
     sainet tmp;
     while (netsdata >> s) {
+        //        cout << s << endl;
         switch (i) {
         case 6:
+            // hash
             tmp.hash = s.substr(1, 64);
             tmp.cumul = 0;
             tmp.steps = 0;
             tmp.games = 0;
             if (tmp.hash == hook) {
                 tmp.hookdist = 0;
+                hookfound = true;
             } else {
                 tmp.hookdist = -1;
             }
             break;
         case 21:
+            // training_count
             if (s.back() == ',') {
                 s.pop_back();
             }
             tmp.cumul = stoi(s);
             break;
         case 24:
+            // training_steps
             if (s.back() == ',') {
                 s.pop_back();
             }
@@ -87,6 +107,7 @@ void load_netsdata() {
             }
             break;
         case 27:
+            // game_count
             if (s.back() == ',') {
                 s.pop_back();
             }
@@ -111,47 +132,63 @@ void load_netsdata() {
     } 
 
     netsdata.close();
+    if (!hookfound) {
+        cerr << "Unable to find hook hash " << hook
+             << " in nets file." << endl;
+        exit (1);
+    }
 }
 
 
-void load_matchdata() {
+void load_matchdata(string filename) {
     ifstream matchdata;
 
-    matchdata.open("sai29-matches.xls");
+    matchdata.open(filename);
     if (!matchdata) {
-        cerr << "Unable to open matchdata file.";
+        cerr << "Unable to open matchdata file " << filename
+             << "." << endl;
         exit (1);
     }
 
     string s;
-    getline(matchdata, s);
-    getline(matchdata, s);
-    getline(matchdata, s);
+    get_first_line(matchdata, s, 4); // Four header lines are expected
 
     auto i = 0;
     match tmp;
     while (matchdata >> s) {
         switch (i) {
         case 3:
+            // network1
             tmp.hash1 = s.substr(1, 64);
             tmp.hash2 = "";
             tmp.h1wins = 0;
             tmp.h2wins = 0;
+            tmp.n = 0;
             break;
         case 6:
+            // network2
             tmp.hash2 = s.substr(1, 64);
             break;
         case 9:
+            // network1_losses
             if (s.back() == ',') {
                 s.pop_back();
             }
             tmp.h2wins = stoi(s);
             break;
         case 12:
+            // network1_wins
             if (s.back() == ',') {
                 s.pop_back();
             }
             tmp.h1wins = stoi(s);
+            break;
+        case 15:
+            // game_count
+            if (s.back() == ',') {
+                s.pop_back();
+            }
+            tmp.n = stoi(s);
             break;
         }
         i++;
@@ -191,6 +228,7 @@ void list_wins() {
         ij.idx2 = ji.idx1 = index(vs.hash2);
         ij.wins = vs.h1wins;
         ji.wins = vs.h2wins;
+        ij.num = ji.num = vs.n;
         wins.emplace_back(ij);
         wins.emplace_back(ji);
         //        pt(ij);
@@ -252,6 +290,14 @@ void remove_unconnected_nets() {
 void populate_table(tab_t & table) {
     for (auto & vs : wins) {
         table[vs.idx1][vs.idx2] = vs.wins;
+    }
+}
+
+
+void populate_tables(tab_t & table, tab_t & table_num) {
+    for (auto & vs : wins) {
+        table[vs.idx1][vs.idx2] = vs.wins;
+        table_num[vs.idx1][vs.idx2] = vs.num;
     }
 }
 
@@ -357,12 +403,13 @@ double gradient_desc(vector<double> & r,
     return sqrt(norm);
 }
 
-void write_table(tab_t & table) {
+void write_table(tab_t & table, string filename) {
     ofstream tabledump;
 
-    tabledump.open("sai29-vs.csv");
+    tabledump.open(filename);
     if (!tabledump) {
-        cerr << "Unable to open file to dump table.";
+        cerr << "Unable to open file " << filename
+             << " to dump table." << endl;
         exit (1);
     }
 
@@ -384,12 +431,13 @@ void write_table(tab_t & table) {
 }
 
 
-void write_netlist() {
+void write_netlist(string filename) {
     ofstream netlistdump;
 
-    netlistdump.open("sai29-nets.csv");
+    netlistdump.open(filename);
     if (!netlistdump) {
-        cerr << "Unable to open file to dump netlist.";
+        cerr << "Unable to open file " << filename
+             << " to dump netlist." << endl;
         exit (1);
     }
 
@@ -405,10 +453,16 @@ void write_netlist() {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    if (argc <= 2) {
+        cerr << "Syntax: pseres <saiXX> <sha256hash>" << endl;
+        exit (1);
+    }
+    string saiXX(argv[1]);
+    string hook(argv[2]);
 
-    load_netsdata();
-    load_matchdata();
+    load_netsdata(saiXX + "-netdata.xls", hook);
+    load_matchdata(saiXX + "-matches.xls");
 
     check_indices();
     list_wins();
@@ -425,10 +479,12 @@ int main() {
 
     const auto n = nets.size();
     vector< vector<int> > table(n, vector<int>(n));
-    populate_table(table);
+    vector< vector<int> > table_num(n, vector<int>(n));
+    populate_tables(table, table_num);
 
-    write_netlist();
-    write_table(table);
+    write_netlist(saiXX + "-nets.csv");
+    write_table(table, saiXX + "-vs.csv");
+    write_table(table_num, saiXX + "-num.csv");
     
     // vector<double> rats(n);
     // random_init(rats);
