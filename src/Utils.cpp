@@ -267,7 +267,7 @@ float Utils::winner(float board_score) {
 }
 
 const std::string Utils::leelaz_file(std::string file) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__ANDROID__)
     boost::filesystem::path dir(boost::filesystem::current_path());
 #else
     // https://stackoverflow.com/a/26696759
