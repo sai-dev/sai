@@ -913,6 +913,10 @@ int UCTSearch::think(int color, passflag_t passflag) {
 	}
     } while (keeprunning);
 
+    if (last_output == 0) {
+        output_analysis(m_rootstate, *m_root);
+    }
+
     // stop the search
     m_run = false;
     tg.wait_all();
@@ -1256,6 +1260,10 @@ void UCTSearch::ponder() {
         keeprunning  = is_running();
         keeprunning &= !stop_thinking(0, 1);
     } while (!Utils::input_pending() && keeprunning);
+
+    if (last_output == 0) {
+        output_analysis(m_rootstate, *m_root);
+    }
 
     // stop the search
     m_run = false;
