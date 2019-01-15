@@ -60,7 +60,9 @@ class Game : QProcess {
 public:
     Game(const Engine& engine);
     ~Game() = default;
-    bool gameStart(const VersionTuple& min_version);
+    bool gameStart(const VersionTuple& min_version,
+                   const QString &sgf = QString(),
+                   const int moves = 0);
     void move();
     bool waitForMove() { return waitReady(); }
     bool readMove();
@@ -84,6 +86,7 @@ public:
     QString getWinnerName() const { return m_winner; }
     int getMovesCount() const { return m_moveNum; }
     void setMovesCount(int moves);
+    int getToMove() const { return m_blackToMove ? BLACK : WHITE; }
     QString getResult() const { return m_result.trimmed(); }
     enum {
         BLACK = 0,
@@ -103,6 +106,7 @@ private:
     QString m_fileName;
     QString m_moveDone;
     QString m_result;
+    bool m_isHandicap;
     bool m_resignation;
     bool m_blackToMove;
     bool m_blackResigned;
