@@ -404,13 +404,8 @@ bool Game::komi(float komi) {
     return sendGtpCommand(qPrintable("komi " + QString::number(komi)));
 }
 
-bool Game::fixSgf(const QString& weightFile, const bool resignation) {
-    QFile sgfFile(m_fileName + ".sgf");
-    if (!sgfFile.open(QIODevice::Text | QIODevice::ReadOnly)) {
-        return false;
-    }
-    QString sgfData = sgfFile.readAll();
-    QRegularExpression re("PW\\[Human\\]");
+void Game::fixSgfPlayer(QString& sgfData, const Engine& whiteEngine) {
+    QRegularExpression oldPlayer("PW\\[Human\\]");
     QString playerName("PB[Leela Zero ");
     QRegularExpression le("PB\\[Leela Zero \\S+ ");
     QRegularExpressionMatch match = le.match(sgfData);
@@ -418,10 +413,36 @@ bool Game::fixSgf(const QString& weightFile, const bool resignation) {
         playerName = match.captured(0);
     }
     playerName = "PW" + playerName.remove(0, 2);
-    playerName += weightFile.left(8);
+    playerName += whiteEngine.getNetworkFile().left(8);
     playerName += "]";
-    sgfData.replace(re, playerName);
+    sgfData.replace(oldPlayer, playerName);
+}
 
+void Game::fixSgfComment(QString& sgfData, const Engine& whiteEngine,
+    const bool isSelfPlay) {
+    QRegularExpression oldComment("(C\\[Leela Zero)( options:.*)\\]");
+    QString comment("\\1");
+    if (!isSelfPlay) {
+        comment += " Black";
+    }
+    comment += "\\2 Starting GTP commands:";
+    for (const auto command : m_engine.m_commands) {
+        comment += " " + command;
+    }
+    if (!isSelfPlay) {
+        comment += " White options:";
+        comment += whiteEngine.m_options + " " + whiteEngine.m_network;
+        comment += " Starting GTP commands:";
+        for (const auto command : whiteEngine.m_commands) {
+            comment += " " + command;
+        }
+    }
+    comment += "]";
+    comment.replace(QRegularExpression("\\s\\s+"), " ");
+    sgfData.replace(oldComment, comment);
+}
+
+void Game::fixSgfResult(QString& sgfData, const bool resignation) {
     if (resignation) {
         QRegularExpression oldResult("RE\\[B\\+.*\\]");
         QString newResult("RE[B+Resign] ");
@@ -434,7 +455,18 @@ bool Game::fixSgf(const QString& weightFile, const bool resignation) {
         QString noPass(")");
         sgfData.replace(lastpass, noPass);
     }
+}
 
+bool Game::fixSgf(const Engine& whiteEngine, const bool resignation,
+    const bool isSelfPlay) {
+    QFile sgfFile(m_fileName + ".sgf");
+    if (!sgfFile.open(QIODevice::Text | QIODevice::ReadOnly)) {
+        return false;
+    }
+    QString sgfData = sgfFile.readAll();
+    fixSgfPlayer(sgfData, whiteEngine);
+    fixSgfComment(sgfData, whiteEngine, isSelfPlay);
+    fixSgfResult(sgfData, resignation);
     sgfFile.close();
     if (sgfFile.open(QFile::WriteOnly | QFile::Truncate)) {
         QTextStream out(&sgfFile);
