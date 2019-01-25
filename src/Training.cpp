@@ -183,51 +183,23 @@ void Training::record(GameState& state, UCTNode& root) {
     step.child_uct_winrate = best_node.get_eval(step.to_move);
     step.bestmove_visits = best_node.get_visits();
 
-    step.probabilities.resize((BOARD_SQUARES) + 1);
-
-    // Get total visit amount. We count rather
-    // than trust the root to avoid ttable issues.
-    auto sum_visits = 0.0;
-    for (const auto& child : root.get_children()) {
-        sum_visits += child->get_visits();
-    }
-
-    // In a terminal position (with 2 passes), we can have children, but we
-    // will not able to accumulate search results on them because every attempt
-    // to evaluate will bail immediately. So in this case there will be 0 total
-    // visits, and we should not construct the (non-existent) probabilities.
-    if (sum_visits <= 0.0) {
-        return;
-    }
-
     // If --recordvisits option is used, then the training data
     // includes the actual number of visits for each move, instead of
     // probabilities. This number can be not integer in case of symmetries.
+    bool standardize = true;
     if (cfg_recordvisits) {
-        sum_visits = 1.0;
+        standardize = false;
     }
 
-    std::vector<int> stabilizer_subgroup;
+    const auto success = root.get_children_visits(state, root,
+                                                      step.probabilities, standardize);
 
-    for (auto i = 0; i < 8; i++) {
-        if(i == 0 || (cfg_exploit_symmetries && state.is_symmetry_invariant(i))) {
-            stabilizer_subgroup.emplace_back(i);
-        }
-    }
-
-    for (const auto& child : root.get_children()) {
-        auto prob = static_cast<float>(child->get_visits() / sum_visits);
-        auto move = child->get_move();
-        if (move != FastBoard::PASS) {
-            const auto frac_prob = prob / stabilizer_subgroup.size();
-            for (auto sym : stabilizer_subgroup) {
-                const auto sym_move = state.board.get_sym_move(move, sym);
-                const auto sym_idx = state.board.get_index(sym_move);
-                step.probabilities[sym_idx] += frac_prob;
-            }
-        } else {
-            step.probabilities[BOARD_SQUARES] = prob;
-        }
+    if (!success) {
+        // In a terminal position (with 2 passes), we can have children, but we
+        // will not able to accumulate search results on them because every attempt
+        // to evaluate will bail immediately. So in this case there will be 0 total
+        // visits, and we should not construct the (non-existent) probabilities.
+        return;
     }
 
     m_data.emplace_back(step);

@@ -601,10 +601,12 @@ bool GTP::execute(GameState & game, std::string xinput) {
             eval_sgf_string.pop_back();
         }
         eval_sgf_string.pop_back();
-        myprintf("%s\n",eval_sgf_string.c_str());
+        //        myprintf("%s\n",eval_sgf_string.c_str());
         
-        search->dump_evals(playouts, eval_string, eval_sgf_string);
+        const auto vec = search->dump_evals(playouts, eval_string, eval_sgf_string);
         eval_sgf_string.append(")\n");
+
+        Network::show_heatmap(&game, vec, false);
 
         cmdstream >> filename;
         if (cmdstream.fail()) {

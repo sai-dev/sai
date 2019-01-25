@@ -264,3 +264,59 @@ void UCTNode::prepare_root_node(int color,
     }
 }
 
+bool UCTNode::get_children_visits(const GameState& state, const UCTNode& root,
+                                  std::vector<float> & probabilities,
+                                  bool standardize) {
+
+    probabilities.resize((BOARD_SQUARES) + 1);
+
+    // Get total visit amount. We count rather
+    // than trust the root to avoid ttable issues.
+    auto sum_visits = 0.0;
+    for (const auto& child : root.get_children()) {
+        sum_visits += child->get_visits();
+    }
+    //   myprintf("Children: %d, Total visits: %f\n", root.get_children().size(),
+    //             sum_visits);
+
+    // In a terminal position (with 2 passes), we can have children, but we
+    // will not able to accumulate search results on them because every attempt
+    // to evaluate will bail immediately. So in this case there will be 0 total
+    // visits, and we should not construct the (non-existent) probabilities.
+    if (sum_visits <= 0.0) {
+        return false;
+    }
+
+    // If --recordvisits option is used, then the training data
+    // includes the actual number of visits for each move, instead of
+    // probabilities. This number can be not integer in case of symmetries.
+    if (!standardize) {
+        sum_visits = 1.0;
+    }
+
+    std::vector<int> stabilizer_subgroup;
+
+    for (auto i = 0; i < 8; i++) {
+        if(i == 0 || (cfg_exploit_symmetries && state.is_symmetry_invariant(i))) {
+            stabilizer_subgroup.emplace_back(i);
+        }
+    }
+
+    for (const auto& child : root.get_children()) {
+        auto prob = static_cast<float>(child->get_visits() / sum_visits);
+        auto move = child->get_move();
+        if (move != FastBoard::PASS) {
+            const auto frac_prob = prob / stabilizer_subgroup.size();
+            for (auto sym : stabilizer_subgroup) {
+                const auto sym_move = state.board.get_sym_move(move, sym);
+                const auto sym_idx = state.board.get_index(sym_move);
+                probabilities[sym_idx] += frac_prob;
+                //            myprintf("Vertex: %d, probs %f\n", sym_idx, probabilities[sym_idx]);
+            }
+        } else {
+            probabilities[BOARD_SQUARES] = prob;
+        }
+    }
+
+    return true;
+}

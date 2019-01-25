@@ -107,6 +107,9 @@ public:
                            std::atomic<int>& nodecount,
                            GameState& state,
                            bool fast_roll_out = false);
+    bool get_children_visits(const GameState& state, const UCTNode& root,
+                             std::vector<float> & probabilities,
+                             bool standardize = true);
 
     UCTNode* get_first_child() const;
     UCTNode* get_second_child() const;
