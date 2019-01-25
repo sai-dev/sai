@@ -1168,7 +1168,7 @@ void Network::show_heatmap(const FastState* const state,
     std::vector<std::string> display_map;
     std::string line;
 
-    float legal_policy = 0.0f;
+    float legal_policy = result.policy_pass;
     float illegal_policy = 0.0f;
 
     std::array<float, NUM_INTERSECTIONS> policies;
@@ -1201,7 +1201,7 @@ void Network::show_heatmap(const FastState* const state,
     for (int i = display_map.size() - 1; i >= 0; --i) {
         myprintf("%s\n", display_map[i].c_str());
     }
-    const auto pass_policy = int(result.policy_pass * 1000);
+    const auto pass_policy = int(result.policy_pass * 1000 / legal_policy);
     const auto illegal_millis = int(illegal_policy * 1000);
 
     myprintf("pass: %d, illegal: %d\n", pass_policy, illegal_millis);

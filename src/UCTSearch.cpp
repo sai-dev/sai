@@ -950,13 +950,14 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
 
 #ifdef USE_EVALCMD
-void UCTSearch::dump_evals(int req_playouts, std::string & dump_str, std::string & sgf_str) {
+Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_str,
+                                         std::string & sgf_str) {
     update_root(true);
     //    m_rootstate.board.set_to_move(color);
     m_root->prepare_root_node(m_network, m_rootstate.board.get_to_move(), m_nodes, m_rootstate);
 
     for (auto n=0 ; n < req_playouts ; n++) {
-        // todo: check rootnode visits instead than playouts
+        // todo: check rootnode visits instead of playouts
         auto currstate = std::make_unique<GameState>(m_rootstate);
 
         auto result = play_simulation(*currstate, m_root.get());
@@ -968,42 +969,67 @@ void UCTSearch::dump_evals(int req_playouts, std::string & dump_str, std::string
     }
 
     auto color = m_rootstate.board.get_to_move();
-    dump_evals_recursion(dump_str, m_root.get(), -2, color, sgf_str);
+    std::vector<float> value_vec;
+    std::vector<float> alpkt_vec;
+    std::vector<float> beta_vec;
+    dump_evals_recursion(dump_str, m_root.get(), -2, color, sgf_str,
+                         value_vec, alpkt_vec, beta_vec);
+    Network::Netresult result;
+
+    result.value = Utils::median(value_vec);
+    const auto alpkt_median = Utils::median(alpkt_vec);
+    result.alpha = (alpkt_median + m_rootstate.get_komi())
+        * (color==FastBoard::BLACK ? 1.0 : -1.0);
+    result.beta = Utils::median(beta_vec);
+
+    m_root->get_children_visits(m_rootstate, *(m_root.get()), result.policy, true);
+    result.policy_pass = result.policy[NUM_INTERSECTIONS];
+    result.policy.pop_back();
+
+    return result;
 }
 
 void UCTSearch::dump_evals_recursion(std::string & dump_str,  UCTNode* const node,
                                      int father_progid, int color,
-                                     std::string & sgf_str) {
+                                     std::string & sgf_str,
+                                     std::vector<float> & value_vec,
+                                     std::vector<float> & alpkt_vec,
+                                     std::vector<float> & beta_vec) {
     node->sort_children(color);
     std::vector<UCTNode *> visited_children;
     for (const UCTNodePointer& it : node->get_children()) {
-        const auto n=it.get_visits();
         if ( it.get_visits()!=0 ) {
             visited_children.push_back(it.get());
         }
     }
 
-    std::stringstream ss;
-    ss << m_rootstate.board.move_to_text(node->get_move());
-    ss << "," << node->get_progid();
-    ss << "," << father_progid;
-    ss << "," << node->get_score();
-    ss << "," << node->get_net_eval();
-    ss << "," << node->get_net_alpkt();
-    ss << "," << node->get_net_beta();
-    ss << "," << node->get_eval_bonus();
-    ss << "," << node->get_eval_base();
-    //    ss << "," << node->get_eval_bonus_father();
-    //    ss << "," << node->get_eval_base_father();
-    ss << "," << node->get_visits();
-    ss << "," << node->get_agent_eval(FastBoard::BLACK);
-    ss << "," << visited_children.size();
-    for (auto childptr : visited_children) {
-        ss << "," << childptr->get_visits();
+    {
+        std::stringstream ss;
+        ss << m_rootstate.board.move_to_text(node->get_move());
+        ss << "," << node->get_progid();
+        ss << "," << father_progid;
+        ss << "," << node->get_policy();
+        ss << "," << node->get_net_eval();
+        ss << "," << node->get_net_alpkt();
+        ss << "," << node->get_net_beta();
+        ss << "," << node->get_eval_bonus();
+        ss << "," << node->get_eval_base();
+        //    ss << "," << node->get_eval_bonus_father();
+        //    ss << "," << node->get_eval_base_father();
+        ss << "," << node->get_visits();
+        ss << "," << node->get_agent_eval(FastBoard::BLACK);
+        ss << "," << visited_children.size();
+        for (auto childptr : visited_children) {
+            ss << "," << childptr->get_visits();
+        }
+        ss << std::endl;
+        
+        dump_str.append(ss.str());
     }
-    ss << std::endl;
 
-    dump_str.append(ss.str());
+    value_vec.push_back(node->get_net_eval());
+    alpkt_vec.push_back(node->get_net_alpkt());
+    beta_vec.push_back(node->get_net_beta());
 
     if (father_progid >= -1) {
         std::string movestr = m_rootstate.board.move_to_text_sgf(node->get_move());
@@ -1012,11 +1038,22 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,  UCTNode* const nod
         } else {
             sgf_str.append(" ;B[" + movestr + "]");
         }
+
+        std::stringstream cs;
+        cs << node->get_policy();
+        cs << ", " << node->get_net_eval();
+        cs << ", " << node->get_net_alpkt();
+        cs << ", " << node->get_net_beta();
+        cs << ", " << node->get_visits();
+        cs << ", " << node->get_agent_eval(FastBoard::BLACK);
+
+        sgf_str.append("C[" + cs.str() + "]");
     }
 
     for (auto childptr : visited_children) {
         sgf_str.append(" (");
-        dump_evals_recursion(dump_str, childptr, node->get_progid(), 1-color, sgf_str);
+        dump_evals_recursion(dump_str, childptr, node->get_progid(), 1-color,
+                             sgf_str, value_vec, alpkt_vec, beta_vec);
         sgf_str.append(")");
     }
     if (visited_children.size()) {
