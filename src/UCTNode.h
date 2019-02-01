@@ -145,7 +145,7 @@ private:
                        std::vector<Network::PolicyVertexPair>& nodelist,
                        float min_psa_ratio);
     void accumulate_eval(float eval);
-    void kill_superkos(const KoState& state);
+    void kill_superkos(const GameState& state);
     void dirichlet_noise(float epsilon, float alpha);
     void get_subtree_alpkts(std::vector<float> & vector, int passes,
                             bool is_tromptaylor_scoring) const;
