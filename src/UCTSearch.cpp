@@ -31,6 +31,7 @@
 #include "config.h"
 #include "UCTSearch.h"
 
+#include <boost/format.hpp>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -699,18 +700,16 @@ std::string UCTSearch::get_pv(FastState & state, UCTNode& parent) {
     return res;
 }
 
-void UCTSearch::dump_analysis(int playouts) {
-    if (cfg_quiet) {
-        return;
-    }
+std::string UCTSearch::get_analysis() {
+    auto playouts = m_playouts.load();
 
     FastState tempstate = m_rootstate;
     int color = tempstate.board.get_to_move();
 
-    std::string pvstring = get_pv(tempstate, *m_root);
+    auto pvstring = get_pv(tempstate, *m_root);
     float winrate = 100.0f * m_root->get_raw_eval(color);
-    myprintf("Playouts: %d, Win: %5.2f%%, PV: %s\n",
-             playouts, winrate, pvstring.c_str());
+    return str(boost::format("Playouts: %d, Win: %5.2f%%, PV: %s")
+        % playouts % winrate % pvstring.c_str());
 }
 
 bool UCTSearch::is_running() const {
@@ -902,9 +901,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
         // output some stats every few seconds
         // check if we should still search
-        if (elapsed_centis - last_update > 250) {
+        if (!cfg_quiet && elapsed_centis - last_update > 250) {
             last_update = elapsed_centis;
-            dump_analysis(m_playouts.load());
+            myprintf("%s\n", get_analysis().c_str());
         }
         keeprunning  = is_running();
         keeprunning &= !stop_thinking(elapsed_centis, time_for_move);
@@ -1000,6 +999,14 @@ int UCTSearch::think(int color, passflag_t passflag) {
              m_nodes.load(),
              m_playouts.load(),
              (m_playouts * 100.0) / (elapsed_centis+1));
+
+    // Save the explanation.
+    m_think_output =
+        str(boost::format("move %d, %c => %s\n%s")
+        % m_rootstate.get_movenum()
+        % (color == FastBoard::BLACK ? 'B' : 'W')
+        % m_rootstate.move_to_text(bestmove).c_str()
+        % get_analysis().c_str());
 
     // Copy the root state. Use to check for tree re-use in future calls.
     m_last_rootstate = std::make_unique<GameState>(m_rootstate);
@@ -1229,6 +1236,11 @@ void UCTSearch::select_dame_sequence(FullBoard *board) {
     return;
 }
 
+
+// Brief output from last think() call.
+std::string UCTSearch::explain_last_think() const {
+    return m_think_output;
+}
 
 void UCTSearch::ponder() {
     update_root();
