@@ -353,3 +353,7 @@ std::string GameState::eval_comment() const {
 
 	return comstr.str();
 }
+
+const std::vector<std::shared_ptr<const KoState>>& GameState::get_game_history() const {
+    return game_history;
+}
