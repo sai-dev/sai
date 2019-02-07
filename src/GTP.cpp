@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,6 +26,7 @@
 #include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
@@ -45,8 +47,11 @@
 
 using namespace Utils;
 
+//extern bool is_mult_komi_net;
+
 // Configuration flags
 bool cfg_gtp_mode;
+bool cfg_japanese_mode;
 bool cfg_allow_pondering;
 int cfg_num_threads;
 int cfg_max_threads;
@@ -59,6 +64,13 @@ TimeManagement::enabled_t cfg_timemanage;
 int cfg_lagbuffer_cs;
 int cfg_resignpct;
 int cfg_noise;
+bool cfg_fpuzero;
+bool cfg_adv_features;
+bool cfg_exploit_symmetries;
+float cfg_noise_value;
+float cfg_lambda;
+float cfg_mu;
+float cfg_komi;
 int cfg_random_cnt;
 int cfg_random_min_visits;
 float cfg_random_temp;
@@ -84,6 +96,7 @@ std::string cfg_options_str;
 bool cfg_benchmark;
 bool cfg_cpu_only;
 int cfg_analyze_interval_centis;
+float cfg_blunder_thr;
 
 std::unique_ptr<Network> GTP::s_network;
 
@@ -107,6 +120,7 @@ void GTP::initialize(std::unique_ptr<Network>&& net) {
 
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
+    cfg_japanese_mode = false;
     cfg_allow_pondering = true;
     cfg_max_threads = std::max(1, std::min(SMP::get_num_cpus(), MAX_CPUS));
 #ifdef USE_OPENCL
@@ -120,6 +134,9 @@ void GTP::setup_default_parameters() {
     cfg_max_memory = UCTSearch::DEFAULT_MAX_MEMORY;
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
+    cfg_komi = 7.5f;
+    cfg_lambda = 0.5f;
+    cfg_mu = 0.0f;
     // This will be overwriiten in initialize() after network size is known.
     cfg_max_tree_size = UCTSearch::DEFAULT_MAX_MEMORY;
     cfg_max_cache_ratio_percent = 10;
@@ -137,10 +154,15 @@ void GTP::setup_default_parameters() {
     cfg_puct = 0.8f;
     cfg_softmax_temp = 1.0f;
     cfg_fpu_reduction = 0.25f;
-    // see UCTSearch::should_resign
-    cfg_resignpct = -1;
-    cfg_noise = false;
     cfg_fpu_root_reduction = cfg_fpu_reduction;
+    // see UCTSearch::should_resign
+    // if negative, the default is 10%, otherwise, this value % is used
+    cfg_resignpct = -1;
+    cfg_fpuzero = false;
+    cfg_adv_features = false;
+    cfg_exploit_symmetries = false;
+    cfg_noise = false;
+    cfg_noise_value = 0.03;
     cfg_random_cnt = 0;
     cfg_random_min_visits = 1;
     cfg_random_temp = 1.0f;
@@ -148,6 +170,7 @@ void GTP::setup_default_parameters() {
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
+    cfg_blunder_thr = 0.0f;
 #ifdef USE_CPU_ONLY
     cfg_cpu_only = true;
 #else
@@ -345,7 +368,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         cmdstream >> tmp;
 
         if (!cmdstream.fail()) {
-            if (tmp != BOARD_SIZE) {
+            if (tmp != NUM_INTERSECTIONS) {
                 gtp_fail_printf(id, "unacceptable size");
             } else {
                 float old_komi = game.get_komi();
@@ -368,7 +391,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
     } else if (command.find("komi") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
-        float komi = 7.5f;
+        float komi = cfg_komi;
         float old_komi = game.get_komi();
 
         cmdstream >> tmp;  // eat komi
@@ -556,12 +579,26 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         gtp_printf(id, "");
         game.display_state();
         return;
+    } else if (command.find("showlegal") == 0) {
+        gtp_printf(id, "");
+        game.display_legal(game.get_to_move());
+        return;
     } else if (command.find("final_score") == 0) {
-        float ftmp = game.final_score();
+        float ftmp;
+        if (!cfg_japanese_mode) {
+            ftmp = game.final_score();
+        } else {
+            ftmp = search->final_japscore();
+            if (ftmp > NUM_INTERSECTIONS * 10.0) {
+                gtp_fail_printf(id, "japanese scoring failed "
+                                "while trying to remove dead groups");
+                return;
+            }
+        }
         /* white wins */
-        if (ftmp < -0.1) {
+        if (ftmp < -0.0001f) {
             gtp_printf(id, "W+%3.1f", float(fabs(ftmp)));
-        } else if (ftmp > 0.1) {
+        } else if (ftmp > 0.0001f) {
             gtp_printf(id, "B+%3.1f", ftmp);
         } else {
             gtp_printf(id, "0");
@@ -629,20 +666,42 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         }
         return;
     } else if (command.find("auto") == 0) {
+#ifndef NDEBUG
+	int blunders=0, last=0;
+	int movenum = game.get_movenum();
+#endif
         do {
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
+#ifndef NDEBUG
+	    if (game.is_blunder()) {
+		blunders++;
+		last=movenum;
+	    }
+#endif
             game.play_move(move);
             game.display_state();
-
+#ifndef NDEBUG
+	    movenum = game.get_movenum();
+#endif
         } while (game.get_passes() < 2 && !game.has_resigned());
-
+#ifndef NDEBUG
+	myprintf("Game ended. There where %d blunders in a total of %d moves.\n"
+		 "The last blunder was on move %d, for %d training moves available.\n",
+		 blunders, movenum, last, movenum-last);
+#endif
         return;
     } else if (command.find("go") == 0) {
         int move = search->think(game.get_to_move());
         game.play_move(move);
 
         std::string vertex = game.move_to_text(move);
-        myprintf("%s\n", vertex.c_str());
+        myprintf("%s", vertex.c_str());
+#ifndef NDEBUG
+	if (game.is_blunder()) {
+	    myprintf("       --- a blunder");
+	}
+#endif
+        myprintf("\n");
         return;
     } else if (command.find("heatmap") == 0) {
         std::istringstream cmdstream(command);
@@ -898,6 +957,13 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             who_won = FullBoard::WHITE;
         } else if (winner_color == "b" || winner_color == "black") {
             who_won = FullBoard::BLACK;
+        } else if (winner_color == "0" ||
+                   winner_color == "n" ||
+                   winner_color == "j" ||
+                   winner_color == "d" ||
+                   winner_color == "jigo" ||
+                   winner_color == "draw") {
+            who_won = FullBoard::EMPTY;
         } else {
             gtp_fail_printf(id, "syntax not understood");
             return;

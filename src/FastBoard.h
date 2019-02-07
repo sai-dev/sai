@@ -62,10 +62,19 @@ public:
         BLACK = 0, WHITE = 1, EMPTY = 2, INVAL = 3
     };
 
+    enum territory_t : char {
+        B_STONE = 0, W_STONE = 1, EMPTY_I = 2, INVAL_I = 3,
+        DAME = 4, SEKI = 5, SEKI_EYE = 6,
+        W_TERR = 7, B_TERR = 8
+    };
+
+
     int get_boardsize() const;
     vertex_t get_state(int x, int y) const;
     vertex_t get_state(int vertex) const ;
     int get_vertex(int x, int y) const;
+    int get_vertex(const int index) const;
+    int get_index(const int vertex) const;
     void set_state(int x, int y, vertex_t content);
     void set_state(int vertex, vertex_t content);
     std::pair<int, int> get_xy(int vertex) const;
@@ -75,6 +84,7 @@ public:
     bool is_eye(const int color, const int vtx) const;
 
     float area_score(float komi) const;
+    float territory_score(float komi);
 
     int get_prisoners(int side) const;
     bool black_to_move() const;
@@ -89,10 +99,17 @@ public:
     std::string get_string(int vertex) const;
 
     void reset_board(int size);
-    void display_board(int lastmove = -1);
+    void display_board(int lastmove = -1) const;
 
     static bool starpoint(int size, int point);
     static bool starpoint(int size, int x, int y);
+
+    int liberties_to_capture(int vtx) const;
+    int get_sym_move(const int vertex, const int symmetry) const;
+
+    void find_dame(std::vector<int>& all_dames);
+    void reset_territory();
+    bool is_dame(int vertex) const;
 
 protected:
     /*
@@ -119,13 +136,21 @@ protected:
     int m_boardsize;
     int m_sidevertices;
 
+    std::array<territory_t, NUM_VERTICES> m_territory;
+
+    int calc_reach_color(int color, int color_spread,
+                         std::vector<bool> & bd, bool territory) const;
     int calc_reach_color(int color) const;
+    void find_dame();
+    void find_seki();
+    std::pair<int,int> find_territory();
+    std::pair<int,int> compute_territory();
 
     int count_neighbours(const int color, const int i) const;
     void merge_strings(const int ip, const int aip);
     void add_neighbour(const int i, const int color);
     void remove_neighbour(const int i, const int color);
-    void print_columns();
+    void print_columns() const;
 };
 
 #endif

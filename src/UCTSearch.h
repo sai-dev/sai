@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -31,6 +32,7 @@
 #include "FastState.h"
 #include "GameState.h"
 #include "UCTNode.h"
+#include "Utils.h"
 #include "Network.h"
 
 
@@ -38,24 +40,21 @@ class SearchResult {
 public:
     SearchResult() = default;
     bool valid() const { return m_valid;  }
-    float eval() const { return m_eval;  }
-    static SearchResult from_eval(float eval) {
-        return SearchResult(eval);
+    float eval() const { return m_value;  }
+    float eval_with_bonus(float bonus, float base);
+    static SearchResult from_eval(float value, float alpkt, float beta) {
+        return SearchResult(value, alpkt, beta);
     }
     static SearchResult from_score(float board_score) {
-        if (board_score > 0.0f) {
-            return SearchResult(1.0f);
-        } else if (board_score < 0.0f) {
-            return SearchResult(0.0f);
-        } else {
-            return SearchResult(0.5f);
-        }
+        return SearchResult(Utils::winner(board_score), board_score, 10.0f);
     }
 private:
-    explicit SearchResult(float eval)
-        : m_valid(true), m_eval(eval) {}
+    explicit SearchResult(float value, float alpkt, float beta)
+        : m_valid(true), m_value(value), m_alpkt(alpkt), m_beta(beta) {}
     bool m_valid{false};
-    float m_eval{0.0f};
+    float m_value{0.5f};
+    float m_alpkt{0.0f};
+    float m_beta{1.0f};
 };
 
 namespace TimeManagement {
@@ -96,6 +95,9 @@ public:
     static constexpr auto UNLIMITED_PLAYOUTS =
         std::numeric_limits<int>::max() / 2;
 
+    static constexpr auto FAST_ROLL_OUT_VISITS = 20;
+    static constexpr auto EXPLORE_MOVE_VISITS = 30;
+
     UCTSearch(GameState& g, Network & network);
     int think(int color, passflag_t passflag = NORMAL);
     void set_playout_limit(int playouts);
@@ -103,11 +105,15 @@ public:
     void ponder();
     bool is_running() const;
     void increment_playouts();
-    SearchResult play_simulation(GameState& currstate, UCTNode* const node);
+    SearchResult play_simulation(GameState& currstate,
+                                 UCTNode* const node);
+    float final_japscore();
 
 private:
     float get_min_psa_ratio() const;
     void dump_stats(FastState& state, UCTNode& parent);
+    void print_move_choices_by_policy(KoState& state, UCTNode& parent,
+                                      int at_least_as_many, float probab_threash);
     void tree_stats(const UCTNode& node);
     std::string get_pv(FastState& state, UCTNode& parent);
     void dump_analysis(int playouts);
@@ -120,6 +126,13 @@ private:
     int get_best_move(passflag_t passflag);
     void update_root();
     bool advance_to_new_rootstate();
+    void select_playable_dame(FullBoard *board);
+    void select_dame_sequence(FullBoard *board);
+    bool is_stopping (int move) const;
+    bool is_better_move(int move1, int move2, float & estimated_score);
+    void explore_move(int move);
+    void explore_root_nopass();
+    void fast_roll_out();
     void output_analysis(FastState & state, UCTNode & parent);
 
     GameState & m_rootstate;
@@ -130,6 +143,31 @@ private:
     std::atomic<bool> m_run{false};
     int m_maxplayouts;
     int m_maxvisits;
+
+    // Advanced search parameters
+    bool m_chn_scoring = true;
+
+    // Max number of visits per node: nodes with this or more visits
+    // are never selected. Acts on first generation children of root
+    // node, since the deeper generations always have fewer visits.
+    // If equal to 0 it is ignored.
+    int m_per_node_maxvisits = 0;
+
+    // List of moves allowed as first generation choices during the
+    // search. Only applies to the first move in the simulation.
+    // If empty it is ignored.
+    std::vector<int> m_allowed_root_children = {};
+
+    // If, during the search, any of these vertexes is the move of a
+    // node with at least m_stopping_visits, the flag is set to
+    // true.  If the vector is empty or the visits are 0 it is
+    // ignored.
+    std::vector<int> m_stopping_moves = {};
+    int m_stopping_visits = 0;
+    bool m_stopping_flag = false;
+    bool m_nopass = false;
+
+    int m_bestmove = FastBoard::PASS;
 
     std::list<Utils::ThreadGroup> m_delete_futures;
 

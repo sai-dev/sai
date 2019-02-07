@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Marco Calignano
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -48,7 +49,7 @@ Game::Game(const QString& weights, const QString& opt, const QString& binary,
 bool Game::checkGameEnd() {
     return (m_resignation ||
             m_passes > 1 ||
-            m_moveNum > (19 * 19 * 2));
+            m_moveNum > (BOARD_SIZE * BOARD_SIZE * 2));
 }
 
 void Game::error(int errnum) {
@@ -311,6 +312,8 @@ bool Game::getScore() {
             m_winner = QString(QStringLiteral("white"));
         } else if (readBuffer[2] == 'B') {
             m_winner = QString(QStringLiteral("black"));
+        } else if (readBuffer[2] == '0') {
+            m_winner = QString(QStringLiteral("jigo"));
         }
         if (!eatNewLine()) {
             error(Game::PROCESS_DIED);
@@ -327,10 +330,14 @@ bool Game::getScore() {
 }
 
 int Game::getWinner() {
-    if (m_winner.compare(QStringLiteral("white"), Qt::CaseInsensitive) == 0)
+    if (m_winner.compare(QStringLiteral("white"),
+                         Qt::CaseInsensitive) == 0)
         return Game::WHITE;
-    else
+    else if (m_winner.compare(QStringLiteral("black"),
+                              Qt::CaseInsensitive) == 0)
         return Game::BLACK;
+
+    return Game::JIGO;
 }
 
 bool Game::writeSgf() {
@@ -352,6 +359,16 @@ bool Game::saveTraining() {
 bool Game::loadSgf(const QString &fileName) {
     QTextStream(stdout) << "Loading " << fileName + ".sgf" << endl;
     return sendGtpCommand(qPrintable("loadsgf " + fileName + ".sgf"));
+}
+
+bool Game::loadSgf(const QString &fileName, int moves) {
+    QTextStream(stdout) << "Loading " << fileName + ".sgf with " << moves << " moves"  << endl;
+    return sendGtpCommand(qPrintable("loadsgf " + fileName + ".sgf " + QString::number(moves)));
+}
+
+bool Game::komi(float komi) {
+    QTextStream(stdout) << "Setting komi " << komi << endl;
+    return sendGtpCommand(qPrintable("komi " + QString::number(komi)));
 }
 
 bool Game::fixSgf(QString& weightFile, bool resignation) {

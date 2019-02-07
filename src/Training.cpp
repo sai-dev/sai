@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -117,7 +118,7 @@ void OutputChunker::flush_chunks() {
         memcpy(in_buff.get(), m_buffer.data(), in_buff_size);
 
         auto comp_size = gzwrite(out, in_buff.get(), in_buff_size);
-        if (!comp_size) {
+        if (in_buff_size && !comp_size) {
             throw std::runtime_error("Error in gzip output");
         }
         Utils::myprintf("Writing chunk %d\n",  m_chunk_count);
@@ -140,12 +141,22 @@ void Training::clear_training() {
 }
 
 TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
-    const auto input_data = Network::gather_features(state, 0);
-
+    const auto input_data =
+	Network::gather_features(state, 0,
+				 cfg_adv_features ? Network::REDUCED_INPUT_MOVES :
+				 Network::DEFAULT_INPUT_MOVES,
+				 cfg_adv_features, false);
     auto planes = TimeStep::NNPlanes{};
-    planes.resize(Network::INPUT_CHANNELS);
 
-    for (auto c = size_t{0}; c < Network::INPUT_CHANNELS; c++) {
+    // for now the number of planes coding the position is always 16,
+    // but in general it is a number of feature planes (2 or 4
+    // depending on advanced features) times a number of moves in
+    // recorded history (8 or 4 depending on advanced features)
+    const auto moves_planes = (2 + (cfg_adv_features ? 2 : 0))
+	* (cfg_adv_features ? Network::REDUCED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
+    planes.resize(moves_planes);
+
+    for (auto c = size_t{0}; c < moves_planes; c++) {
         for (auto idx = 0; idx < NUM_INTERSECTIONS; idx++) {
             planes[c][idx] = bool(input_data[c * NUM_INTERSECTIONS + idx]);
         }
@@ -160,7 +171,11 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
 
     auto result =
         network.get_output(&state, Network::Ensemble::DIRECT, 0);
-    step.net_winrate = result.winrate;
+    const auto komi = state.get_komi();
+    step.komi = komi;
+    step.is_blunder = state.is_blunder();
+    step.net_winrate = sigmoid(result.alpha, result.beta,
+			                   state.board.black_to_move() ? -komi : komi).first;
 
     const auto& best_node = root.get_best_root_child(step.to_move);
     step.root_uct_winrate = root.get_eval(step.to_move);
@@ -184,12 +199,24 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
         return;
     }
 
+    std::vector<int> stabilizer_subgroup;
+
+    for (auto i = 0; i < 8; i++) {
+        if(i == 0 || (cfg_exploit_symmetries && state.is_symmetry_invariant(i))) {
+            stabilizer_subgroup.emplace_back(i);
+        }
+    }
+
     for (const auto& child : root.get_children()) {
         auto prob = static_cast<float>(child->get_visits() / sum_visits);
         auto move = child->get_move();
         if (move != FastBoard::PASS) {
-            auto xy = state.board.get_xy(move);
-            step.probabilities[xy.second * BOARD_SIZE + xy.first] = prob;
+            const auto frac_prob = prob / stabilizer_subgroup.size();
+            for (auto sym : stabilizer_subgroup) {
+                const auto sym_move = state.board.get_sym_move(move, sym);
+                const auto sym_idx = state.board.get_index(sym_move);
+                step.probabilities[sym_idx] += frac_prob;
+            }
         } else {
             step.probabilities[NUM_INTERSECTIONS] = prob;
         }
@@ -233,11 +260,23 @@ void Training::load_training(std::ifstream& in) {
 
 void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     auto training_str = std::string{};
-    for (const auto& step : m_data) {
+
+    if (m_data.size()==0) {
+	return;
+    }
+
+    auto it = m_data.end()-1;
+    for ( ; it!=m_data.begin() ; --it ) {
+	if (it->is_blunder) {
+	    break;
+	}
+    }
+
+    for ( ; it!=m_data.end() ; ++it ) {
         auto out = std::stringstream{};
         // First output 16 times an input feature plane
         for (auto p = size_t{0}; p < 16; p++) {
-            const auto& plane = step.planes[p];
+            const auto& plane = it->planes[p];
             // Write it out as a string of hex characters
             for (auto bit = size_t{0}; bit + 3 < plane.size(); bit += 4) {
                 auto hexbyte =  plane[bit]     << 3
@@ -254,21 +293,29 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         }
         // The side to move planes can be compactly encoded into a single
         // bit, 0 = black to move.
-        out << (step.to_move == FastBoard::BLACK ? "0" : "1") << std::endl;
+        out << (it->to_move == FastBoard::BLACK ? "0" : "1")
+	    << " " << it->komi
+	    << std::endl;
         // Then a POTENTIAL_MOVES long array of float probabilities
-        for (auto it = begin(step.probabilities);
-            it != end(step.probabilities); ++it) {
-            out << *it;
-            if (next(it) != end(step.probabilities)) {
+        for (auto its = begin(it->probabilities);
+            its != end(it->probabilities); ++its) {
+            out << *its;
+            if (next(its) != end(it->probabilities)) {
                 out << " ";
             }
         }
         out << std::endl;
         // And the game result for the side to move
-        if (step.to_move == winner_color) {
+        if (it->to_move == winner_color) {
             out << "1";
-        } else {
+        } else if (winner_color == FastBoard::WHITE &&
+                   it->to_move == FastBoard::BLACK) {
             out << "-1";
+        } else if (winner_color == FastBoard::BLACK &&
+                   it->to_move == FastBoard::WHITE) {
+            out << "-1";
+        } else if (winner_color == FastBoard::EMPTY) {
+            out << "0";
         }
         out << std::endl;
         training_str.append(out.str());
@@ -309,6 +356,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
 
     do {
         auto to_move = state.get_to_move();
+        auto komi = state.get_komi();
         auto move_vertex = tree_moves[counter];
         auto move_idx = size_t{0};
 
@@ -330,6 +378,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
         auto step = TimeStep{};
         step.to_move = to_move;
         step.planes = get_planes(&state);
+        step.komi = komi;
 
         step.probabilities.resize(POTENTIAL_MOVES);
         step.probabilities[move_idx] = 1.0f;
@@ -381,7 +430,9 @@ void Training::dump_supervised(const std::string& sgf_name,
 
         auto who_won = sgftree->get_winner();
         // Accept all komis and handicaps, but reject no usable result
-        if (who_won != FastBoard::BLACK && who_won != FastBoard::WHITE) {
+        if (who_won != FastBoard::BLACK &&
+            who_won != FastBoard::WHITE &&
+            who_won != FastBoard::EMPTY) {
             continue;
         }
 

@@ -19,9 +19,11 @@
 #include "config.h"
 #include "Utils.h"
 
+#include <algorithm>
 #include <mutex>
 #include <cstdarg>
 #include <cstdio>
+#include <cmath>
 
 #include <boost/filesystem.hpp>
 
@@ -174,6 +176,83 @@ size_t Utils::ceilMultiple(size_t a, size_t b) {
 
     auto ret = a + (b - a % b);
     return ret;
+}
+
+float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
+    if (s>t) {
+	std::swap(s,t);
+    }
+    const auto h = beta * (t - s);
+
+    if (h < 0.001f) {
+	return sigmoid(alpkt,beta,(s+t)/2).first;
+    }
+
+    #ifndef NDEBUG
+    if (std::abs(s) + std::abs(t) > 2000.0f) {
+	myprintf("Warning: integration interval out of bound: [%f,%f].\n", s, t);
+    }
+    #endif
+
+    const auto a = std::abs(alpkt+s);
+    const auto b = std::abs(alpkt+t);
+
+    const auto main_term = (alpkt+s)*(alpkt+t) > 0 ?
+	( alpkt+s > 0 ? 1.0f : 0.0f ) :
+	0.5f + 0.5f*(b-a)/(t-s);
+
+    const auto aa = log_sigmoid(a*beta) / h;
+    const auto bb = log_sigmoid(b*beta) / h;
+
+    //    myprintf("integral: alpkt=%f, beta=%f, s=%f, t=%f\n"
+    //	     "h=%f, a=%f, b=%f, main_term=%f, aa=%f, bb=%f\n",
+    //	     alpkt, beta, s, t, h, a, b, main_term, aa, bb);
+    return main_term - bb + aa;
+}
+
+float Utils::log_sigmoid(float x) {
+    // Returns log(1/(1+exp(-x))
+    // When sigmoid is about 1, log(sigmoid) is about 0 but not very precise
+    // This function provides a robust estimate in that case.
+    // Its argument should be beta*(alpha+bonus)
+    if (x>10.0f) {
+        const auto ul = std::exp(-x);
+        const auto ll = 1.0f/(1.0f+std::exp(x));
+        return -std::sqrt(ul*ll);
+    }
+    return std::log(sigmoid(x,1.0f,0.0f).first);
+}
+
+float Utils::median(std::vector<float> & sample){
+    sort(sample.begin(), sample.end());
+    const auto len = sample.size();
+    float result;
+    if(len % 2) {
+        result = sample[len/2];
+    } else {
+        result = 0.5 * sample[len/2] + 0.5 * sample[len/2-1];
+    }
+#ifndef NDEBUG
+    myprintf("Median over %d values.\n", len);
+    for (auto& x : sample) {
+        myprintf("%.1f ", x);
+    }
+    myprintf("\nResult is: %.1f\n", result);
+#endif
+    return result;
+}
+
+
+float Utils::winner(float board_score) {
+    if (board_score > 0.0001f) {
+        return 1.0f;
+    }
+
+    if (board_score < -0.0001f) {
+        return 0.0f;
+    }
+
+    return 0.5f;
 }
 
 const std::string Utils::leelaz_file(std::string file) {

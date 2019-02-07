@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -128,12 +129,24 @@ template <typename net_t>
 void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
                              std::vector<float>& output_pol,
                              std::vector<float>& output_val,
+                             std::vector<float>& output_vbe,
                              OpenCLContext & opencl_context,
                              const int batch_size) {
     constexpr auto tiles = WINOGRAD_P;
     constexpr auto one_plane = NUM_INTERSECTIONS * sizeof(net_t);
-    const auto finalSize_pol = m_layers[m_layers.size()-2].outputs * one_plane;
-    const auto finalSize_val = m_layers.back().outputs * one_plane;
+    const bool double_value_head = output_vbe.size();
+
+    auto pol_lnum = m_layers.size() - 2;
+    if (double_value_head) {
+      pol_lnum--;
+    }
+
+    const auto finalSize_pol = m_layers[pol_lnum].outputs * one_plane;
+    const auto finalSize_val = m_layers[pol_lnum+1].outputs * one_plane;
+    auto finalSize_vbe = finalSize_val;
+    if (double_value_head) {
+        finalSize_vbe = m_layers.back().outputs * one_plane;
+    }
 
     m_opencl.ensure_context_initialized(opencl_context);
 
@@ -180,6 +193,12 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
             m_opencl.m_context,
             CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, MAX_BATCH * finalSize_val);
 
+        if (double_value_head) {
+            opencl_context.m_pinnedOutBuffer_vbe = cl::Buffer(
+                m_opencl.m_context,
+                CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, MAX_BATCH * finalSize_vbe);
+	    }
+
         opencl_context.m_buffers_allocated = true;
     }
 
@@ -194,6 +213,7 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
 
     const auto inSize = sizeof(net_t) * input.size();
     queue.enqueueWriteBuffer(inBuffer, CL_FALSE, 0, inSize, net_t_input.data());
+
 
     auto skip_in_trans = false;
     for (auto iter = cbegin(m_layers); iter != cend(m_layers); iter++) {
@@ -264,10 +284,21 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
             assert(layer.is_convolve1);
 
             cl::Buffer out_buffer;
-            if (niter == cend(m_layers)) {
-                out_buffer = opencl_context.m_pinnedOutBuffer_val;
+
+            if (double_value_head) {
+                if (niter == cend(m_layers)) {
+                    out_buffer = opencl_context.m_pinnedOutBuffer_vbe;
+                } else if (niter == cend(m_layers) - 1) {
+                    out_buffer = opencl_context.m_pinnedOutBuffer_val;
+                } else {
+                    out_buffer = opencl_context.m_pinnedOutBuffer_pol;
+                }
             } else {
-                out_buffer = opencl_context.m_pinnedOutBuffer_pol;
+                if (niter == cend(m_layers)) {
+                    out_buffer = opencl_context.m_pinnedOutBuffer_val;
+               } else {
+                    out_buffer = opencl_context.m_pinnedOutBuffer_pol;
+               }
             }
 
             convolve1(opencl_context, layer.channels,
@@ -280,30 +311,62 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
         }
     }
 
-    auto pinnedOutBufferHost_pol = queue.enqueueMapBuffer(
-        opencl_context.m_pinnedOutBuffer_pol, CL_FALSE,
-        CL_MAP_READ, 0, batch_size * finalSize_pol);
-    auto pinnedOutBufferHost_val = queue.enqueueMapBuffer(
-        opencl_context.m_pinnedOutBuffer_val, CL_FALSE,
-        CL_MAP_READ, 0, batch_size * finalSize_val);
+    if (double_value_head) {
+        auto pinnedOutBufferHost_pol = queue.enqueueMapBuffer(
+            opencl_context.m_pinnedOutBuffer_pol, CL_FALSE,
+            CL_MAP_READ, 0, batch_size * finalSize_pol);
+        auto pinnedOutBufferHost_val = queue.enqueueMapBuffer(
+            opencl_context.m_pinnedOutBuffer_val, CL_FALSE,
+            CL_MAP_READ, 0, batch_size * finalSize_val);
+        auto pinnedOutBufferHost_vbe = queue.enqueueMapBuffer(
+            opencl_context.m_pinnedOutBuffer_vbe, CL_FALSE,
+            CL_MAP_READ, 0, batch_size * finalSize_vbe);
 
-    {
-        // Finish call is usually a busy wait. When using multiple threads
-        // use the lock to avoid busy waiting with all threads.
-        std::lock_guard<std::mutex> lock(m_queue_finish_mutex);
-        queue.finish();
+        {
+            // Finish call is usually a busy wait. When using multiple threads
+            // use the lock to avoid busy waiting with all threads.
+            std::lock_guard<std::mutex> lock(m_queue_finish_mutex);
+            queue.finish();
+        }
+
+        auto polptr = static_cast<net_t*>(pinnedOutBufferHost_pol);
+        auto valptr = static_cast<net_t*>(pinnedOutBufferHost_val);
+        auto vbeptr = static_cast<net_t*>(pinnedOutBufferHost_vbe);
+        std::copy(polptr, polptr + output_pol.size(), begin(output_pol));
+        std::copy(valptr, valptr + output_val.size(), begin(output_val));
+        std::copy(vbeptr, vbeptr + output_vbe.size(), begin(output_vbe));
+
+        queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_pol,
+                    pinnedOutBufferHost_pol);
+        queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_val,
+                    pinnedOutBufferHost_val);
+        queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_vbe,
+                    pinnedOutBufferHost_vbe);
+    } else {
+        auto pinnedOutBufferHost_pol = queue.enqueueMapBuffer(
+            opencl_context.m_pinnedOutBuffer_pol, CL_FALSE,
+            CL_MAP_READ, 0, batch_size * finalSize_pol);
+        auto pinnedOutBufferHost_val = queue.enqueueMapBuffer(
+            opencl_context.m_pinnedOutBuffer_val, CL_FALSE,
+            CL_MAP_READ, 0, batch_size * finalSize_val);
+
+        {
+            // Finish call is usually a busy wait. When using multiple threads
+            // use the lock to avoid busy waiting with all threads.
+            std::lock_guard<std::mutex> lock(m_queue_finish_mutex);
+            queue.finish();
+        }
+
+        auto polptr = static_cast<net_t*>(pinnedOutBufferHost_pol);
+        auto valptr = static_cast<net_t*>(pinnedOutBufferHost_val);
+        std::copy(polptr, polptr + output_pol.size(), begin(output_pol));
+        std::copy(valptr, valptr + output_val.size(), begin(output_val));
+
+        queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_pol,
+                pinnedOutBufferHost_pol);
+        queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_val,
+                pinnedOutBufferHost_val);
     }
-
-    auto polptr = static_cast<net_t*>(pinnedOutBufferHost_pol);
-    auto valptr = static_cast<net_t*>(pinnedOutBufferHost_val);
-    std::copy(polptr, polptr + output_pol.size(), begin(output_pol));
-    std::copy(valptr, valptr + output_val.size(), begin(output_val));
-
-    queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_pol,
-            pinnedOutBufferHost_pol);
-    queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_val,
-            pinnedOutBufferHost_val);
-
 }
 
 template <typename net_t>

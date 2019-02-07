@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +23,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <tuple>
 
 #include "FastState.h"
 #include "FullBoard.h"
@@ -48,7 +50,8 @@ public:
     void rewind(); /* undo infinite */
     bool undo_move();
     bool forward_move();
-    const FullBoard& get_past_board(int moves_ago) const;
+    //    const FullBoard& get_past_board(int moves_ago) const;
+    std::shared_ptr<const KoState> get_past_state(int moves_ago) const;
 
     void play_move(int color, int vertex);
     void play_move(int vertex);
@@ -64,6 +67,11 @@ public:
     void display_state();
     bool has_resigned() const;
     int who_resigned() const;
+    std::tuple<float,float,float,float,float> get_eval();
+    void set_eval(float alpkt, float beta, float pi,
+		  float avg_eval, float eval_bonus, float eval_base);
+    //    void copy_last_rnd_move_num ();
+
 
 private:
     bool valid_handicap(int stones);

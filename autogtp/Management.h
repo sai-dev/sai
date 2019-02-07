@@ -42,7 +42,9 @@ public:
                const int maxGame,
                const bool delNetworks,
                const QString& keep,
-               const QString& debug);
+               const QString& debug,
+               const QString& serverUrl,
+               const QString& publicAuthKey);
     ~Management() = default;
     void giveAssignments();
     void incMoves() { m_movesMade++; }
@@ -72,6 +74,8 @@ private:
     QAtomicInt m_movesMade;
     QString m_keepPath;
     QString m_debugPath;
+    QString m_serverUrl;
+    QString m_publicAuthKey;
     int m_version;
     std::chrono::high_resolution_clock::time_point m_start;
     int m_storeGames;
@@ -95,6 +99,7 @@ private:
     QFileInfo getNextStored();
     bool networkExists(const QString &name, const QString &gzipHash);
     void fetchNetwork(const QString &net, const QString &hash);
+    QString fetchGameData(const QString &name, const QString &extension);
     void printTimingInfo(float duration);
     void runTuningProcess(const QString &tuneCmdLine);
     void gzipFile(const QString &fileName);

@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,6 +25,7 @@
 #include <vector>
 
 #include "FastBoard.h"
+#include "Network.h"
 #include "Utils.h"
 #include "Zobrist.h"
 
@@ -45,6 +47,10 @@ void FastState::init_game(int size, float komi) {
 
 void FastState::set_komi(float komi) {
     m_komi = komi;
+}
+
+void FastState::add_komi(float delta) {
+    m_komi += delta;
 }
 
 void FastState::reset_game() {
@@ -85,6 +91,7 @@ void FastState::play_move(int color, int vertex) {
 
     m_lastmove = vertex;
     m_movenum++;
+    m_blunder_chosen = false;
 
     if (board.m_tomove == color) {
         board.m_hash ^= Zobrist::zobrist_blacktomove;
@@ -143,6 +150,41 @@ void FastState::display_state() {
     board.display_board(get_last_move());
 }
 
+void FastState::display_legal(int color) {
+    myprintf("\nPasses: %d            Black (X) Prisoners: %d\n",
+             m_passes, board.get_prisoners(FastBoard::BLACK));
+    if (board.black_to_move()) {
+        myprintf("Black (X) to move");
+    } else {
+        myprintf("White (O) to move");
+    }
+    myprintf("    White (O) Prisoners: %d\n",
+             board.get_prisoners(FastBoard::WHITE));
+
+    int boardsize = board.get_boardsize();
+
+    myprintf("\n   ");
+    board.print_columns();
+    for (int j = boardsize-1; j >= 0; j--) {
+        myprintf("%2d", j+1);
+	myprintf(" ");
+        for (int i = 0; i < boardsize; i++) {
+            if (is_move_legal(color, board.get_vertex(i,j))) {
+		//                myprintf("O");
+		myprintf("%1d", board.liberties_to_capture(board.get_vertex(i,j)));
+            } else {
+                myprintf(".");
+            }
+            myprintf(" ");
+        }
+        myprintf("%2d\n", j+1);
+    }
+    myprintf("   ");
+    board.print_columns();
+    myprintf("\n");
+    //board.display_legal(color);
+}
+
 std::string FastState::move_to_text(int move) {
     return board.move_to_text(move);
 }
@@ -165,4 +207,38 @@ int FastState::get_handicap() const {
 
 std::uint64_t FastState::get_symmetry_hash(int symmetry) const {
     return board.calc_symmetry_hash(m_komove, symmetry);
+}
+
+// void FastState::set_last_rnd_move_num(size_t num) {
+//     m_lastrndmovenum = num;
+// }
+
+// size_t FastState::get_last_rnd_move_num() {
+//     return m_lastrndmovenum;
+// }
+
+void FastState::set_blunder_state(bool state) {
+    m_blunder_chosen = state;
+}
+
+bool FastState::is_blunder() {
+    return m_blunder_chosen;
+}
+
+bool FastState::is_symmetry_invariant(const int symmetry) const {
+    for (auto y = 0; y < BOARD_SIZE; y++) {
+        for (auto x = 0; x < BOARD_SIZE; x++) {
+            const auto sym_vertex =
+                board.get_vertex(symmetry_nn_idx_table[symmetry][y * BOARD_SIZE + x]);
+            if (board.get_state(x, y) != board.get_state(sym_vertex))
+                return false;
+        }
+    }
+
+    if(m_komove != 0) {
+        if (m_komove != board.get_sym_move(m_komove, symmetry))
+            return false;
+    }
+
+    return true;
 }

@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -31,6 +32,7 @@
 #include "Network.h"
 #include "SMP.h"
 #include "UCTNodePointer.h"
+#include "UCTSearch.h"
 
 class UCTNode {
 public:
@@ -45,13 +47,18 @@ public:
 
     bool create_children(Network & network,
                          std::atomic<int>& nodecount,
-                         GameState& state, float& eval,
+                         GameState& state, float& value, float& alpkt,
+			             float& beta,
                          float min_psa_ratio = 0.0f);
 
     const std::vector<UCTNodePointer>& get_children() const;
     void sort_children(int color);
+    void sort_children_by_policy();
     UCTNode& get_best_root_child(int color);
-    UCTNode* uct_select_child(int color, bool is_root);
+    UCTNode* uct_select_child(int color, bool is_root,
+                              int max_visits,
+                              std::vector<int> move_list,
+                              bool nopass = false);
 
     size_t count_nodes_and_clear_expand_state();
     bool first_visit() const;
@@ -61,6 +68,7 @@ public:
     void set_active(const bool active);
     bool valid() const;
     bool active() const;
+    double get_blackevals() const;
     int get_move() const;
     int get_visits() const;
     float get_policy() const;
@@ -68,20 +76,42 @@ public:
     float get_eval(int tomove) const;
     float get_raw_eval(int tomove, int virtual_loss = 0) const;
     float get_net_eval(int tomove) const;
+    float get_agent_eval(int tomove) const;
+    float get_eval_bonus() const;
+    float get_eval_bonus_father() const;
+    void set_eval_bonus_father(float bonus);
+    float get_eval_base() const;
+    float get_eval_base_father() const;
+    void set_eval_base_father(float bonus);
+    float get_net_eval() const;
+    float get_net_beta() const;
+    float get_net_alpkt() const;
+    void set_values(float value, float alpkt, float beta);
+#ifndef NDEBUG
+    void set_urgency(float urgency, float psa, float q,
+                     float num, float den);
+    std::array<float, 5> get_urgency() const;
+#endif
     void virtual_loss();
     void virtual_loss_undo();
+    void clear_visits();
+    void clear_children_visits();
     void update(float eval);
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
-    void randomize_first_proportionally();
+    bool randomize_first_proportionally();
     void prepare_root_node(Network & network, int color,
                            std::atomic<int>& nodecount,
-                           GameState& state);
+                           GameState& state,
+                           bool fast_roll_out = false);
 
     UCTNode* get_first_child() const;
+    UCTNode* get_second_child() const;
     UCTNode* get_nopass_child(FastState& state) const;
     std::unique_ptr<UCTNode> find_child(const int move);
     void inflate_all_children();
+    UCTNode* select_child(int move);
+    float estimate_alpkt(int passes, bool is_tromptaylor_scoring = false) const;
 
     void clear_expand_state();
 private:
@@ -93,10 +123,11 @@ private:
     void link_nodelist(std::atomic<int>& nodecount,
                        std::vector<Network::PolicyVertexPair>& nodelist,
                        float min_psa_ratio);
-    double get_blackevals() const;
     void accumulate_eval(float eval);
     void kill_superkos(const KoState& state);
     void dirichlet_noise(float epsilon, float alpha);
+    void get_subtree_alpkts(std::vector<float> & vector, int passes,
+                            bool is_tromptaylor_scoring) const;
 
     // Note : This class is very size-sensitive as we are going to create
     // tens of millions of instances of these.  Please put extra caution
@@ -110,7 +141,20 @@ private:
     // UCT eval
     float m_policy;
     // Original net eval for this node (not children).
-    float m_net_eval{0.0f};
+    float m_net_eval{0.5f};
+    //    float m_net_value{0.5f};
+    float m_net_alpkt{0.0f}; // alpha + \tilde k
+    float m_net_beta{1.0f};
+    float m_eval_bonus{0.0f}; // x bar
+    float m_eval_base{0.0f}; // x base
+    float m_eval_base_father{0.0f}; // x base of father node
+    float m_eval_bonus_father{0.0f}; // x bar of father node
+#ifndef NDEBUG
+    std::array<float, 5> m_last_urgency;
+#endif
+
+    // the following is used only in fpu, with reduction
+    float m_agent_eval{0.5f}; // eval_with_bonus(eval_bonus()) no father
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
 

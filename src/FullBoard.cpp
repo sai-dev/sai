@@ -196,7 +196,7 @@ int FullBoard::update_board(const int color, const int i) {
     return NO_VERTEX;
 }
 
-void FullBoard::display_board(int lastmove) {
+void FullBoard::display_board(int lastmove) const {
     FastBoard::display_board(lastmove);
 
     myprintf("Hash: %llX Ko-Hash: %llX\n\n", get_hash(), get_ko_hash());
@@ -208,3 +208,67 @@ void FullBoard::reset_board(int size) {
     m_hash = calc_hash();
     m_ko_hash = calc_ko_hash();
 }
+
+bool FullBoard::remove_dead_stones(const FullBoard & tt_endboard) {
+    std::vector<int> alive_stones;
+
+#ifndef NDEBUG
+    myprintf("Must Remove dead stones!\n");
+    display_board();
+    tt_endboard.display_board();
+    myprintf ("\n   ");
+    print_columns();
+#endif
+
+    for (int j = m_boardsize-1; j >= 0; j--) {
+#ifndef NDEBUG
+        myprintf("%2d ", j+1);
+#endif
+        for (int i = 0; i < m_boardsize; i++) {
+            int vertex = get_vertex(i, j);
+            const auto currcolor = get_state(vertex);
+            const auto endcolor = tt_endboard.get_state(vertex);
+            if (currcolor == EMPTY) {
+#ifndef NDEBUG
+                myprintf (". ");
+#endif
+            } else if (currcolor == endcolor) {
+                alive_stones.push_back(vertex);
+#ifndef NDEBUG
+                myprintf ("A ");
+#endif
+            } else {
+#ifndef NDEBUG
+                myprintf ("v ");
+#endif
+            }
+        }
+#ifndef NDEBUG
+        myprintf("%2d\n", j+1);
+#endif
+    }
+#ifndef NDEBUG
+    myprintf("   ");
+    print_columns();
+    myprintf("\n");
+#endif
+
+
+    for (int i = 0; i < m_boardsize; i++) {
+        for (int j = 0; j < m_boardsize; j++) {
+            int vertex = get_vertex(i, j);
+            const auto currcolor = get_state(vertex);
+            const auto endcolor = tt_endboard.get_state(vertex);
+            if (currcolor != EMPTY && currcolor != endcolor) {
+                m_prisoners[!currcolor] += remove_string(vertex);
+            }
+        }
+    }
+    for (auto vertex : alive_stones) {
+        if (get_state(vertex) == EMPTY) {
+            return false;
+        }
+    }
+    return true;
+}
+

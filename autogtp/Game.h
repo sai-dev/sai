@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Marco Calignano
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +23,8 @@
 #include <QProcess>
 #include <tuple>
 
+#define BOARD_SIZE 7
+
 using VersionTuple = std::tuple<int, int, int>;
 
 class Game : QProcess {
@@ -38,7 +41,9 @@ public:
     bool nextMove();
     bool getScore();
     bool loadSgf(const QString &fileName);
+    bool loadSgf(const QString &fileName, int moves);
     bool writeSgf();
+    bool komi(float komi);
     bool loadTraining(const QString &fileName);
     bool saveTraining();
     bool fixSgf(QString& weightFile, bool resignation);
@@ -59,6 +64,7 @@ public:
     enum {
         BLACK = 0,
         WHITE = 1,
+        JIGO = 2,
     };
 
 private:

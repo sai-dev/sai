@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2018 Junhee Yoo and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -229,14 +230,18 @@ void OpenCLScheduler<net_t>::push_weights(
     }
 
     // Output head convolutions
-    push_convolve(1, outputs, Network::OUTPUTS_POLICY, weights->m_conv_pol_w);
-    push_convolve(1, outputs, Network::OUTPUTS_VALUE, weights->m_conv_val_w);
+    push_convolve(1, outputs, weights->m_conv_pol_b.size(), weights->m_conv_pol_w);
+    push_convolve(1, outputs, weights->m_conv_val_b.size(), weights->m_conv_val_w);
+    if (weights->m_conv_vbe_b.size() > 0) {
+        push_convolve(1, outputs, weights->m_conv_vbe_b.size(), weights->m_conv_vbe_w);
+    }
 }
 
 template <typename net_t>
 void OpenCLScheduler<net_t>::forward(const std::vector<float>& input,
                                      std::vector<float>& output_pol,
-                                     std::vector<float>& output_val) {
+                                     std::vector<float>& output_val,
+                                     std::vector<float>& output_vbe) {
     std::shared_ptr<ContextPoolEntry> ctx;
     auto queue_num = size_t{0};
     {
@@ -254,7 +259,7 @@ void OpenCLScheduler<net_t>::forward(const std::vector<float>& input,
         assert(ctx != nullptr);
     }
 
-    m_networks[ctx->net_index]->forward(input, output_pol, output_val,
+    m_networks[ctx->net_index]->forward(input, output_pol, output_val, output_vbe,
                                         ctx->context);
 
     {

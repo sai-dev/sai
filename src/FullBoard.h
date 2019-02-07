@@ -33,7 +33,8 @@ public:
     void set_to_move(int tomove);
 
     void reset_board(int size);
-    void display_board(int lastmove = -1);
+    void display_board(int lastmove = -1) const;
+    bool remove_dead_stones(const FullBoard & tt_endboard);
 
     std::uint64_t calc_hash(int komove = NO_VERTEX) const;
     std::uint64_t calc_symmetry_hash(int komove, int symmetry) const;

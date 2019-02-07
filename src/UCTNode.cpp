@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,6 +28,7 @@
 #include <iterator>
 #include <limits>
 #include <numeric>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -36,6 +38,7 @@
 #include "GTP.h"
 #include "GameState.h"
 #include "Network.h"
+#include "Random.h"
 #include "Utils.h"
 
 using namespace Utils;
@@ -50,8 +53,14 @@ bool UCTNode::first_visit() const {
 bool UCTNode::create_children(Network & network,
                               std::atomic<int>& nodecount,
                               GameState& state,
-                              float& eval,
+			                  float& value,
+                              float& alpkt,
+			                  float& beta,
                               float min_psa_ratio) {
+
+    const auto to_move = state.board.get_to_move();
+    const auto komi = state.get_komi();
+
     // no successors in final state
     if (state.get_passes() >= 2) {
         return false;
@@ -71,25 +80,65 @@ bool UCTNode::create_children(Network & network,
     const auto raw_netlist = network.get_output(
         &state, Network::Ensemble::RANDOM_SYMMETRY);
 
-    // DCNN returns winrate as side to move
-    m_net_eval = raw_netlist.winrate;
-    const auto to_move = state.board.get_to_move();
+    beta = m_net_beta = raw_netlist.beta;
+    value = raw_netlist.value; // = m_net_value
+
+    // DCNN returns value as side to move
     // our search functions evaluate from black's point of view
-    if (state.board.white_to_move()) {
-        m_net_eval = 1.0f - m_net_eval;
+    if (state.board.white_to_move())
+        value = 1.0f - value;
+
+    if (network.m_value_head_sai) {
+        const auto result_extended = Network::get_extended(state, raw_netlist);
+        m_net_alpkt = alpkt = result_extended.alpkt;
+        m_eval_bonus = result_extended.eval_bonus;
+        m_eval_base = result_extended.eval_base;
+        m_agent_eval = result_extended.agent_eval;
+        m_net_eval = result_extended.pi;
+
+    } else {
+        m_net_alpkt = -komi;
+        m_eval_bonus = 0.0f;
+        m_eval_base = 0.0f;
+        m_net_eval = value;
+        m_agent_eval = value;
     }
-    eval = m_net_eval;
+
+    std::vector<int> stabilizer_subgroup;
+
+    for (auto i = 0; i < 8; i++) {
+        if(i == 0 || (cfg_exploit_symmetries && state.is_symmetry_invariant(i))) {
+            stabilizer_subgroup.emplace_back(i);
+        }
+    }
 
     std::vector<Network::PolicyVertexPair> nodelist;
+    std::array<bool, NUM_INTERSECTIONS> taken_already{};
+    auto unif_law = std::uniform_real_distribution<float>{0.0, 1.0};
 
     auto legal_sum = 0.0f;
     for (auto i = 0; i < NUM_INTERSECTIONS; i++) {
-        const auto x = i % BOARD_SIZE;
-        const auto y = i / BOARD_SIZE;
-        const auto vertex = state.board.get_vertex(x, y);
-        if (state.is_move_legal(to_move, vertex)) {
-            nodelist.emplace_back(raw_netlist.policy[i], vertex);
-            legal_sum += raw_netlist.policy[i];
+        const auto vertex = state.board.get_vertex(i);
+        if (state.is_move_legal(to_move, vertex) && !taken_already[i]) {
+            auto taken_policy = 0.0f;
+            auto max_u = 0.0f;
+            auto rnd_vertex = vertex;
+            for (auto sym : stabilizer_subgroup) {
+                const auto j_vertex = state.board.get_sym_move(vertex, sym);
+                const auto j = state.board.get_index(j_vertex);
+                if (!taken_already[j]) {
+                    taken_already[j] = true;
+                    taken_policy += raw_netlist.policy[j];
+
+                    const auto u = unif_law(Random::get_Rng());
+                    if (u > max_u) {
+                        max_u = u;
+                        rnd_vertex = j_vertex;
+                    }
+                }
+            }
+            nodelist.emplace_back(taken_policy, rnd_vertex);
+            legal_sum += taken_policy;
         }
     }
     nodelist.emplace_back(raw_netlist.policy_pass, FastBoard::PASS);
@@ -168,6 +217,19 @@ void UCTNode::virtual_loss_undo() {
     m_virtual_loss -= VIRTUAL_LOSS_COUNT;
 }
 
+void UCTNode::clear_visits() {
+    m_visits = 0;
+    m_blackevals = 0;
+}
+
+void UCTNode::clear_children_visits() {
+    for (const auto& child : m_children) {
+        if(child.is_inflated()) {
+            child.get()->clear_visits();
+        }
+    }
+}
+
 void UCTNode::update(float eval) {
     m_visits++;
     accumulate_eval(eval);
@@ -192,6 +254,48 @@ float UCTNode::get_policy() const {
     return m_policy;
 }
 
+float UCTNode::get_eval_bonus() const {
+    return m_eval_bonus;
+}
+
+float UCTNode::get_eval_bonus_father() const {
+    return m_eval_bonus_father;
+}
+
+void UCTNode::set_eval_bonus_father(float bonus) {
+    m_eval_bonus_father = bonus;
+}
+
+float UCTNode::get_eval_base() const {
+    return m_eval_base;
+}
+
+float UCTNode::get_eval_base_father() const {
+    return m_eval_base_father;
+}
+
+void UCTNode::set_eval_base_father(float bonus) {
+    m_eval_base_father = bonus;
+}
+
+float UCTNode::get_net_eval() const {
+    return m_net_eval;
+}
+
+float UCTNode::get_net_beta() const {
+    return m_net_beta;
+}
+
+float UCTNode::get_net_alpkt() const {
+    return m_net_alpkt;
+}
+
+void UCTNode::set_values(float value, float alpkt, float beta) {
+    m_net_eval = value;
+    m_net_alpkt = alpkt;
+    m_net_beta = beta;
+}
+
 void UCTNode::set_policy(float policy) {
     m_policy = policy;
 }
@@ -199,6 +303,20 @@ void UCTNode::set_policy(float policy) {
 int UCTNode::get_visits() const {
     return m_visits;
 }
+
+#ifndef NDEBUG
+void UCTNode::set_urgency(float urgency,
+                          float psa,
+                          float q,
+                          float den,
+                          float num) {
+    m_last_urgency = {urgency, psa, q, den, num};
+}
+
+std::array<float, 5> UCTNode::get_urgency() const {
+    return m_last_urgency;
+}
+#endif
 
 float UCTNode::get_raw_eval(int tomove, int virtual_loss) const {
     auto visits = get_visits() + virtual_loss;
@@ -228,6 +346,13 @@ float UCTNode::get_net_eval(int tomove) const {
     return m_net_eval;
 }
 
+float UCTNode::get_agent_eval(int tomove) const {
+    if (tomove == FastBoard::WHITE) {
+        return 1.0f - m_agent_eval;
+    }
+    return m_agent_eval;
+}
+
 double UCTNode::get_blackevals() const {
     return m_blackevals;
 }
@@ -236,7 +361,10 @@ void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
 }
 
-UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
+UCTNode* UCTNode::uct_select_child(int color, bool is_root,
+                                   int max_visits,
+                                   std::vector<int> move_list,
+                                   bool nopass) {
     wait_expanded();
 
     // Count parentvisits manually to avoid issues with transpositions.
@@ -254,13 +382,40 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     const auto numerator = std::sqrt(double(parentvisits));
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
     // Estimated eval for unknown nodes = original parent NN eval - reduction
-    const auto fpu_eval = get_net_eval(color) - fpu_reduction;
+    const auto fpu_eval = cfg_fpuzero ? 0.5f : get_agent_eval(color) - fpu_reduction;
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
 
+#ifndef NDEBUG
+    auto b_psa = 0.0f;
+    auto b_q = 0.0f;
+    auto b_denom = 0.0f;
+#endif
+
     for (auto& child : m_children) {
         if (!child.active()) {
+            continue;
+        }
+
+        auto is_listed = false;
+        for (auto& listed : move_list) {
+            if (child.get_move() == listed) {
+                is_listed = true;
+                break;
+            }
+        }
+        if (!is_listed && move_list.size() > 0) {
+            continue;
+        }
+
+        const auto visits = child.get_visits();
+
+        // If max_visits is specified, then stop choosing nodes that
+        // already have enough visits. This guarantees that
+        // exploration is wide enough and not too deep when doing fast
+        // roll-outs in the endgame exploration.
+        if (max_visits > 0 && visits >= max_visits) {
             continue;
         }
 
@@ -274,18 +429,36 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         }
         const auto psa = child.get_policy();
         const auto denom = 1.0 + child.get_visits();
-        const auto puct = cfg_puct * psa * (numerator / denom);
-        const auto value = winrate + puct;
+        auto puct = cfg_puct * psa * (numerator / denom);
+
+        if (nopass && child.get_move() == FastBoard::PASS) {
+            puct = 0.0;
+            winrate -= 0.05;
+        }
+
+        auto value = winrate + puct;
         assert(value > std::numeric_limits<double>::lowest());
 
         if (value > best_value) {
             best_value = value;
             best = &child;
-        }
+#ifndef NDEBUG
+	    b_psa = psa;
+	    b_q = winrate;
+	    b_denom = denom;
+#endif
+	}
     }
 
     assert(best != nullptr);
-    best->inflate();
+    if(best->get_visits() == 0) {
+        best->inflate();
+        best->get()->set_values(m_net_eval, m_net_alpkt, m_net_beta);
+    }
+#ifndef NDEBUG
+    best->get()->set_urgency(best_value, b_psa, b_q,
+                             b_denom, numerator);
+#endif
     return best->get();
 }
 
@@ -314,6 +487,19 @@ private:
 
 void UCTNode::sort_children(int color) {
     std::stable_sort(rbegin(m_children), rend(m_children), NodeComp(color));
+}
+
+class NodeCompByPolicy : public std::binary_function<UCTNodePointer&,
+                                             UCTNodePointer&, bool> {
+public:
+    bool operator()(const UCTNodePointer& a,
+                    const UCTNodePointer& b) {
+        return a.get_policy() < b.get_policy();
+    }
+};
+
+void UCTNode::sort_children_by_policy() {
+    std::stable_sort(rbegin(m_children), rend(m_children), NodeCompByPolicy());
 }
 
 UCTNode& UCTNode::get_best_root_child(int color) {
@@ -360,6 +546,53 @@ bool UCTNode::active() const {
     return m_status == ACTIVE;
 }
 
+UCTNode* UCTNode::select_child(int move) {
+    auto selected = static_cast<UCTNodePointer*>(nullptr);
+
+    for (auto& child : m_children) {
+        if (child.get_move() == move) {
+            selected = &child;
+            selected->inflate();
+            return selected->get();
+        }
+    }
+    return nullptr;
+}
+
+void UCTNode::get_subtree_alpkts(std::vector<float> & vector,
+                                 int passes,
+                                 bool is_tromptaylor_scoring) const {
+    auto children_visits = 0;
+
+    vector.emplace_back(get_net_alpkt());
+    for (auto& child : m_children) {
+        const auto child_visits = child.get_visits();
+        if (child_visits > 0) {
+            const auto pass = (child.get_move() == FastBoard::PASS) ? 1 : 0;
+            child->get_subtree_alpkts(vector, ++passes * pass,
+                                      is_tromptaylor_scoring);
+                       children_visits += child_visits;
+        }
+    }
+
+    const auto missing_nodes = get_visits() - children_visits - 1;
+    if (missing_nodes > 0 && is_tromptaylor_scoring) {
+        const std::vector<float> rep(missing_nodes, get_net_alpkt());
+        vector.insert(vector.end(), std::begin(rep), std::end(rep));
+    }
+
+    return;
+}
+
+float UCTNode::estimate_alpkt(int passes,
+                              bool is_tromptaylor_scoring) const {
+    std::vector<float> subtree_alpkts;
+
+    get_subtree_alpkts(subtree_alpkts, passes, is_tromptaylor_scoring);
+
+    return Utils::median(subtree_alpkts);
+}
+
 bool UCTNode::acquire_expanding() {
     auto expected = ExpandState::INITIAL;
     auto newval = ExpandState::EXPANDING;
@@ -388,4 +621,3 @@ void UCTNode::wait_expanded() {
 #endif
     assert(v == ExpandState::EXPANDED);
 }
-

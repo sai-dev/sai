@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,12 +26,27 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <tuple>
 
 #include "FastBoard.h"
 #include "FastState.h"
 #include "FullBoard.h"
 #include "KoState.h"
 #include "UCTSearch.h"
+
+std::tuple<float,float,float,float,float> GameState::get_eval() {
+    return KoState::get_eval();
+}
+
+void GameState::set_eval(float alpkt,
+		       float beta,
+		       float pi,
+		       float avg_eval,
+		       float eval_bonus,
+               float eval_base) {
+    KoState::set_eval(alpkt, beta, pi, avg_eval, eval_bonus, eval_base);
+}
+
 
 void GameState::init_game(int size, float komi) {
     KoState::init_game(size, komi);
@@ -296,8 +312,19 @@ void GameState::place_free_handicap(int stones, Network & network) {
     set_handicap(orgstones);
 }
 
-const FullBoard& GameState::get_past_board(int moves_ago) const {
+std::shared_ptr<const KoState> GameState::get_past_state(int moves_ago) const {
     assert(moves_ago >= 0 && (unsigned)moves_ago <= m_movenum);
     assert(m_movenum + 1 <= game_history.size());
-    return game_history[m_movenum - moves_ago]->board;
+    return game_history[m_movenum - moves_ago];
 }
+
+// const FullBoard& GameState::get_past_board(int moves_ago) const {
+//     assert(moves_ago >= 0 && (unsigned)moves_ago <= m_movenum);
+//     assert(m_movenum + 1 <= game_history.size());
+//     return game_history[m_movenum - moves_ago]->board;
+// }
+
+// void GameState::copy_last_rnd_move_num () {
+//     const auto num = game_history[m_movenum - 1]->m_lastrndmovenum;
+//     m_lastrndmovenum = num;
+// }

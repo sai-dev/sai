@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Marco Calignano
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -72,11 +73,24 @@ Result ProductionJob::execute(){
         return res;
     }
     if (!m_sgf.isEmpty()) {
-        game.loadSgf(m_sgf);
-        game.loadTraining(m_sgf);
-        game.setMovesCount(m_moves);
-        QFile::remove(m_sgf + ".sgf");
-        QFile::remove(m_sgf + ".train");
+        if (m_restore) {
+            game.loadSgf(m_sgf);
+            game.loadTraining(m_sgf);
+            game.setMovesCount(m_moves);
+            QFile::remove(m_sgf + ".sgf");
+            QFile::remove(m_sgf + ".train");
+        } else {
+            // find komi from options... not very elegant, but in this way
+            // we do not need to modify the Job and Order classes.
+            QRegExp rx("--komi ([-+.0-9]+)");
+            rx.indexIn(m_option);
+            QStringList list = rx.capturedTexts();
+            float komi = list.at(1).toFloat();
+            game.loadSgf(m_sgf, m_moves+1);
+            game.komi(komi);
+            game.setMovesCount(m_moves);
+            QFile::remove(m_sgf + ".sgf");
+        }
     }
     do {
         game.move();
@@ -120,13 +134,9 @@ void ProductionJob::init(const Order &o) {
     Job::init(o);
     m_network = o.parameters()["network"];
     m_debug = o.parameters()["debug"] == "true";
-    if (o.type() == Order::RestoreSelfPlayed) {
-        m_sgf = o.parameters()["sgf"];
-        m_moves = o.parameters()["moves"].toInt();
-    } else {
-        m_sgf = "";
-        m_moves = 0;
-    }
+    m_sgf = o.parameters()["sgf"];
+    m_moves = o.parameters()["moves"].toInt();
+    m_restore = o.type() == Order::RestoreSelfPlayed;
 }
 
 Result ValidationJob::execute(){
@@ -228,5 +238,3 @@ void WaitJob::init(const Order &o) {
     Job::init(o);
     m_minutes = o.parameters()["minutes"].toInt();
 }
-
-

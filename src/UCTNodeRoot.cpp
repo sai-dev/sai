@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2018 Gian-Carlo Pascutto
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "UCTNode.h"
 #include "FastBoard.h"
 #include "FastState.h"
 #include "KoState.h"
@@ -34,18 +34,31 @@
 #include "UCTNode.h"
 #include "Utils.h"
 #include "GTP.h"
+#include "Network.h"
 
 /*
  * These functions belong to UCTNode but should only be called on the root node
  * of UCTSearch and have been seperated to increase code clarity.
  */
 
+using Utils::myprintf;
+
 UCTNode* UCTNode::get_first_child() const {
     if (m_children.empty()) {
         return nullptr;
     }
 
+    m_children.front().inflate();
     return m_children.front().get();
+}
+
+UCTNode* UCTNode::get_second_child() const {
+    if (m_children.size() < 2) {
+        return nullptr;
+    }
+
+    m_children[1].inflate();
+    return m_children[1].get();
 }
 
 void UCTNode::kill_superkos(const KoState& state) {
@@ -101,24 +114,28 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
     }
 }
 
-void UCTNode::randomize_first_proportionally() {
+bool UCTNode::randomize_first_proportionally() {
     auto accum = 0.0;
     auto norm_factor = 0.0;
     auto accum_vector = std::vector<double>{};
+    auto prb_vector = std::vector<float>{};
+
 
     for (const auto& child : m_children) {
         auto visits = child->get_visits();
+
         if (norm_factor == 0.0) {
             norm_factor = visits;
             // Nonsensical options? End of game?
             if (visits <= cfg_random_min_visits) {
-                return;
+                return false;
             }
         }
         if (visits > cfg_random_min_visits) {
             accum += std::pow(visits / norm_factor,
                               1.0 / cfg_random_temp);
             accum_vector.emplace_back(accum);
+	    prb_vector.emplace_back(visits);
         }
     }
 
@@ -132,15 +149,28 @@ void UCTNode::randomize_first_proportionally() {
         }
     }
 
+#ifndef NDEBUG
+    myprintf("Rnd_first: accum=%f, pick=%f, index=%d.\n", accum, pick, index);
+#endif
+
     // Take the early out
     if (index == 0) {
-        return;
+        return false;
     }
 
     assert(m_children.size() > index);
 
     // Now swap the child at index with the first child
     std::iter_swap(begin(m_children), begin(m_children) + index);
+
+    const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_blunder_thr);
+
+#ifndef NDEBUG
+    myprintf("Randomize_first: p=%f over p0=%f, move is %s\n",
+	     prb_vector[index], prb_vector[0], (is_dumb_move ? "blunder" : "ok") );
+#endif
+
+    return is_dumb_move;
 }
 
 UCTNode* UCTNode::get_nopass_child(FastState& state) const {
@@ -179,19 +209,30 @@ void UCTNode::inflate_all_children() {
 
 void UCTNode::prepare_root_node(Network & network, int color,
                                 std::atomic<int>& nodes,
-                                GameState& root_state) {
-    float root_eval;
+                                GameState& root_state,
+                                bool fast_roll_out) {
+    float root_value, root_alpkt, root_beta;
+
     const auto had_children = has_children();
     if (expandable()) {
-        create_children(network, nodes, root_state, root_eval);
+        create_children(network, nodes, root_state, root_value, root_alpkt, root_beta);
     }
-    if (had_children) {
-        root_eval = get_net_eval(color);
-    } else {
-        update(root_eval);
-        root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
+    if (has_children() && !had_children) {
+	    // blackevals is useless here because root nodes are never
+	   // evaluated, nevertheless the number of visits must be updated
+	    update(0);
     }
-    Utils::myprintf("NN eval=%f\n", root_eval);
+
+    //    root_eval = get_net_eval(color);
+    //    root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
+
+#ifndef NDEBUG
+    myprintf("NN eval=%f. Agent eval=%f\n", get_net_eval(color), get_agent_eval(color));
+#else
+    if (!fast_roll_out) {
+        myprintf("NN eval=%f. Agent eval=%f\n", get_net_eval(color), get_agent_eval(color));
+    }
+#endif
 
     // There are a lot of special cases where code assumes
     // all children of the root are inflated, so do that.
@@ -201,9 +242,24 @@ void UCTNode::prepare_root_node(Network & network, int color,
     // This also removes a lot of special cases.
     kill_superkos(root_state);
 
+    if (fast_roll_out) {
+        return;
+    }
+
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size
-        auto alpha = 0.03f * 361.0f / NUM_INTERSECTIONS;
+        auto alpha = cfg_noise_value * 361.0f / NUM_INTERSECTIONS;
         dirichlet_noise(0.25f, alpha);
+    }
+
+    if (cfg_japanese_mode) {
+        for (auto& child : m_children) {
+            auto policy = child->get_policy();
+            policy *= 0.8f;
+            if (child->get_move() == FastBoard::PASS) {
+                policy += 0.2f;
+            }
+            child->set_policy(policy);
+        }
     }
 }

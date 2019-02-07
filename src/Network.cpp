@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018, 2019 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -79,7 +80,7 @@ using ConstEigenMatrixMap =
 #endif
 
 // Symmetry helper
-static std::array<std::array<int, NUM_INTERSECTIONS>,
+std::array<std::array<int, NUM_INTERSECTIONS>,
                   Network::NUM_SYMMETRIES> symmetry_nn_idx_table;
 
 float Network::benchmark_time(int centiseconds) {
@@ -214,7 +215,8 @@ std::vector<float> Network::winograd_transform_f(const std::vector<float>& f,
     return U;
 }
 
-std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
+//v1 refers to the actual weight file format, to be changed when/if the weight file format changes
+int Network::load_v1_network(std::istream& wtfile) {
     // Count size of the network
     myprintf("Detecting residual layers...");
     // We are version 1 or 2
@@ -225,40 +227,14 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
     }
     // First line was the version number
     auto linecount = size_t{1};
-    auto channels = 0;
+    int lastlines = 0;
     auto line = std::string{};
-    while (std::getline(wtfile, line)) {
-        auto iss = std::stringstream{line};
-        // Third line of parameters are the convolution layer biases,
-        // so this tells us the amount of channels in the residual layers.
-        // We are assuming all layers have the same amount of filters.
-        if (linecount == 2) {
-            auto count = std::distance(std::istream_iterator<std::string>(iss),
-                                       std::istream_iterator<std::string>());
-            myprintf("%d channels...", count);
-            channels = count;
-        }
-        linecount++;
-    }
-    // 1 format id, 1 input layer (4 x weights), 14 ending weights,
-    // the rest are residuals, every residual has 8 x weight lines
-    auto residual_blocks = linecount - (1 + 4 + 14);
-    if (residual_blocks % 8 != 0) {
-        myprintf("\nInconsistent number of weights in the file.\n");
-        return {0, 0};
-    }
-    residual_blocks /= 8;
-    myprintf("%d blocks.\n", residual_blocks);
+    size_t plain_conv_layers = 0;
+    size_t plain_conv_wts = 0;
+    std::array<std::vector<float>, 8> wts_2nd_val_head;
+    std::array<std::vector<float>::size_type, 8> n_wts_2nd_val_head;
 
-    // Re-read file and process
-    wtfile.clear();
-    wtfile.seekg(0, std::ios::beg);
-
-    // Get the file format id out of the way
-    std::getline(wtfile, line);
-
-    const auto plain_conv_layers = 1 + (residual_blocks * 2);
-    const auto plain_conv_wts = plain_conv_layers * 4;
+    bool is_head_line = false;
     linecount = 0;
     while (std::getline(wtfile, line)) {
         std::vector<float> weights;
@@ -268,64 +244,236 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
         if (!ok || it_line != line.cend()) {
             myprintf("\nFailed to parse weight file. Error on line %d.\n",
                     linecount + 2); //+1 from version line, +1 from 0-indexing
-            return {0,0};
+            return 1;
         }
-        if (linecount < plain_conv_wts) {
+	auto n_wts = weights.size();
+	size_t n_wts_1st_layer;
+        if (!is_head_line) {
             if (linecount % 4 == 0) {
-                m_fwd_weights->m_conv_weights.emplace_back(weights);
+	      if (linecount == 0)
+		n_wts_1st_layer = n_wts;
+	      if (linecount==0 || n_wts==m_channels*9*m_channels)
+            m_fwd_weights->m_conv_weights.emplace_back(weights);
+      else {
+		is_head_line = true;
+		m_policy_outputs = n_wts/m_channels;
+		assert (n_wts == m_channels*m_policy_outputs);
+		m_fwd_weights->m_conv_pol_w = std::move(weights);
+		m_residual_blocks = (linecount-4)/8;
+		plain_conv_layers = 1 + (m_residual_blocks * 2);
+		plain_conv_wts = plain_conv_layers * 4;
+		assert(plain_conv_wts == linecount);
+		myprintf("%d blocks...%d policy outputs...", m_residual_blocks, m_policy_outputs);
+		lastlines = linecount - plain_conv_wts - 14;
+	      }
             } else if (linecount % 4 == 1) {
-                // Redundant in our model, but they encode the
-                // number of outputs so we have to read them in.
-                m_fwd_weights->m_conv_biases.emplace_back(weights);
+	      if (linecount == 1) {
+		  // second line of weights, holds the biases for the
+		  // input convolutional layer, hence its size gives
+		  // the number of channels of subsequent resconv
+		  // layers
+		  m_channels = n_wts;
+
+		  // we recover the number of input planes
+		  m_input_planes = n_wts_1st_layer/9/m_channels;
+
+		  // if it is even, color of the current player is
+		  // used, if it is odd, only komi is used
+		  m_include_color = (0 == m_input_planes % 2);
+
+		  // we recover the number of input moves, knowing
+		  // that for each move there are 2 bitplanes with
+		  // stones positions and possibly 2 more bitplanes
+		  // with some advanced features (legal and atari)
+		  m_input_moves = (m_input_planes - (m_include_color ? 2 : 1)) /
+		      (m_adv_features ? 4 : 2);
+
+		  assert (n_wts_1st_layer == m_input_planes*9*m_channels);
+		  myprintf("%d input planes...%d input moves... %d channels...",
+			   m_input_planes,
+			   m_input_moves,
+			   m_channels);
+	      }
+	      else
+		assert (n_wts == m_channels);
+
+	      m_fwd_weights->m_conv_biases.emplace_back(weights);
             } else if (linecount % 4 == 2) {
+		assert (n_wts == m_channels);
                 m_fwd_weights->m_batchnorm_means.emplace_back(weights);
             } else if (linecount % 4 == 3) {
+	        assert (n_wts == m_channels);
                 process_bn_var(weights);
                 m_fwd_weights->m_batchnorm_stddevs.emplace_back(weights);
             }
-        } else {
-            switch (linecount - plain_conv_wts) {
-                case  0: m_fwd_weights->m_conv_pol_w = std::move(weights); break;
-                case  1: m_fwd_weights->m_conv_pol_b = std::move(weights); break;
-                case  2: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_bn_pol_w1)); break;
-                case  3: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_bn_pol_w2)); break;
-                case  4: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_ip_pol_w)); break;
-                case  5: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_ip_pol_b)); break;
-                case  6: m_fwd_weights->m_conv_val_w = std::move(weights); break;
-                case  7: m_fwd_weights->m_conv_val_b = std::move(weights); break;
-                case  8: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_bn_val_w1)); break;
-                case  9: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_bn_val_w2)); break;
-                case 10: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_ip1_val_w)); break;
-                case 11: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_ip1_val_b)); break;
-                case 12: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_ip2_val_w)); break;
-                case 13: std::copy(cbegin(weights), cend(weights),
-                                   begin(m_ip2_val_b)); break;
-            }
+        } else if (linecount == plain_conv_wts + 1) {
+	    assert (n_wts == m_policy_outputs);
+	    m_fwd_weights->m_conv_pol_b = std::move(weights);
+        } else if (linecount == plain_conv_wts + 2) {
+	    assert (n_wts == m_policy_outputs);
+	    m_bn_pol_w1 = std::move(weights);
+        } else if (linecount == plain_conv_wts + 3) {
+	    process_bn_var(weights);
+	    assert (n_wts == m_policy_outputs);
+	    m_bn_pol_w2 = std::move(weights);
+
+        } else if (linecount == plain_conv_wts + 4) {
+            assert (n_wts == m_policy_outputs*NUM_INTERSECTIONS*(NUM_INTERSECTIONS+1));
+	    myprintf("%dx%d board.\n", BOARD_SIZE, BOARD_SIZE);
+	    m_ip_pol_w = std::move(weights);
+        } else if (linecount == plain_conv_wts + 5) {
+	    assert (n_wts == NUM_INTERSECTIONS+1);
+            m_ip_pol_b = std::move(weights);
+
+        } else if (linecount == plain_conv_wts + 6) {
+	    m_val_outputs = n_wts/m_channels;
+	    assert (n_wts == m_channels*m_val_outputs);
+	    m_fwd_weights->m_conv_val_w = std::move(weights);
+        } else if (linecount == plain_conv_wts + 7) {
+	    assert (n_wts == m_val_outputs);
+            m_fwd_weights->m_conv_val_b = std::move(weights);
+        } else if (linecount == plain_conv_wts + 8) {
+	    assert (n_wts == m_val_outputs);
+            m_bn_val_w1 = std::move(weights);
+        } else if (linecount == plain_conv_wts + 9) {
+	    assert (n_wts == m_val_outputs);
+            process_bn_var(weights);
+            m_bn_val_w2 = std::move(weights);
+
+        } else if (linecount == plain_conv_wts + 10) {
+	    m_val_chans = n_wts/m_val_outputs/(NUM_INTERSECTIONS);
+	    assert (n_wts == m_val_chans*m_val_outputs*NUM_INTERSECTIONS);
+	    m_ip1_val_w = std::move(weights);
+        } else if (linecount == plain_conv_wts + 11) {
+	    assert (n_wts == m_val_chans);
+            m_ip1_val_b = std::move(weights);
+        } else if (linecount == plain_conv_wts + 12) {
+	    m_value_head_rets = n_wts/m_val_chans;
+	    assert (n_wts == m_val_chans*m_value_head_rets);
+	    assert (m_value_head_rets == 1 || m_value_head_rets == 2);
+	    m_ip2_val_w = std::move(weights);
+        } else if (linecount == plain_conv_wts + 13) {
+	    assert (n_wts == m_value_head_rets);
+            m_ip2_val_b = std::move(weights);
+
+        } else if (linecount >= plain_conv_wts + 14) {
+	    auto i = lastlines;
+	    assert (i>=0 && i<8);
+            wts_2nd_val_head[i] = std::move(weights);
+	    n_wts_2nd_val_head[i] = n_wts;
         }
         linecount++;
+	lastlines++;
     }
-    process_bn_var(m_bn_pol_w2);
-    process_bn_var(m_bn_val_w2);
 
-    return {channels, static_cast<int>(residual_blocks)};
+    if (lastlines == 8) {
+        m_value_head_type = DOUBLE_V;
+        m_value_head_rets = 2;
+
+	m_vbe_outputs = n_wts_2nd_val_head[0]/m_channels;
+	assert (n_wts_2nd_val_head[0] == m_channels*m_vbe_outputs);
+	m_fwd_weights->m_conv_vbe_w = std::move(wts_2nd_val_head[0]);
+
+	assert (n_wts_2nd_val_head[1] == m_vbe_outputs);
+	m_fwd_weights->m_conv_vbe_b = std::move(wts_2nd_val_head[1]);
+
+	assert (n_wts_2nd_val_head[2] == m_vbe_outputs);
+	m_bn_vbe_w1 = std::move(wts_2nd_val_head[2]);
+
+	assert (n_wts_2nd_val_head[3] == m_vbe_outputs);
+	process_bn_var(wts_2nd_val_head[3]);
+	m_bn_vbe_w2 = std::move(wts_2nd_val_head[3]);
+
+	m_vbe_chans = n_wts_2nd_val_head[4]/m_vbe_outputs/(NUM_INTERSECTIONS);
+	assert (n_wts_2nd_val_head[4] == m_vbe_chans*m_vbe_outputs*NUM_INTERSECTIONS);
+	m_ip1_vbe_w = std::move(wts_2nd_val_head[4]);
+
+	assert (n_wts_2nd_val_head[5] == m_vbe_chans);
+	m_ip1_vbe_b = std::move(wts_2nd_val_head[5]);
+
+	int ret2 = n_wts_2nd_val_head[6]/m_vbe_chans;
+	assert (n_wts_2nd_val_head[6] == m_vbe_chans*ret2);
+	if (ret2 != 1) {
+	  myprintf ("Unexpected in weights file: ret2=%d. %d -- %d -- %d.\n",
+		    ret2,
+		    n_wts_2nd_val_head[6],
+		    m_vbe_chans,
+		    n_wts_2nd_val_head[6]/m_vbe_chans);
+	  return 1;
+	}
+	m_ip2_vbe_w = std::move(wts_2nd_val_head[6]);
+
+	assert (n_wts_2nd_val_head[7] == 1);
+	m_ip2_vbe_b = std::move(wts_2nd_val_head[7]);
+
+	myprintf("Double value head. Type V.\n");
+	myprintf("Alpha head: %d outputs, %d channels.\n", m_val_outputs, m_val_chans);
+	myprintf("Beta head: %d outputs, %d channels.\n", m_vbe_outputs, m_vbe_chans);
+    } else if (lastlines == 4) {
+        m_value_head_type = DOUBLE_Y;
+        m_value_head_rets = 2;
+
+	m_vbe_chans = n_wts_2nd_val_head[0]/m_val_outputs/(NUM_INTERSECTIONS);
+	assert (n_wts_2nd_val_head[0] == m_vbe_chans*m_val_outputs*NUM_INTERSECTIONS);
+	m_ip1_vbe_w = std::move(wts_2nd_val_head[0]);
+
+	assert (n_wts_2nd_val_head[1] == m_vbe_chans);
+	m_ip1_vbe_b = std::move(wts_2nd_val_head[1]);
+
+	int ret2 = n_wts_2nd_val_head[2]/m_vbe_chans;
+	assert (n_wts_2nd_val_head[2] == m_vbe_chans*ret2);
+	if (ret2 != 1)
+	  return 1;
+	m_ip2_vbe_w = std::move(wts_2nd_val_head[2]);
+
+	assert (n_wts_2nd_val_head[3] == 1);
+	m_ip2_vbe_b = std::move(wts_2nd_val_head[3]);
+
+	myprintf("Double value head. Type Y.\n");
+	myprintf("Common convolution: %d outputs.\n", m_val_outputs);
+	myprintf("Alpha head: %d channels. Beta head: %d channels.\n", m_val_chans, m_vbe_chans);
+    } else if (lastlines == 2) {
+        m_value_head_type = DOUBLE_T;
+	m_value_head_rets = 2;
+
+	int ret2 = n_wts_2nd_val_head[0]/m_val_chans;
+	assert (n_wts_2nd_val_head[0] == m_val_chans*ret2);
+	if (ret2 != 1)
+	  return 1;
+	m_ip2_vbe_w = std::move(wts_2nd_val_head[0]);
+
+	assert (n_wts_2nd_val_head[1] == 1);
+	m_ip2_vbe_b = std::move(wts_2nd_val_head[1]);
+
+	myprintf("Double value head. Type T: %d outputs, %d channels.\n",
+		 m_val_outputs, m_val_chans);
+    } else if (lastlines == 0) {
+        if (m_value_head_rets == 2) {
+	  m_value_head_type = DOUBLE_I;
+
+	  myprintf("Double value head. Type I: %d outputs, %d channels.\n",
+		   m_val_outputs, m_val_chans);
+	}
+	else if (m_value_head_rets == 1) {
+          m_value_head_type = SINGLE;
+
+	  myprintf("Single value head: %d outputs, %d channels.\n",
+		   m_val_outputs, m_val_chans);
+	}
+    } else {
+      myprintf ("\nFailed to parse weight file.\n");
+      return 1;
+    }
+
+    return 0;
 }
-
-std::pair<int, int> Network::load_network_file(const std::string& filename) {
+int Network::load_network_file(const std::string& filename) {
     // gzopen supports both gz and non-gz files, will decompress
     // or just read directly as needed.
     auto gzhandle = gzopen(filename.c_str(), "rb");
     if (gzhandle == nullptr) {
         myprintf("Could not open weights file: %s\n", filename.c_str());
-        return {0, 0};
+        return 1;
     }
     // Stream the gz file in to a memory buffer stream.
     auto buffer = std::stringstream{};
@@ -337,7 +485,7 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
         if (bytesRead < 0) {
             myprintf("Failed to decompress or read: %s\n", filename.c_str());
             gzclose(gzhandle);
-            return {0, 0};
+            return 1;
         }
         assert(bytesRead <= chunkBufferSize);
         buffer.write(chunkBuffer.data(), bytesRead);
@@ -351,29 +499,39 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
         auto iss = std::stringstream{line};
         // First line is the file format version id
         iss >> format_version;
-        if (iss.fail() || (format_version != 1 && format_version != 2)) {
+        if (iss.fail() || (format_version != 1 && format_version != 2 && format_version != 17)) {
             myprintf("Weights file is the wrong version.\n");
-            return {0, 0};
+            return 1;
         } else {
             // Version 2 networks are identical to v1, except
             // that they return the value for black instead of
             // the player to move. This is used by ELF Open Go.
             if (format_version == 2) {
+                myprintf("Version 2 weights file (ELF).\n");
                 m_value_head_not_stm = true;
             } else {
+                if (format_version == 1) {
+		            myprintf("Version 1 weights file (LZ).\n");
+		        }
                 m_value_head_not_stm = false;
+            }
+            if (format_version == 17) {
+		        myprintf("Version 17 weights file (advanced board features).\n");
+                m_adv_features = true;
+            } else {
+                m_adv_features = false;
             }
             return load_v1_network(buffer);
         }
     }
-    return {0, 0};
+    return 1;
 }
 
 std::unique_ptr<ForwardPipe>&& Network::init_net(int channels,
     std::unique_ptr<ForwardPipe>&& pipe) {
 
     pipe->initialize(channels);
-    pipe->push_weights(WINOGRAD_ALPHA, INPUT_CHANNELS, channels, m_fwd_weights);
+    pipe->push_weights(WINOGRAD_ALPHA, m_input_planes, channels, m_fwd_weights);
 
     return std::move(pipe);
 }
@@ -495,25 +653,24 @@ void Network::initialize(int playouts, const std::string & weightsfile) {
     }
 
     // Load network from file
-    size_t channels, residual_blocks;
-    std::tie(channels, residual_blocks) = load_network_file(weightsfile);
-    if (channels == 0) {
+    if (load_network_file(cfg_weightsfile)) {
         exit(EXIT_FAILURE);
     }
+    m_value_head_sai = (m_value_head_type != SINGLE);
 
     auto weight_index = size_t{0};
     // Input convolution
     // Winograd transform convolution weights
     m_fwd_weights->m_conv_weights[weight_index] =
         winograd_transform_f(m_fwd_weights->m_conv_weights[weight_index],
-                             channels, INPUT_CHANNELS);
+                             m_channels, m_input_planes);
     weight_index++;
 
     // Residual block convolutions
-    for (auto i = size_t{0}; i < residual_blocks * 2; i++) {
+    for (auto i = size_t{0}; i < m_residual_blocks * 2; i++) {
         m_fwd_weights->m_conv_weights[weight_index] =
             winograd_transform_f(m_fwd_weights->m_conv_weights[weight_index],
-                                 channels, channels);
+                                 m_channels, m_channels);
         weight_index++;
     }
 
@@ -535,6 +692,11 @@ void Network::initialize(int playouts, const std::string & weightsfile) {
         m_fwd_weights->m_conv_val_b[i] = 0.0f;
     }
 
+    for (auto i = size_t{0}; i < m_bn_vbe_w1.size(); i++) {
+        m_bn_vbe_w1[i] -= m_fwd_weights->m_conv_vbe_b[i];
+        m_fwd_weights->m_conv_vbe_b[i] = 0.0f;
+    }
+
     for (auto i = size_t{0}; i < m_bn_pol_w1.size(); i++) {
         m_bn_pol_w1[i] -= m_fwd_weights->m_conv_pol_b[i];
         m_fwd_weights->m_conv_pol_b[i] = 0.0f;
@@ -543,27 +705,27 @@ void Network::initialize(int playouts, const std::string & weightsfile) {
 #ifdef USE_OPENCL
     if (cfg_cpu_only) {
         myprintf("Initializing CPU-only evaluation.\n");
-        m_forward = init_net(channels, std::make_unique<CPUPipe>());
+        m_forward = init_net(m_channels, std::make_unique<CPUPipe>());
     } else {
 #ifdef USE_OPENCL_SELFCHECK
         // initialize CPU reference first, so that we can self-check
         // when doing fp16 vs. fp32 detections
-        m_forward_cpu = init_net(channels, std::make_unique<CPUPipe>());
+        m_forward_cpu = init_net(m_channels, std::make_unique<CPUPipe>());
 #endif
 #ifdef USE_HALF
         // HALF support is enabled, and we are using the GPU.
         // Select the precision to use at runtime.
-        select_precision(channels);
+        select_precision(m_channels);
 #else
         myprintf("Initializing OpenCL (single precision).\n");
-        m_forward = init_net(channels,
+        m_forward = init_net(m_channels,
                              std::make_unique<OpenCLScheduler<float>>());
 #endif
     }
 
 #else //!USE_OPENCL
     myprintf("Initializing CPU-only evaluation.\n");
-    m_forward = init_net(channels, std::make_unique<CPUPipe>());
+    m_forward = init_net(m_channels, std::make_unique<CPUPipe>());
 #endif
 
     // Need to estimate size before clearing up the pipe.
@@ -571,13 +733,12 @@ void Network::initialize(int playouts, const std::string & weightsfile) {
     m_fwd_weights.reset();
 }
 
-template<unsigned int inputs,
-         unsigned int outputs,
-         bool ReLU,
-         size_t W>
+template<bool ReLU>
 std::vector<float> innerproduct(const std::vector<float>& input,
-                                const std::array<float, W>& weights,
-                                const std::array<float, outputs>& biases) {
+                                const std::vector<float>& weights,
+                                const std::vector<float>& biases) {
+    const auto inputs = input.size();
+    const auto outputs = biases.size();
     std::vector<float> output(outputs);
 
 #ifdef USE_BLAS
@@ -649,7 +810,7 @@ void Network::compare_net_outputs(const Netresult& data,
         error += diff * diff;
     }
     const auto diff_pass = data.policy_pass - ref.policy_pass;
-    const auto diff_winrate = data.winrate - ref.winrate;
+    const auto diff_winrate = data.value - ref.value;
     error += diff_pass * diff_pass;
     error += diff_winrate * diff_winrate;
 
@@ -682,6 +843,20 @@ std::vector<float> softmax(const std::vector<float>& input,
     }
 
     return output;
+}
+
+std::pair<float,float> sigmoid(float alpha, float beta, float bonus) {
+    const auto arg = beta*(alpha+bonus);
+    const auto absarg = std::abs(arg);
+    float ret;
+
+    if (absarg > 30.0f) {
+        ret = std::exp(-absarg);
+    } else {
+        ret = 1.0f/(1.0f+std::exp(absarg));
+    }
+    return arg<0 ? std::make_pair(ret, 1.0f-ret)
+               : std::make_pair(1.0f-ret, ret);
 }
 
 bool Network::probe_cache(const GameState* const state,
@@ -735,10 +910,11 @@ Network::Netresult Network::get_output(
     } else if (ensemble == AVERAGE) {
         for (auto sym = 0; sym < NUM_SYMMETRIES; ++sym) {
             auto tmpresult = get_output_internal(state, sym);
-            result.winrate +=
-                tmpresult.winrate / static_cast<float>(NUM_SYMMETRIES);
             result.policy_pass +=
                 tmpresult.policy_pass / static_cast<float>(NUM_SYMMETRIES);
+            result.value += tmpresult.value / static_cast<float>(NUM_SYMMETRIES);;
+            result.alpha += tmpresult.alpha / static_cast<float>(NUM_SYMMETRIES);;
+            result.beta += tmpresult.beta / static_cast<float>(NUM_SYMMETRIES);;
 
             for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
                 result.policy[idx] +=
@@ -769,7 +945,7 @@ Network::Netresult Network::get_output(
     // v2 format (ELF Open Go) returns black value, not stm
     if (m_value_head_not_stm) {
         if (state->board.get_to_move() == FastBoard::WHITE) {
-            result.winrate = 1.0f - result.winrate;
+            result.value = 1.0f - result.value;
         }
     }
 
@@ -785,41 +961,85 @@ Network::Netresult Network::get_output_internal(
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
 
-    const auto input_data = gather_features(state, symmetry);
-    std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
-    std::vector<float> value_data(OUTPUTS_VALUE * width * height);
+    // if the input planes of the loaded network are even, then the
+    // color of the current player is encoded in the last two planes
+    const auto include_color = (0 == m_input_planes % 2);
+
+    const auto input_data = gather_features(state, symmetry, m_input_moves, m_adv_features, include_color);
+    std::vector<float> policy_data(m_policy_outputs * width * height);
+    std::vector<float> val_data(m_val_outputs * width * height);
+    std::vector<float> vbe_data(m_vbe_outputs * width * height);
 #ifdef USE_OPENCL_SELFCHECK
     if (selfcheck) {
-        m_forward_cpu->forward(input_data, policy_data, value_data);
+        m_forward_cpu->forward(input_data, policy_data, val_data, vbe_data);
     } else {
-        m_forward->forward(input_data, policy_data, value_data);
+        m_forward->forward(input_data, policy_data, val_data, vbe_data);
     }
 #else
-    m_forward->forward(input_data, policy_data, value_data);
+    m_forward->forward(input_data, policy_data, val_data, vbe_data);
     (void) selfcheck;
 #endif
 
     // Get the moves
-    batchnorm<NUM_INTERSECTIONS>(OUTPUTS_POLICY, policy_data,
+    batchnorm<NUM_INTERSECTIONS>(m_policy_outputs, policy_data,
         m_bn_pol_w1.data(), m_bn_pol_w2.data());
     const auto policy_out =
-        innerproduct<OUTPUTS_POLICY * NUM_INTERSECTIONS, POTENTIAL_MOVES, false>(
+        innerproduct<false>(
             policy_data, m_ip_pol_w, m_ip_pol_b);
     const auto outputs = softmax(policy_out, cfg_softmax_temp);
 
     // Now get the value
-    batchnorm<NUM_INTERSECTIONS>(OUTPUTS_VALUE, value_data,
+    batchnorm<NUM_INTERSECTIONS>(m_val_outputs, val_data,
         m_bn_val_w1.data(), m_bn_val_w2.data());
-    const auto winrate_data =
-        innerproduct<OUTPUTS_VALUE * NUM_INTERSECTIONS, VALUE_LAYER, true>(
-            value_data, m_ip1_val_w, m_ip1_val_b);
-    const auto winrate_out =
-        innerproduct<VALUE_LAYER, 1, false>(winrate_data, m_ip2_val_w, m_ip2_val_b);
-
-    // Map TanH output range [-1..1] to [0..1] range
-    const auto winrate = (1.0f + std::tanh(winrate_out[0])) / 2.0f;
+    const auto val_channels =
+        innerproduct<true>(
+            val_data, m_ip1_val_w, m_ip1_val_b);
+    const auto val_output =
+        innerproduct<false>(val_data, m_ip2_val_w, m_ip2_val_b);
 
     Netresult result;
+
+    if (m_value_head_type==DOUBLE_V) {
+        // If double head value, also get beta
+        batchnorm<NUM_INTERSECTIONS>(m_vbe_outputs, vbe_data,
+                    m_bn_vbe_w1.data(), m_bn_vbe_w2.data());
+        const auto vbe_channels =
+            innerproduct<true>(vbe_data, m_ip1_vbe_w, m_ip1_vbe_b);
+        const auto vbe_output =
+            innerproduct<false>(vbe_channels, m_ip2_vbe_w, m_ip2_vbe_b);
+
+        result.value = 0.5f;
+        result.alpha = val_output[0];
+        result.beta = std::exp(vbe_output[0]) * 10.0f / NUM_INTERSECTIONS;
+        result.is_sai = true;
+    } else if (m_value_head_type==DOUBLE_Y) {
+        const auto vbe_channels =
+            innerproduct<true>(val_data, m_ip1_vbe_w, m_ip1_vbe_b);
+        const auto vbe_output =
+            innerproduct<false>(vbe_channels, m_ip2_vbe_w, m_ip2_vbe_b);
+
+        result.value = 0.5f;
+        result.alpha = val_output[0];
+        result.beta = std::exp(vbe_output[0]) * 10.0f / NUM_INTERSECTIONS;
+        result.is_sai = true;
+    } else if (m_value_head_type==DOUBLE_T) {
+        const auto vbe_output =
+            innerproduct<false>(val_channels, m_ip2_vbe_w, m_ip2_vbe_b);
+        result.value = 0.5f;
+        result.alpha = val_output[0];
+        result.beta = std::exp(vbe_output[0]) * 10.0f / NUM_INTERSECTIONS;
+        result.is_sai = true;
+    } else if (m_value_head_type==DOUBLE_I) {
+        result.value = 0.5f;
+        result.alpha = val_output[0];
+        result.beta = std::exp(val_output[1]) * 10.0f / NUM_INTERSECTIONS;
+        result.is_sai = true;
+    } else if (m_value_head_type==SINGLE) {
+        result.value = (1.0f + std::tanh(val_output[0])) / 2.0f;
+        result.alpha = 0.0f;
+        result.beta = 1.0f;
+        result.is_sai = false;
+    }
 
     for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
         const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
@@ -827,10 +1047,41 @@ Network::Netresult Network::get_output_internal(
     }
 
     result.policy_pass = outputs[NUM_INTERSECTIONS];
-    result.winrate = winrate;
 
     return result;
 }
+
+Network::Netresult_extended Network::get_extended(const FastState& state, const Network::Netresult& result) {
+    const auto komi = state.get_komi();
+    const auto alpha = result.alpha;
+    const auto beta = result.beta;
+
+    const auto winrate = sigmoid(alpha,  beta, state.board.black_to_move() ? -komi : komi);
+    const auto alpkt = (state.board.black_to_move() ? alpha : -alpha) - komi;
+
+    const auto pi = sigmoid(alpkt, beta, 0.0f);
+    // if pi is near to 1, this is much more precise than 1-pi
+    //    const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f);
+
+    const auto pi_lambda = std::make_pair((1-cfg_lambda)*pi.first + cfg_lambda*0.5f,
+                                          (1-cfg_lambda)*pi.second + cfg_lambda*0.5f);
+    const auto pi_mu = std::make_pair((1-cfg_mu)*pi.first + cfg_mu*0.5f,
+                                      (1-cfg_mu)*pi.second + cfg_mu*0.5f);
+
+    // this is useful when lambda is near to 0 and pi near 1
+    //    const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
+    const auto sigma_inv_pi_lambda = std::log(pi_lambda.first) - std::log(pi_lambda.second);
+    const auto eval_bonus = (cfg_lambda == 0) ? 0.0f : sigma_inv_pi_lambda / beta - alpkt;
+
+    //    const auto one_m_pi_mu = (1-cfg_mu)*one_m_pi + cfg_mu*0.5f;
+    const auto sigma_inv_pi_mu = std::log(pi_mu.first) - std::log(pi_mu.second);
+    const auto eval_base = (cfg_mu == 0) ? 0.0f : sigma_inv_pi_mu / beta - alpkt;
+
+    const auto agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, eval_base, eval_bonus);
+
+    return { winrate.first, alpkt, pi.first, eval_bonus, eval_base, agent_eval };
+}
+
 
 void Network::show_heatmap(const FastState* const state,
                            const Netresult& result,
@@ -838,15 +1089,30 @@ void Network::show_heatmap(const FastState* const state,
     std::vector<std::string> display_map;
     std::string line;
 
-    for (unsigned int y = 0; y < BOARD_SIZE; y++) {
-        for (unsigned int x = 0; x < BOARD_SIZE; x++) {
-            auto policy = 0;
-            const auto vertex = state->board.get_vertex(x, y);
-            if (state->board.get_state(vertex) == FastBoard::EMPTY) {
-                policy = result.policy[y * BOARD_SIZE + x] * 1000;
-            }
+    float legal_policy = 0.0f;
+    float illegal_policy = 0.0f;
 
-            line += boost::str(boost::format("%3d ") % policy);
+    std::array<float, NUM_INTERSECTIONS> policies;
+
+    const auto color = state->get_to_move();
+    for (unsigned int y = 0; y < NUM_INTERSECTIONS; y++) {
+        for (unsigned int x = 0; x < NUM_INTERSECTIONS; x++) {
+            const auto vertex = state->board.get_vertex(x, y);
+            const auto policy = result.policy[y * NUM_INTERSECTIONS + x];
+            if (state->is_move_legal(color, vertex)) {
+                legal_policy += policy;
+                policies[y * BOARD_SIZE + x] = policy;
+            } else {
+                illegal_policy += policy;
+                policies[y * BOARD_SIZE + x] = 0.0f;
+            }
+        }
+    }
+
+    for (unsigned int y = 0; y < NUM_INTERSECTIONS; y++) {
+        for (unsigned int x = 0; x < NUM_INTERSECTIONS; x++) {
+            const auto clean_policy = int(policies[y * NUM_INTERSECTIONS + x] * 1000.0f / legal_policy);
+            line += boost::str(boost::format("%3d ") % clean_policy);
         }
 
         display_map.push_back(line);
@@ -857,8 +1123,20 @@ void Network::show_heatmap(const FastState* const state,
         myprintf("%s\n", display_map[i].c_str());
     }
     const auto pass_policy = int(result.policy_pass * 1000);
-    myprintf("pass: %d\n", pass_policy);
-    myprintf("winrate: %f\n", result.winrate);
+    const auto illegal_millis = int(illegal_policy * 1000);
+
+    myprintf("pass: %d, illegal: %d\n", pass_policy, illegal_millis);
+    if (result.is_sai) {
+        const auto result_extended = get_extended(*state, result);
+        myprintf("alpha: %.2f, ", result.alpha);
+        myprintf("beta: %.2f, ", result.beta);
+        myprintf("winrate: %.1f%%\n", result_extended.winrate*100);
+        myprintf("black alpkt: %.2f,", result_extended.alpkt);
+        myprintf(" x_bar: %.2f,", result_extended.eval_bonus);
+        myprintf(" x_base: %.2f\n", result_extended.eval_base);
+    } else {
+        myprintf("value: %.1f%%\n", result.value*100);
+    }
 
     if (topmoves) {
         std::vector<Network::PolicyVertexPair> moves;
@@ -904,35 +1182,85 @@ void Network::fill_input_plane_pair(const FullBoard& board,
     }
 }
 
+void Network::fill_input_plane_advfeat(std::shared_ptr<const KoState> const state,
+                                    std::vector<float>::iterator legal,
+                                    std::vector<float>::iterator atari,
+                                    const int symmetry) {
+    for (auto idx = 0; idx < NUM_INTERSECTIONS; idx++) {
+        const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
+        const auto x = sym_idx % BOARD_SIZE;
+        const auto y = sym_idx / BOARD_SIZE;
+	const auto vertex = state->board.get_vertex(x,y);
+	const auto tomove = state->get_to_move();
+	const auto is_legal = state->is_move_legal(tomove, vertex);
+	legal[idx] = !is_legal;
+	atari[idx] = is_legal && (1 == state->board.liberties_to_capture(vertex));
+    }
+}
+
 std::vector<float> Network::gather_features(const GameState* const state,
-                                            const int symmetry) {
+					    const int symmetry,
+					    const int input_moves,
+					    const bool adv_features,
+					    const bool include_color) {
     assert(symmetry >= 0 && symmetry < NUM_SYMMETRIES);
-    auto input_data = std::vector<float>(INPUT_CHANNELS * NUM_INTERSECTIONS);
+
+    // if advanced board features are included, for every input move
+    // in addition to 2 planes with the stones there are 2 planes with
+    // legal moves for current player and "atari" intersections for
+    // either player
+    auto moves_planes = input_moves * (2 + (adv_features ? 2 : 0));
+
+    // if the color of the current player is included, two more input
+    // planes are needed, otherwise one input plane filled with ones
+    // will provide information on the border of the board for the CNN
+    auto input_planes = moves_planes + (include_color ? 2 : 1);
+
+    auto input_data = std::vector<float>(input_planes * NUM_INTERSECTIONS);
+
+    const auto current_it = begin(input_data);
+    const auto opponent_it = begin(input_data) + input_moves * NUM_INTERSECTIONS;
+    auto legal_it = current_it;
+    auto atari_it = current_it;
+
+    if (adv_features) {
+	legal_it += 2 * input_moves * NUM_INTERSECTIONS;
+	atari_it += 3 * input_moves * NUM_INTERSECTIONS;
+    }
 
     const auto to_move = state->get_to_move();
     const auto blacks_move = to_move == FastBoard::BLACK;
+    const auto black_it = blacks_move ? current_it : opponent_it;
+    const auto white_it = blacks_move ? opponent_it : current_it;
+    // myprintf("input moves: %d, advanced features: %d, include color: %d\n"
+    // 	     "moves planes: %d, input planes: %d, to move: %d, blacks_move: %d\n",
+    // 	     input_moves, adv_features, include_color,
+    // 	     moves_planes, input_planes, to_move, blacks_move);
 
-    const auto black_it = blacks_move ?
-                          begin(input_data) :
-                          begin(input_data) + INPUT_MOVES * NUM_INTERSECTIONS;
-    const auto white_it = blacks_move ?
-                          begin(input_data) + INPUT_MOVES * NUM_INTERSECTIONS :
-                          begin(input_data);
-    const auto to_move_it = blacks_move ?
-        begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS :
-        begin(input_data) + (2 * INPUT_MOVES + 1) * NUM_INTERSECTIONS;
+    // we fill one plane with ones: this is the only one remaining
+    // when the color of current player is not included, otherwise it
+    // is one of the two last plane, depending on current player
+    const auto onesfilled_it = 	blacks_move || !include_color ?
+	begin(input_data) + moves_planes * NUM_INTERSECTIONS :
+	begin(input_data) + (moves_planes + 1) * NUM_INTERSECTIONS;
+    std::fill(onesfilled_it, onesfilled_it + NUM_INTERSECTIONS, float(true));
 
-    const auto moves = std::min<size_t>(state->get_movenum() + 1, INPUT_MOVES);
+    const auto moves = std::min<size_t>(state->get_movenum() + 1, input_moves);
     // Go back in time, fill history boards
     for (auto h = size_t{0}; h < moves; h++) {
         // collect white, black occupation planes
-        fill_input_plane_pair(state->get_past_board(h),
+        fill_input_plane_pair(state->get_past_state(h)->board,
                               black_it + h * NUM_INTERSECTIONS,
                               white_it + h * NUM_INTERSECTIONS,
                               symmetry);
-    }
+	if (adv_features) {
+	    fill_input_plane_advfeat(state->get_past_state(h),
+				     legal_it + h * NUM_INTERSECTIONS,
+				     atari_it + h * NUM_INTERSECTIONS,
+				     symmetry);
 
-    std::fill(to_move_it, to_move_it + NUM_INTERSECTIONS, float(true));
+	}
+    }
 
     return input_data;
 }
@@ -987,23 +1315,23 @@ size_t Network::get_estimated_size() {
     result += m_fwd_weights->m_conv_pol_b.size() * sizeof(float);
 
     // Policy head
-    result += OUTPUTS_POLICY * sizeof(float); // m_bn_pol_w1
-    result += OUTPUTS_POLICY * sizeof(float); // m_bn_pol_w2
-    result += OUTPUTS_POLICY * NUM_INTERSECTIONS
+    result += m_policy_outputs * sizeof(float); // m_bn_pol_w1
+    result += m_policy_outputs * sizeof(float); // m_bn_pol_w2
+    result += m_policy_outputs * NUM_INTERSECTIONS
                              * POTENTIAL_MOVES * sizeof(float); //m_ip_pol_w
     result += POTENTIAL_MOVES * sizeof(float); // m_ip_pol_b
 
     // Value head
     result += m_fwd_weights->m_conv_val_w.size() * sizeof(float);
     result += m_fwd_weights->m_conv_val_b.size() * sizeof(float);
-    result += OUTPUTS_VALUE * sizeof(float); // m_bn_val_w1
-    result += OUTPUTS_VALUE * sizeof(float); // m_bn_val_w2
+    result += m_val_outputs * sizeof(float); // m_bn_val_w1
+    result += m_val_outputs * sizeof(float); // m_bn_val_w2
 
-    result += OUTPUTS_VALUE * NUM_INTERSECTIONS
-                            * VALUE_LAYER * sizeof(float); // m_ip1_val_w
-    result += VALUE_LAYER * sizeof(float);  // m_ip1_val_b
+    result += m_val_outputs * NUM_INTERSECTIONS
+                            * m_val_chans * sizeof(float); // m_ip1_val_w
+    result += m_val_chans * sizeof(float);  // m_ip1_val_b
 
-    result += VALUE_LAYER * sizeof(float); // m_ip2_val_w
+    result += m_val_chans * sizeof(float); // m_ip2_val_w
     result += sizeof(float); // m_ip2_val_b
     return estimated_size = result;
 }

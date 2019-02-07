@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +23,7 @@
 #include "config.h"
 
 #include <vector>
+#include <tuple>
 
 #include "FastState.h"
 #include "FullBoard.h"
@@ -34,9 +36,17 @@ public:
 
     void play_move(int color, int vertex);
     void play_move(int vertex);
-
+    std::tuple<float,float,float,float,float> get_eval();
+    void set_eval(float alpkt, float beta, float pi,
+		  float avg_eval, float eval_bonus, float eval_base);
 private:
     std::vector<std::uint64_t> m_ko_hash_history;
+    float m_alpkt = 0.0f;
+    float m_beta = 1.0f;
+    float m_pi = 0.5f;
+    float m_avg_eval = 0.5f;
+    float m_eval_bonus = 0.0f;
+    float m_eval_base = 0.0f;
 };
 
 #endif

@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -67,6 +68,7 @@ private:
     cl::Buffer m_MBuffer;
     cl::Buffer m_pinnedOutBuffer_pol;
     cl::Buffer m_pinnedOutBuffer_val;
+    cl::Buffer m_pinnedOutBuffer_vbe;
     bool m_buffers_allocated{false};
 };
 
@@ -137,6 +139,7 @@ public:
     void forward(const std::vector<float>& input,
             std::vector<float>& output_pol,
             std::vector<float>& output_val,
+            std::vector<float>& output_vbe,
             OpenCLContext & opencl_context,
             const int batch_size = 1);
 

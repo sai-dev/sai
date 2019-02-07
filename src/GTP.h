@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,6 +31,7 @@
 #include "UCTSearch.h"
 
 extern bool cfg_gtp_mode;
+extern bool cfg_japanese_mode;
 extern bool cfg_allow_pondering;
 extern int cfg_num_threads;
 extern int cfg_max_threads;
@@ -42,6 +44,13 @@ extern TimeManagement::enabled_t cfg_timemanage;
 extern int cfg_lagbuffer_cs;
 extern int cfg_resignpct;
 extern int cfg_noise;
+extern bool cfg_fpuzero;
+extern bool cfg_adv_features;
+extern bool cfg_exploit_symmetries;
+extern float cfg_noise_value;
+extern float cfg_komi;
+extern float cfg_lambda;
+extern float cfg_mu;
 extern int cfg_random_cnt;
 extern int cfg_random_min_visits;
 extern float cfg_random_temp;
@@ -70,6 +79,7 @@ extern std::string cfg_options_str;
 extern bool cfg_benchmark;
 extern bool cfg_cpu_only;
 extern int cfg_analyze_interval_centis;
+extern float cfg_blunder_thr;
 
 static constexpr size_t MiB = 1024LL * 1024LL;
 

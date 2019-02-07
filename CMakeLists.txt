@@ -1,6 +1,7 @@
 # This file is part of Leela Zero.
 # Copyright (C) 2017 Marco Calignano
 # Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+# Copyright (C) 2018 SAI Team
 # Leela Zero is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -72,7 +73,7 @@ endif(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 if(GccSpecificFlags)
   set(GCC_COMPILE_FLAGS "-Wall -Wextra -ffast-math -flto -march=native")
   set(GCC_DISABLED_WARNING_COMPILE_FLAGS "-Wno-ignored-attributes -Wno-maybe-uninitialized \
-      -Wno-mismatched-tags")
+      -Wno-mismatched-tags -Wno-catch-value")
   set(GCC_FLAGS "${GCC_COMPILE_FLAGS} ${GCC_DISABLED_WARNING_COMPILE_FLAGS}")
   set(CMAKE_CXX_FLAGS_DEBUG "${GCC_FLAGS} -g -Og")
   set(CMAKE_CXX_FLAGS_RELEASE "${GCC_FLAGS} -g -O3 -DNDEBUG")

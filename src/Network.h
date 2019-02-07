@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 #include <fstream>
+#include <tuple>
 
 #include "NNCache.h"
 #include "FastState.h"
@@ -43,7 +44,6 @@
 #include "SMP.h"
 #endif
 
-
 // Winograd filter transformation changes 3x3 filters to M + 3 - 1
 constexpr auto WINOGRAD_M = 4;
 constexpr auto WINOGRAD_ALPHA = WINOGRAD_M + 3 - 1;
@@ -52,40 +52,67 @@ constexpr auto WINOGRAD_TILE = WINOGRAD_ALPHA * WINOGRAD_ALPHA;
 constexpr auto WINOGRAD_P = WINOGRAD_WTILES * WINOGRAD_WTILES;
 constexpr auto SQ2 = 1.4142135623730951f; // Square root of 2
 
-class Network {
+std::pair<float, float> sigmoid(float alpha, float beta, float bonus);
+
+extern std::array<std::array<int, NUM_INTERSECTIONS>, 8>
+    symmetry_nn_idx_table;
+
+class Network
+{
     using ForwardPipeWeights = ForwardPipe::ForwardPipeWeights;
-public:
+
+  public:
     static constexpr auto NUM_SYMMETRIES = 8;
     static constexpr auto IDENTITY_SYMMETRY = 0;
-    enum Ensemble {
-        DIRECT, RANDOM_SYMMETRY, AVERAGE
+    enum Ensemble
+    {
+        DIRECT,
+        RANDOM_SYMMETRY,
+        AVERAGE
     };
-    using PolicyVertexPair = std::pair<float,int>;
+    using PolicyVertexPair = std::pair<float, int>;
     using Netresult = NNCache::Netresult;
 
-    Netresult get_output(const GameState* const state,
+    // Results which may obtained by a Netresult together with a FastState
+    struct Netresult_extended {
+        float winrate;
+        float alpkt;
+        float pi;
+        float eval_bonus;
+        float eval_base;
+        float agent_eval;
+    };
+
+    Netresult get_output(const GameState *const state,
                          const Ensemble ensemble,
                          const int symmetry = -1,
                          const bool skip_cache = false,
                          const bool force_selfcheck = false);
 
-    static constexpr auto INPUT_MOVES = 8;
-    static constexpr auto INPUT_CHANNELS = 2 * INPUT_MOVES + 2;
-    static constexpr auto OUTPUTS_POLICY = 2;
-    static constexpr auto OUTPUTS_VALUE = 1;
-    static constexpr auto VALUE_LAYER = 256;
+    static constexpr unsigned short int SINGLE = 1;
+    static constexpr unsigned short int DOUBLE_V = 2;
+    static constexpr unsigned short int DOUBLE_Y = 3;
+    static constexpr unsigned short int DOUBLE_T = 4;
+    static constexpr unsigned short int DOUBLE_I = 5;
+    static constexpr unsigned int DEFAULT_INPUT_MOVES = 8;
+    static constexpr unsigned int REDUCED_INPUT_MOVES = 4;
+    static constexpr unsigned int DEFAULT_ADV_FEATURES = 0;
+    static constexpr auto DEFAULT_COLOR_INPUT_PLANES = (2 + DEFAULT_ADV_FEATURES) * DEFAULT_INPUT_MOVES + 2;
 
-    void initialize(int playouts, const std::string & weightsfile);
+    void initialize(int playouts, const std::string &weightsfile);
 
     float benchmark_time(int centiseconds);
-    void benchmark(const GameState * const state,
+    void benchmark(const GameState *const state,
                    const int iterations = 1600);
-    static void show_heatmap(const FastState * const state,
-                             const Netresult & netres, const bool topmoves);
-
-    static std::vector<float> gather_features(const GameState* const state,
-                                              const int symmetry);
-    static std::pair<int, int> get_symmetry(const std::pair<int, int>& vertex,
+    static void show_heatmap(const FastState *const state,
+                             const Netresult &netres, const bool topmoves);
+    static Netresult_extended get_extended(const FastState &, const Netresult &result);
+    static std::vector<float> gather_features(const GameState *const state,
+                                              const int symmetry,
+                                              const int input_moves = DEFAULT_INPUT_MOVES,
+                                              const bool adv_features = false,
+                                              const bool include_color = false);
+    static std::pair<int, int> get_symmetry(const std::pair<int, int> &vertex,
                                             const int symmetry,
                                             const int board_size = BOARD_SIZE);
 
@@ -93,45 +120,65 @@ public:
     size_t get_estimated_cache_size();
     void nncache_resize(int max_count);
 
-private:
-    std::pair<int, int> load_v1_network(std::istream& wtfile);
-    std::pair<int, int> load_network_file(const std::string& filename);
+    int m_value_head_type = SINGLE;
+    bool m_value_head_sai; // was is_multi_komi_net
+    size_t m_residual_blocks = size_t{3};
+    size_t m_channels = size_t{128};
+    size_t m_input_moves = size_t{DEFAULT_INPUT_MOVES};
+    size_t m_input_planes = size_t{DEFAULT_COLOR_INPUT_PLANES};
+    bool m_adv_features = false;
+    bool m_include_color = true;
+    size_t m_policy_outputs = size_t{2};
+    size_t m_val_outputs = size_t{1};
+    size_t m_vbe_outputs = size_t{0};
+    size_t m_val_chans = size_t{256};
+    size_t m_vbe_chans = size_t{0};
+    size_t m_value_head_rets = size_t{1};
 
-    static std::vector<float> winograd_transform_f(const std::vector<float>& f,
+  private:
+    int load_v1_network(std::istream &wtfile);
+    int load_network_file(const std::string &filename);
+
+    static std::vector<float> winograd_transform_f(const std::vector<float> &f,
                                                    const int outputs, const int channels);
-    static std::vector<float> zeropad_U(const std::vector<float>& U,
+    static std::vector<float> zeropad_U(const std::vector<float> &U,
                                         const int outputs, const int channels,
                                         const int outputs_pad, const int channels_pad);
-    static void winograd_transform_in(const std::vector<float>& in,
-                                      std::vector<float>& V,
+    static void winograd_transform_in(const std::vector<float> &in,
+                                      std::vector<float> &V,
                                       const int C);
-    static void winograd_transform_out(const std::vector<float>& M,
-                                       std::vector<float>& Y,
+    static void winograd_transform_out(const std::vector<float> &M,
+                                       std::vector<float> &Y,
                                        const int K);
     static void winograd_convolve3(const int outputs,
-                                   const std::vector<float>& input,
-                                   const std::vector<float>& U,
-                                   std::vector<float>& V,
-                                   std::vector<float>& M,
-                                   std::vector<float>& output);
-    static void winograd_sgemm(const std::vector<float>& U,
-                               const std::vector<float>& V,
-                               std::vector<float>& M, const int C, const int K);
-    Netresult get_output_internal(const GameState* const state,
+                                   const std::vector<float> &input,
+                                   const std::vector<float> &U,
+                                   std::vector<float> &V,
+                                   std::vector<float> &M,
+                                   std::vector<float> &output);
+    static void winograd_sgemm(const std::vector<float> &U,
+                               const std::vector<float> &V,
+                               std::vector<float> &M, const int C, const int K);
+    Netresult get_output_internal(const GameState *const state,
                                   const int symmetry, bool selfcheck = false);
-    static void fill_input_plane_pair(const FullBoard& board,
+    static void fill_input_plane_pair(const FullBoard &board,
                                       std::vector<float>::iterator black,
                                       std::vector<float>::iterator white,
                                       const int symmetry);
-    bool probe_cache(const GameState* const state, Network::Netresult& result);
-    std::unique_ptr<ForwardPipe>&& init_net(int channels,
-                                            std::unique_ptr<ForwardPipe>&& pipe);
+    static void fill_input_plane_advfeat(std::shared_ptr<const KoState> const state,
+                                         std::vector<float>::iterator legal,
+                                         std::vector<float>::iterator atari,
+                                         const int symmetry);
+
+    bool probe_cache(const GameState *const state, Network::Netresult &result);
+    std::unique_ptr<ForwardPipe> &&init_net(int channels,
+                                            std::unique_ptr<ForwardPipe> &&pipe);
 #ifdef USE_HALF
     void select_precision(int channels);
 #endif
     std::unique_ptr<ForwardPipe> m_forward;
 #ifdef USE_OPENCL_SELFCHECK
-    void compare_net_outputs(const Netresult& data, const Netresult& ref);
+    void compare_net_outputs(const Netresult &data, const Netresult &ref);
     std::unique_ptr<ForwardPipe> m_forward_cpu;
 #endif
 
@@ -143,25 +190,32 @@ private:
     std::shared_ptr<ForwardPipeWeights> m_fwd_weights;
 
     // Policy head
-    std::array<float, OUTPUTS_POLICY> m_bn_pol_w1;
-    std::array<float, OUTPUTS_POLICY> m_bn_pol_w2;
+    std::vector<float> m_bn_pol_w1; // policy_outputs
+    std::vector<float> m_bn_pol_w2; // policy_outputs
 
-    std::array<float, OUTPUTS_POLICY
-                      * NUM_INTERSECTIONS
-                      * POTENTIAL_MOVES> m_ip_pol_w;
-    std::array<float, POTENTIAL_MOVES> m_ip_pol_b;
+    std::vector<float> m_ip_pol_w; // board_sq*policy_outputs*(board_sq+1)
+    std::vector<float> m_ip_pol_b; // board_sq+1
 
-    // Value head
-    std::array<float, OUTPUTS_VALUE> m_bn_val_w1;
-    std::array<float, OUTPUTS_VALUE> m_bn_val_w2;
+    // Value head alpha (val=Value ALpha)
+    std::vector<float> m_bn_val_w1; // val_outputs
+    std::vector<float> m_bn_val_w2; // val_outputs
 
-    std::array<float, OUTPUTS_VALUE
-                      * NUM_INTERSECTIONS
-                      * VALUE_LAYER> m_ip1_val_w;
-    std::array<float, VALUE_LAYER> m_ip1_val_b;
+    std::vector<float> m_ip1_val_w; // board_sq*val_outputs*val_chans
+    std::vector<float> m_ip1_val_b; // val_chans
 
-    std::array<float, VALUE_LAYER> m_ip2_val_w;
-    std::array<float, 1> m_ip2_val_b;
+    std::vector<float> m_ip2_val_w; // val_chans (*2 in SINGLE head type)
+    std::vector<float> m_ip2_val_b; // 1 (2 in SINGLE head type)
+
     bool m_value_head_not_stm;
+
+    // Value head beta (vbe=Value BEta)
+    std::vector<float> m_bn_vbe_w1; // vbe_outputs
+    std::vector<float> m_bn_vbe_w2; // vbe_outputs
+
+    std::vector<float> m_ip1_vbe_w; // board_sq*vbe_outputs*vbe_chans
+    std::vector<float> m_ip1_vbe_b; // vbe_chans
+
+    std::vector<float> m_ip2_vbe_w; // vbe_chans
+    std::vector<float> m_ip2_vbe_b; // 1
 };
 #endif

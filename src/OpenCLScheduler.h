@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2018 Junhee Yoo and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -28,7 +29,6 @@
 #include "OpenCL.h"
 #include "ThreadPool.h"
 
-
 template <typename net_t>
 class OpenCLScheduler : public ForwardPipe {
     class ContextPoolEntry {
@@ -42,7 +42,8 @@ public:
     virtual void initialize(const int channels);
     virtual void forward(const std::vector<float>& input,
                          std::vector<float>& output_pol,
-                         std::vector<float>& output_val);
+                         std::vector<float>& output_val,
+                         std::vector<float>& output_vbe);
     virtual bool needs_autodetect();
     virtual void push_weights(unsigned int filter_size,
                               unsigned int channels,

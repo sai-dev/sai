@@ -1,6 +1,7 @@
 /*
     This file is part of Leela Zero.
     Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
+    Copyright (C) 2018 SAI Team
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -34,7 +35,7 @@
  * BOARD_SIZE: Define size of the board to compile Leela with, must be an odd
    number due to winograd tiles
  */
-static constexpr auto BOARD_SIZE = 19;
+static constexpr auto BOARD_SIZE = 7;
 static_assert(BOARD_SIZE % 2 == 1,
               "Code assumes odd board size, remove at your own risk!");
 
@@ -99,7 +100,7 @@ static_assert(MAX_BATCH == 1, "MAX_BATCH != 1 not implemented");
  * USE_TUNER: Expose some extra command line parameters that allow tuning the
  * search algorithm.
  */
-//#define USE_TUNER
+#define USE_TUNER
 
 static constexpr auto PROGRAM_NAME = "Leela Zero";
 static constexpr auto PROGRAM_VERSION = "0.16";
