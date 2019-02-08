@@ -50,6 +50,8 @@ using namespace Utils;
 //extern bool is_mult_komi_net;
 
 // Configuration flags
+int gubed;
+
 bool cfg_gtp_mode;
 bool cfg_japanese_mode;
 bool cfg_allow_pondering;
@@ -122,6 +124,7 @@ void GTP::initialize(std::unique_ptr<Network>&& net) {
 }
 
 void GTP::setup_default_parameters() {
+    gubed = 0;
     cfg_gtp_mode = false;
     cfg_japanese_mode = false;
     cfg_allow_pondering = true;

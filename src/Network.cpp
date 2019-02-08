@@ -406,6 +406,32 @@ int Network::load_v1_network(std::istream& wtfile, int format_version) {
 	    assert (n_wts == m_val_outputs);
             process_bn_var(weights);
             m_bn_val_w2 = std::move(weights);
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 10) {
+            // line 5 of value head [dense layer weights]
+
+	    m_val_chans = n_wts/m_val_outputs/NUM_INTERSECTIONS;
+	    assert (n_wts == m_val_chans*m_val_outputs*NUM_INTERSECTIONS);
+	    m_ip1_val_w = std::move(weights);
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 11) {
+            // line 6 of value head [dense layer biases]
+
+	    assert (n_wts == m_val_chans);
+            m_ip1_val_b = std::move(weights);
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 12) {
+            // line 7 of value head [last unit(s) weights]
+
+	    m_value_head_rets = n_wts/m_val_chans;
+	    assert (n_wts == m_val_chans*m_value_head_rets);
+	    assert (m_value_head_rets == 1 || m_value_head_rets == 2);
+	    m_ip2_val_w = std::move(weights);
+
+        } else if (linecount == plain_conv_wts + komipolicy_lines + 13) {
+            // line 8 of value head [last unit(s) biases]
+
+	    assert (n_wts == m_value_head_rets);
+            m_ip2_val_b = std::move(weights);
+
         } else if (linecount >= plain_conv_wts + komipolicy_lines + 14) {
             // read the second value head, if present, store it
             // temporarily and count how many lines long it is
@@ -802,7 +828,8 @@ std::vector<float> innerproduct(const std::vector<float>& input,
     const auto inputs = input.size();
     const auto outputs = biases.size();
     std::vector<float> output(outputs);
-
+    assert(inputs*outputs == weights.size());
+    myprintf("innerproduct called: in=%d, out=%d, wt=%d\n", inputs, outputs, weights.size());
 #ifdef USE_BLAS
     cblas_sgemv(CblasRowMajor, CblasNoTrans,
                 // M     K
@@ -1052,8 +1079,10 @@ Network::Netresult Network::get_output_internal(
         float komi = state->get_komi();
         komi *= ( state->get_to_move() == FastBoard::BLACK ? -1.0 : 1.0 );
         policy_data.push_back(komi);
+        myprintf("kp1: ");
         const auto kp1 =
             innerproduct<true>(policy_data, m_kp1_pol_w, m_kp1_pol_b);
+        myprintf("kp2: ");
         const auto kp2 =
             innerproduct<true>(kp1, m_kp2_pol_w, m_kp2_pol_b);
         policy_data.pop_back();
@@ -1062,6 +1091,7 @@ Network::Netresult Network::get_output_internal(
         }
     }
 
+    myprintf("policy_out: ");
     const auto policy_out =
         innerproduct<false>(
             policy_data, m_ip_pol_w, m_ip_pol_b);
@@ -1070,11 +1100,12 @@ Network::Netresult Network::get_output_internal(
     // Now get the value
     batchnorm<NUM_INTERSECTIONS>(m_val_outputs, val_data,
         m_bn_val_w1.data(), m_bn_val_w2.data());
+    myprintf("val_channels: ");
     const auto val_channels =
         innerproduct<true>(
             val_data, m_ip1_val_w, m_ip1_val_b);
     const auto val_output =
-        innerproduct<false>(val_data, m_ip2_val_w, m_ip2_val_b);
+        innerproduct<false>(val_channels, m_ip2_val_w, m_ip2_val_b);
 
     Netresult result;
 
@@ -1174,8 +1205,8 @@ void Network::show_heatmap(const FastState* const state,
     std::array<float, NUM_INTERSECTIONS> policies;
 
     const auto color = state->get_to_move();
-    for (unsigned int y = 0; y < NUM_INTERSECTIONS; y++) {
-        for (unsigned int x = 0; x < NUM_INTERSECTIONS; x++) {
+    for (unsigned int y = 0; y < BOARD_SIZE ; y++) {
+        for (unsigned int x = 0; x < BOARD_SIZE ; x++) {
             const auto vertex = state->board.get_vertex(x, y);
             const auto policy = result.policy[y * NUM_INTERSECTIONS + x];
             if (state->is_move_legal(color, vertex)) {

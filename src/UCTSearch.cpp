@@ -974,17 +974,21 @@ Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_st
     std::vector<float> beta_vec;
     dump_evals_recursion(dump_str, m_root.get(), -2, color, sgf_str,
                          value_vec, alpkt_vec, beta_vec);
+
     Network::Netresult result;
+    {
+        std::vector<float> freq_visits;
+        m_root->get_children_visits(m_rootstate, *(m_root.get()), freq_visits, true);
+
+        std::copy(freq_visits.begin(), freq_visits.end()-1, result.policy.begin());
+        result.policy_pass = freq_visits.back();
+    }
 
     result.value = Utils::median(value_vec);
     const auto alpkt_median = Utils::median(alpkt_vec);
     result.alpha = (alpkt_median + m_rootstate.get_komi())
         * (color==FastBoard::BLACK ? 1.0 : -1.0);
     result.beta = Utils::median(beta_vec);
-
-    m_root->get_children_visits(m_rootstate, *(m_root.get()), result.policy, true);
-    result.policy_pass = result.policy[NUM_INTERSECTIONS];
-    result.policy.pop_back();
 
     return result;
 }

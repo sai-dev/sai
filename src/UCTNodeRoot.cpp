@@ -268,7 +268,7 @@ bool UCTNode::get_children_visits(const GameState& state, const UCTNode& root,
                                   std::vector<float> & probabilities,
                                   bool standardize) {
 
-    probabilities.resize((NUM_INTERSECTIONS) + 1);
+    probabilities.resize(POTENTIAL_MOVES);
 
     // Get total visit amount. We count rather
     // than trust the root to avoid ttable issues.
