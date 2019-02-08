@@ -276,7 +276,7 @@ int Network::load_v1_network(std::istream& wtfile, int format_version) {
 		plain_conv_layers = 1 + (m_residual_blocks * 2);
 		plain_conv_wts = plain_conv_layers * 4;
 		assert(plain_conv_wts == linecount);
-		myprintf(" %d blocks\n%d policy outputs", m_residual_blocks, m_policy_outputs);
+		myprintf(" %d blocks\n%d policy outputs. ", m_residual_blocks, m_policy_outputs);
 	      }
             } else if (linecount % 4 == 1) {
                 // second line of 4: holds convolutional biases
@@ -829,7 +829,6 @@ std::vector<float> innerproduct(const std::vector<float>& input,
     const auto outputs = biases.size();
     std::vector<float> output(outputs);
     assert(inputs*outputs == weights.size());
-    myprintf("innerproduct called: in=%d, out=%d, wt=%d\n", inputs, outputs, weights.size());
 #ifdef USE_BLAS
     cblas_sgemv(CblasRowMajor, CblasNoTrans,
                 // M     K
@@ -1079,10 +1078,8 @@ Network::Netresult Network::get_output_internal(
         float komi = state->get_komi();
         komi *= ( state->get_to_move() == FastBoard::BLACK ? -1.0 : 1.0 );
         policy_data.push_back(komi);
-        myprintf("kp1: ");
         const auto kp1 =
             innerproduct<true>(policy_data, m_kp1_pol_w, m_kp1_pol_b);
-        myprintf("kp2: ");
         const auto kp2 =
             innerproduct<true>(kp1, m_kp2_pol_w, m_kp2_pol_b);
         policy_data.pop_back();
@@ -1091,7 +1088,6 @@ Network::Netresult Network::get_output_internal(
         }
     }
 
-    myprintf("policy_out: ");
     const auto policy_out =
         innerproduct<false>(
             policy_data, m_ip_pol_w, m_ip_pol_b);
@@ -1100,7 +1096,6 @@ Network::Netresult Network::get_output_internal(
     // Now get the value
     batchnorm<NUM_INTERSECTIONS>(m_val_outputs, val_data,
         m_bn_val_w1.data(), m_bn_val_w2.data());
-    myprintf("val_channels: ");
     const auto val_channels =
         innerproduct<true>(
             val_data, m_ip1_val_w, m_ip1_val_b);
@@ -1150,7 +1145,7 @@ Network::Netresult Network::get_output_internal(
         result.beta = 1.0f;
         result.is_sai = false;
     }
-
+    
     for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
         const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
         result.policy[sym_idx] = outputs[idx];
@@ -1208,7 +1203,7 @@ void Network::show_heatmap(const FastState* const state,
     for (unsigned int y = 0; y < BOARD_SIZE ; y++) {
         for (unsigned int x = 0; x < BOARD_SIZE ; x++) {
             const auto vertex = state->board.get_vertex(x, y);
-            const auto policy = result.policy[y * NUM_INTERSECTIONS + x];
+            const auto policy = result.policy[y * BOARD_SIZE + x];
             if (state->is_move_legal(color, vertex)) {
                 legal_policy += policy;
                 policies[y * BOARD_SIZE + x] = policy;
@@ -1219,9 +1214,9 @@ void Network::show_heatmap(const FastState* const state,
         }
     }
 
-    for (unsigned int y = 0; y < NUM_INTERSECTIONS; y++) {
-        for (unsigned int x = 0; x < NUM_INTERSECTIONS; x++) {
-            const auto clean_policy = int(policies[y * NUM_INTERSECTIONS + x] * 1000.0f / legal_policy);
+    for (unsigned int y = 0; y < BOARD_SIZE ; y++) {
+        for (unsigned int x = 0; x < BOARD_SIZE ; x++) {
+            const auto clean_policy = int(policies[y * BOARD_SIZE + x] * 1000.0f / legal_policy);
             line += boost::str(boost::format("%3d ") % clean_policy);
         }
 

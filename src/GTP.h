@@ -30,7 +30,6 @@
 #include "GameState.h"
 #include "UCTSearch.h"
 
-extern int gubed;
 extern bool cfg_gtp_mode;
 extern bool cfg_japanese_mode;
 extern bool cfg_allow_pondering;

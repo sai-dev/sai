@@ -450,9 +450,7 @@ static void parse_commandline(int argc, char *argv[]) {
 static void initialize_network() {
     auto network = std::make_unique<Network>();
     auto playouts = std::min(cfg_max_playouts, cfg_max_visits);
-    myprintf("[%d]+\n",gubed++);
     network->initialize(playouts, cfg_weightsfile);
-    myprintf("[%d]+\n",gubed++);
 
     GTP::initialize(std::move(network));
 }
@@ -504,9 +502,7 @@ int main(int argc, char *argv[]) {
         license_blurb();
     }
 
-    myprintf("[%d]>\n",gubed++);
     init_global_objects();
-    myprintf("[%d]<\n",gubed++);
 
     auto maingame = std::make_unique<GameState>();
 
