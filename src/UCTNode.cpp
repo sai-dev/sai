@@ -410,7 +410,8 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     }
 
     const auto numerator = std::sqrt(double(parentvisits));
-    const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
+    const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction)
+        * std::sqrt(total_visited_policy);
     // Estimated eval for unknown nodes = original parent NN eval - reduction
     const auto fpu_eval = cfg_fpuzero ? 0.5f : std::max(0.0f, max_eval - fpu_reduction);
 
@@ -454,7 +455,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             // Someone else is expanding this node, never select it
             // if we can avoid so, because we'd block on it.
             winrate = -1.0f - fpu_reduction; // why not simply 'continue'?
-        } else if (child.get_visits() > 0) {
+        } else if (visits > 0) {
             winrate = child.get_eval(color);
         }
         auto psa = child.get_policy();
