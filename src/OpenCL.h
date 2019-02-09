@@ -43,6 +43,7 @@
 #include <vector>
 #include <mutex>
 #include <cassert>
+#include <tuple>
 
 #include "Tuner.h"
 
@@ -154,6 +155,24 @@ public:
             OpenCLContext & opencl_context,
             const int batch_size = 1);
 
+    std::tuple<size_t,size_t,size_t,size_t> get_output_sizes() const {
+	const size_t input_planes = m_layers[0].channels;
+	size_t vbe_outputs = 0;
+	auto policy_conv_layer = get_layer_count() - 3;
+
+	if (m_layers[policy_conv_layer].is_convolve1) {
+	    vbe_outputs = m_layers[policy_conv_layer+2].outputs;
+	} else {
+	    policy_conv_layer++;
+	}
+
+	const size_t policy_outputs = m_layers[policy_conv_layer].outputs;
+	const size_t val_outputs = m_layers[policy_conv_layer + 1].outputs;
+
+	return std::make_tuple(input_planes, policy_outputs,
+			       val_outputs, vbe_outputs);
+    }
+
 private:
     using weight_slice_t = std::vector<cl::Buffer>::const_iterator;
 
@@ -198,7 +217,8 @@ class OpenCL {
     friend class Tuner<net_t>;
 public:
     OpenCL(int gpu, bool silent = false);
-    void initialize(const int channels);
+
+    void initialize(const int channels, size_t batch_size = 1);
     void ensure_context_initialized(OpenCLContext & opencl_context);
     std::string get_device_name();
     bool has_fp16_compute();
@@ -211,6 +231,7 @@ private:
     void tune_sgemm();
     void process_tuners(std::string tuners);
 
+    size_t m_batch_size = 1;
     cl::Program m_program;
     std::string m_cl_args;
 

@@ -54,6 +54,7 @@
 #include "Training.h"
 #include "Utils.h"
 #include "Network.h"
+#include "OpenCLScheduler.h"
 
 using namespace Utils;
 
@@ -1009,6 +1010,17 @@ int UCTSearch::think(int color, passflag_t passflag) {
              m_playouts.load(),
              (m_playouts * 100.0) / (elapsed_centis+1));
 
+#ifdef USE_OPENCL
+#ifndef NDEBUG
+    myprintf("batch stats: %d %d\n",
+        batch_stats.single_evals.load(),
+        batch_stats.batch_evals.load()
+    );
+#endif
+#endif
+
+    //    int bestmove = get_best_move(passflag);
+
     // Save the explanation.
     m_think_output =
         str(boost::format("move %d, %c => %s\n%s")
@@ -1264,7 +1276,7 @@ void UCTSearch::ponder() {
 
     m_run = true;
     ThreadGroup tg(thread_pool);
-    for (int i = 1; i < cfg_num_threads; i++) {
+    for (auto i = size_t{1}; i < cfg_num_threads; i++) {
         tg.add_task(UCTWorker(m_rootstate, this, m_root.get()));
     }
     Time start;

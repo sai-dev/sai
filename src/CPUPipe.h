@@ -48,7 +48,6 @@ public:
                               unsigned int channels,
                               unsigned int outputs,
                               std::shared_ptr<const ForwardPipeWeights> weights);
-
 private:
     void winograd_transform_in(const std::vector<float>& in,
                                std::vector<float>& V,
