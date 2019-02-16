@@ -146,6 +146,7 @@ void FastState::display_state() {
     }
     myprintf("    White (O) Prisoners: %d\n",
              board.get_prisoners(FastBoard::WHITE));
+    myprintf("                     Komi: %.1f\n", get_komi());
 
     board.display_board(get_last_move());
 }

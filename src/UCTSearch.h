@@ -99,6 +99,7 @@ public:
     static constexpr auto EXPLORE_MOVE_VISITS = 30;
 
     UCTSearch(GameState& g, Network & network);
+    void reset();
     int think(int color, passflag_t passflag = NORMAL);
 #ifdef USE_EVALCMD
     Network::Netresult dump_evals(int req_playouts, std::string & dump_str,
@@ -117,6 +118,7 @@ public:
     SearchResult play_simulation(GameState& currstate,
                                  UCTNode* const node);
     float final_japscore();
+    void tree_stats();
 
 private:
     float get_min_psa_ratio() const;

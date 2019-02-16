@@ -93,6 +93,15 @@ UCTSearch::UCTSearch(GameState& g, Network& network)
     m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
 }
 
+void UCTSearch::reset() {
+    set_playout_limit(cfg_max_playouts);
+    set_visit_limit(cfg_max_visits);
+
+    m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
+    m_last_rootstate.reset(nullptr);
+    m_nodes = m_root->count_nodes_and_clear_expand_state();
+}
+
 bool UCTSearch::advance_to_new_rootstate() {
     if (!m_root || !m_last_rootstate) {
         // No current state
@@ -433,6 +442,19 @@ void UCTSearch::tree_stats(const UCTNode& node) {
                  non_leaf_nodes, (1.0f*children_count) / non_leaf_nodes);
     }
 }
+
+
+void UCTSearch::tree_stats() {
+    tree_stats(*(m_root.get()));
+    myprintf("%d visits, %d nodes\n", m_root->get_visits(), m_nodes.load());
+    const auto maxplay = (m_maxplayouts == UNLIMITED_PLAYOUTS) ?
+        "inf" : std::to_string(m_maxplayouts);
+    const auto maxvisit = (m_maxvisits == UNLIMITED_PLAYOUTS) ?
+        "inf" : std::to_string(m_maxvisits);
+    myprintf("lambda: %.1f, mu: %.1f, maxvisits: %s, maxplayouts: %s\n\n",
+             cfg_lambda, cfg_mu, maxvisit.c_str(), maxplay.c_str());
+}
+
 
 bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
     if (passflag & UCTSearch::NORESIGN) {

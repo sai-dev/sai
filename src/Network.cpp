@@ -368,7 +368,7 @@ int Network::load_v1_network(std::istream& wtfile, int format_version) {
 
             assert (n_wts == (m_policy_outputs * NUM_INTERSECTIONS
                               + (m_komi_policy ? 1 : 0)
-                              + m_komipolicy_chans ) // assumes this is 0 when
+                              * m_komipolicy_chans ) // assumes this is 0 when
                                                      // komi policy is not used)
                               * POTENTIAL_MOVES );
 
@@ -1233,12 +1233,15 @@ void Network::show_heatmap(const FastState* const state,
     myprintf("pass: %d, illegal: %d\n", pass_policy, illegal_millis);
     if (result.is_sai) {
         const auto result_extended = get_extended(*state, result);
-        myprintf("alpha: %.2f, ", result.alpha);
-        myprintf("beta: %.2f, ", result.beta);
+        myprintf("alpha: %.2f,          ", result.alpha);
+        myprintf("beta: %.2f,      ", result.beta);
         myprintf("winrate: %.1f%%\n", result_extended.winrate*100);
-        myprintf("black alpkt: %.2f,", result_extended.alpkt);
-        myprintf(" x_bar: %.2f,", result_extended.eval_bonus);
-        myprintf(" x_base: %.2f\n", result_extended.eval_base);
+        myprintf("black alpkt: %2.2f,   ", result_extended.alpkt);
+        myprintf("x_bar: %.2f,     ", result_extended.eval_bonus);
+        myprintf("x_base: %.2f\n", result_extended.eval_base);
+        myprintf("komi: %.1f,            ", state->get_komi());
+        myprintf("lambda: %.2f,    ", cfg_lambda);
+        myprintf("mu: %.2f\n", cfg_mu);
     } else {
         myprintf("value: %.1f%%\n", result.value*100);
     }

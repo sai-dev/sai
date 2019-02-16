@@ -582,6 +582,10 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             gtp_fail_printf(id, "cannot undo");
         }
         return;
+    } else if (command.find("treestats") == 0) {
+        gtp_printf(id, "");
+        search->tree_stats();
+        return;
     } else if (command.find("showboard") == 0) {
         gtp_printf(id, "");
         game.display_state();
@@ -1242,6 +1246,26 @@ void GTP::execute_setoption(UCTSearch & search,
         // explicit command to set memory usage is given,
         // we will stick with the initial guess we made on startup.
         search.set_visit_limit(cfg_max_visits);
+
+        gtp_printf(id, "");
+    } else if (name == "lambda") {
+        std::istringstream valuestream(value);
+        float lambda;
+        valuestream >> lambda;
+        if (cfg_lambda != lambda) {
+            cfg_lambda = lambda;
+            search.reset();
+        }
+
+        gtp_printf(id, "");
+    } else if (name == "mu") {
+        std::istringstream valuestream(value);
+        float mu;
+        valuestream >> mu;
+        if (cfg_mu != mu) {
+            cfg_mu = mu;
+            search.reset();
+        }
 
         gtp_printf(id, "");
     } else if (name == "playouts") {
