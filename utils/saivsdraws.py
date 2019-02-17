@@ -23,8 +23,8 @@ def build_process():
     """Builds TF process"""
 
 
-    wins = load_table_file('sai29-vs.csv')
-    nums = load_table_file('sai29-num.csv')
+    wins = load_table_file('sai30-vs.csv')
+    nums = load_table_file('sai30-num.csv')
 
 
     n = np.shape(wins)[1] # number of nets and dimension of all vectors/matrices
@@ -116,7 +116,7 @@ def build_process():
 
         save=sess.run(s)
                 
-    outfile='sai29-ratings'
+    outfile='sai30-ratings'
     with open(outfile, "w") as file:
         for x in list(save):
             file.write(str(float(x)*400.0/np.log(10)))
