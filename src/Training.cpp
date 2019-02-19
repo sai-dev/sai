@@ -180,13 +180,14 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     step.to_move = state.board.get_to_move();
     step.planes = get_planes(&state);
 
-    auto result =
-        network.get_output(&state, Network::Ensemble::DIRECT, 0);
+    const auto result = network.get_output(
+        &state, Network::Ensemble::DIRECT, Network::IDENTITY_SYMMETRY);
     const auto komi = state.get_komi();
     step.komi = komi;
     step.is_blunder = state.is_blunder();
     step.net_winrate = sigmoid(result.alpha, result.beta,
 			                   state.board.black_to_move() ? -komi : komi).first;
+    //    step.net_winrate = result.winrate;
 
     const auto& best_node = root.get_best_root_child(step.to_move);
     step.root_uct_winrate = root.get_eval(step.to_move);
