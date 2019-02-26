@@ -66,7 +66,7 @@ static void calculate_thread_count_cpu(boost::program_options::variables_map & v
     // If we are CPU-based, there is no point using more than the number of CPUs/
     auto cfg_max_threads = std::min(SMP::get_num_cpus(), size_t{MAX_CPUS});
 
-    if (vm.count("threads")) {
+    if (vm["threads"].as<unsigned int>() > 0) {
         auto num_threads = vm["threads"].as<unsigned int>();
         if (num_threads > cfg_max_threads) {
             myprintf("Clamping threads to maximum = %d\n", cfg_max_threads);
@@ -92,7 +92,7 @@ static void calculate_thread_count_gpu(boost::program_options::variables_map & v
         gpu_count = 1;
     }
 
-    if (vm.count("threads")) {
+    if (vm["threads"].as<unsigned int>() > 0) {
         auto num_threads = vm["threads"].as<unsigned int>();
         if (num_threads > cfg_max_threads) {
             myprintf("Clamping threads to maximum = %d\n", cfg_max_threads);
@@ -100,7 +100,7 @@ static void calculate_thread_count_gpu(boost::program_options::variables_map & v
         }
         cfg_num_threads = num_threads;
 
-        if (vm.count("batchsize")) {
+        if (vm["batchsize"].as<unsigned int>() > 0) {
             cfg_batch_size = vm["batchsize"].as<unsigned int>();
         } else {
             cfg_batch_size = (cfg_num_threads + (gpu_count * 2) - 1) / (gpu_count * 2);
@@ -112,7 +112,7 @@ static void calculate_thread_count_gpu(boost::program_options::variables_map & v
             }
         }
     } else {
-        if (vm.count("batchsize")) {
+        if (vm["batchsize"].as<unsigned int>() > 0) {
             cfg_batch_size = vm["batchsize"].as<unsigned int>();
         } else {
             cfg_batch_size = 5;
@@ -138,8 +138,8 @@ static void parse_commandline(int argc, char *argv[]) {
         ("help,h", "Show commandline options.")
         ("gtp,g", "Enable GTP mode.")
         ("japanese,j", "Enable Japanese scoring mode.")
-        ("threads,t", po::value<unsigned int>(),
-                      "Number of threads to use.")
+        ("threads,t", po::value<unsigned int>()->default_value(0),
+                      "Number of threads to use. Select 0 to let leela-zero pick a reasonable default.")
         ("playouts,p", po::value<int>(),
                        "Weaken engine by limiting the number of playouts. "
                        "Requires --noponder.")
@@ -186,7 +186,7 @@ static void parse_commandline(int argc, char *argv[]) {
                 "ID of the OpenCL device(s) to use (disables autodetection).")
         ("full-tuner", "Try harder to find an optimal OpenCL tuning.")
         ("tune-only", "Tune OpenCL only and then exit.")
-        ("batchsize", po::value<unsigned int>(), "Max batch size. Default is the number of threads divided by (2 * number of OpenCL devices).")
+        ("batchsize", po::value<unsigned int>()->default_value(0), "Max batch size.  Select 0 to let leela-zero pick a reasonable default.")
 #ifdef USE_HALF
         ("precision", po::value<std::string>(),
             "Floating-point precision (single/half/auto).\n"
@@ -403,6 +403,7 @@ static void parse_commandline(int argc, char *argv[]) {
     } else {
 #ifdef USE_OPENCL
         calculate_thread_count_gpu(vm);
+        myprintf("Using OpenCL batch size of %d\n", cfg_batch_size);
 #endif
     }
     myprintf("Using %d thread(s).\n", cfg_num_threads);
