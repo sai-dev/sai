@@ -15,6 +15,7 @@ struct sainet {
     long int games;
     int index = 0;
     int hookdist = -1;
+    int rank = 0;
 };
 
 struct match {
@@ -81,6 +82,7 @@ void load_netsdata(string filename, string hook) {
             tmp.cumul = 0;
             tmp.steps = 0;
             tmp.games = 0;
+            tmp.rank = 0;
             if (tmp.hash == hook) {
                 tmp.hookdist = 0;
                 hookfound = true;
@@ -201,7 +203,6 @@ void load_matchdata(string filename) {
             i = 0;
         }
     } 
-
     matchdata.close();
 }
 
@@ -226,6 +227,9 @@ void list_wins() {
         wincount ij, ji;
         ij.idx1 = ji.idx2 = index(vs.hash1);
         ij.idx2 = ji.idx1 = index(vs.hash2);
+        if (ij.idx1 == -1 || ij.idx2 == -1) {
+            continue;
+        }
         ij.wins = vs.h1wins;
         ji.wins = vs.h2wins;
         ij.num = ji.num = vs.n;
@@ -255,7 +259,14 @@ int connect_graph() {
         modified = false;
         for (auto edge : wins) {
             auto & net1 = nets[edge.idx1];
-            const auto & net2 = nets[edge.idx2];
+            auto & net2 = nets[edge.idx2];
+
+            if (dist == 0) {
+                // rank is twice the number of node's edges
+                net1.rank++;
+                net2.rank++;
+            }
+
             if (net1.hookdist >= 0)
                 continue;
             if (net2.hookdist == dist) {
@@ -271,16 +282,20 @@ int connect_graph() {
     return cnt_nets;
 }
 
-void remove_unconnected_nets() {
+void remove_unconnected_nets(bool prune) {
     for (auto itnet = nets.begin() ; itnet != nets.end() ; ) {
         auto & net = *itnet;
-        if (net.hookdist == -1) {
+        if (net.hookdist == -1 ||
+            (prune && net.hookdist > 0 && net.rank <= 2) ) {
+            // if the node is disconnected from hook
+            // or if pruning is enabled and the node is a leaf
+            // different from hook
+            // remove the node
             itnet = nets.erase(itnet);
         } else {
             itnet++;
         }
     }
-
     auto i = 0;
     for (auto & net : nets) {
         net.index = i++;
@@ -455,11 +470,21 @@ void write_netlist(string filename) {
 
 int main(int argc, char* argv[]) {
     if (argc <= 2) {
-        cerr << "Syntax: pseres <saiXX> <sha256hash>" << endl;
+        cerr << "Syntax: pseres <saiXX> <sha256hash> [-p]" << endl
+             << "net hash is hook/root with Elo fixed to 0" << endl
+             << "  -p        prune leaf nodes" << endl;
         exit (1);
     }
     string saiXX(argv[1]);
     string hook(argv[2]);
+
+    bool prune = false;
+    if (argc >= 4) {
+        string option(argv[3]);
+        if (option == "-p") {
+            prune = true;
+        }
+    }
 
     load_netsdata(saiXX + "-netdata.xls", hook);
     load_matchdata(saiXX + "-matches.xls");
@@ -468,16 +493,20 @@ int main(int argc, char* argv[]) {
     list_wins();
     const auto c_nets = connect_graph();
 
-    cout << "Nets found: "
-              << nets.size() << ". Linked to hook: "
-              << c_nets << endl;
+    cout << "Nets found: " << nets.size() << ". "
+        "Linked to hook: " << c_nets << ". "
+        "Matches found: " << mats.size() << endl;
 
-    remove_unconnected_nets();
+    remove_unconnected_nets(prune);
     check_indices();
     wins.clear();
     list_wins();
 
     const auto n = nets.size();
+    if (prune) {
+        cout << "Pruning non-root leaf nodes." << endl;
+    }
+    cout << "Remaining nets: " << n << endl;
     vector< vector<int> > table(n, vector<int>(n));
     vector< vector<int> > table_num(n, vector<int>(n));
     populate_tables(table, table_num);
