@@ -13,6 +13,10 @@ struct sainet {
     long int cumul;
     long int steps;
     long int games;
+    int blocks;
+    int filters;
+    string descr;
+    int gener;
     int index = 0;
     int hookdist = -1;
     int rank = 0;
@@ -76,12 +80,25 @@ void load_netsdata(string filename, string hook) {
     while (netsdata >> s) {
         //        cout << s << endl;
         switch (i) {
+            // i counts the words of the current line
+            // string format is              i
+            // { "_id" : ObjectId("..."),    0  1  2  3
+            // "hash" : "...",               4  5  6
+            // "blocks" : 12,                7  8  9
+            // "description" : "g05c-1dc3", 10 11 12
+            // "filters" : 256,             13 14 15
+            // "ip" : "192.167.12.14",      16 17 18
+            // "training_count" : ...,      19 20 21
+            // "training_steps" : ... }     22 23 24 25
         case 6:
             // hash
             tmp.hash = s.substr(1, 64);
             tmp.cumul = 0;
             tmp.steps = 0;
             tmp.games = 0;
+            tmp.blocks = 0;
+            tmp.filters = 0;
+            tmp.gener = 0;
             tmp.rank = 0;
             if (tmp.hash == hook) {
                 tmp.hookdist = 0;
@@ -89,6 +106,43 @@ void load_netsdata(string filename, string hook) {
             } else {
                 tmp.hookdist = -1;
             }
+            break;
+        case 9:
+            // blocks
+            if (s.back() == ',') {
+                s.pop_back();
+            }
+            tmp.blocks = stoi(s);
+            break;
+        case 12:
+            // description
+            if (s.back() == ',') {
+                s.pop_back();
+            }
+            if (s.back() == '"') {
+                s.pop_back();
+            }
+            if (s.front() == '"') {
+                s.erase(s.begin());
+            }
+            tmp.descr = s;
+            if (s.front() == 'g') {
+                s.erase(s.begin());
+                auto dashpos = s.find("-");
+                auto hexgen = s.substr(0, dashpos);
+                tmp.gener = stol(hexgen, nullptr, 16);
+            }
+            else {
+                tmp.gener = -1;
+            }
+        
+            break;
+        case 15:
+            // filters
+            if (s.back() == ',') {
+                s.pop_back();
+            }
+            tmp.filters = stoi(s);
             break;
         case 21:
             // training_count
@@ -459,9 +513,13 @@ void write_netlist(string filename) {
     const auto n = nets.size();
     for (size_t i=0 ; i < n ; i++) {
         netlistdump << nets[i].hash << ","
+                    << nets[i].descr << ","
+                    << nets[i].blocks << ","
+                    << nets[i].filters << ","
                     << nets[i].cumul << ","
                     << nets[i].steps << ","
-                    << nets[i].games
+                    << nets[i].games << ","
+                    << nets[i].gener
                     << endl;
     }
     netlistdump.close();
