@@ -791,9 +791,12 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             vec = s_network->get_output(
                 &game, Network::Ensemble::AVERAGE,
                 Network::NUM_SYMMETRIES, true);
-        } else {
+        } else if (symmetry.size() == 1 && std::isdigit(symmetry[0])) {
             vec = s_network->get_output(
                 &game, Network::Ensemble::DIRECT, std::stoi(symmetry), true);
+        } else {
+            gtp_fail_printf(id, "syntax not understood");
+            return;
         }
 
         if (symmetry != "all") {

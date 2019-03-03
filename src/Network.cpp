@@ -1003,6 +1003,7 @@ Network::Netresult Network::get_output(
             result.value += tmpresult.value / static_cast<float>(NUM_SYMMETRIES);;
             result.alpha += tmpresult.alpha / static_cast<float>(NUM_SYMMETRIES);;
             result.beta += tmpresult.beta / static_cast<float>(NUM_SYMMETRIES);;
+            result.is_sai = tmpresult.is_sai;
 
             for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
                 result.policy[idx] +=
