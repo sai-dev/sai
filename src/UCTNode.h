@@ -103,7 +103,7 @@ public:
     void update(float eval);
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
-    bool randomize_first_proportionally();
+    bool randomize_first_proportionally(int color);
     void prepare_root_node(Network & network, int color,
                            std::atomic<int>& nodecount,
                            GameState& state,

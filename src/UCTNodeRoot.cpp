@@ -114,11 +114,11 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
     }
 }
 
-bool UCTNode::randomize_first_proportionally() {
+bool UCTNode::randomize_first_proportionally(int color) {
     auto accum = 0.0;
     auto norm_factor = 0.0;
     auto accum_vector = std::vector<double>{};
-    auto prb_vector = std::vector<float>{};
+    auto eval_vector = std::vector<float>{};
 
 
     for (const auto& child : m_children) {
@@ -135,7 +135,7 @@ bool UCTNode::randomize_first_proportionally() {
             accum += std::pow(visits / norm_factor,
                               1.0 / cfg_random_temp);
             accum_vector.emplace_back(accum);
-	    prb_vector.emplace_back(visits);
+            eval_vector.emplace_back(child->get_eval(color));
         }
     }
 
@@ -163,11 +163,13 @@ bool UCTNode::randomize_first_proportionally() {
     // Now swap the child at index with the first child
     std::iter_swap(begin(m_children), begin(m_children) + index);
 
-    const bool is_dumb_move = (prb_vector[index] / prb_vector[0] < cfg_blunder_thr);
+    const bool is_dumb_move = (eval_vector[0] - eval_vector[index] > cfg_blunder_thr);
 
 #ifndef NDEBUG
-    myprintf("Randomize_first: p=%f over p0=%f, move is %s\n",
-	     prb_vector[index], prb_vector[0], (is_dumb_move ? "blunder" : "ok") );
+    myprintf("Randomize_first: winrate=%.2f and winrate0=%.2f, move is %s\n",
+	     100.0f * eval_vector[index],
+             100.0f * eval_vector[0],
+             (is_dumb_move ? "blunder" : "ok") );
 #endif
 
     return is_dumb_move;

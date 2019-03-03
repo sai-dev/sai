@@ -517,7 +517,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     auto movenum = int(m_rootstate.get_movenum());
 
     if (movenum < cfg_random_cnt) {
-        const auto dumb_move_chosen = m_root->randomize_first_proportionally();
+        const auto dumb_move_chosen = m_root->randomize_first_proportionally(color);
 
 #ifndef NDEBUG
 	myprintf("Done. Chosen move is %s.\n", (dumb_move_chosen ? "blunder" : "ok") );
@@ -696,7 +696,6 @@ int UCTSearch::est_playouts_left(int elapsed_centis, int time_for_move) const {
     const auto playouts_left =
         std::max(0, std::min(m_maxplayouts - playouts,
                              m_maxvisits - m_root->get_visits()));
-
     // Wait for at least 1 second and 100 playouts
     // so we get a reliable playout_rate.
     if (elapsed_centis < 100 || playouts < 100) {
