@@ -86,6 +86,12 @@ int main(int argc, char *argv[]) {
         "url", "Set the URL of leela-zero/SAI server",
                 "server url", "http://localhost:8080/");
 
+    QCommandLineOption usernameOption(
+        "username", "Set username for authorization purposes", "username", "");
+
+    QCommandLineOption passwordOption(
+        "password", "Set password for authorization purposes", "password", "");
+
     parser.addOption(gamesNumOption);
     parser.addOption(gpusOption);
     parser.addOption(keepSgfOption);
@@ -96,7 +102,8 @@ int main(int argc, char *argv[]) {
     parser.addOption(eraseOption);
     parser.addOption(publicAuthKeyOption);
     parser.addOption(serverUrlOption);
-
+    parser.addOption(usernameOption);
+    parser.addOption(passwordOption);
 
     // Process the actual command line arguments given by the user
     parser.process(app);
@@ -154,7 +161,8 @@ int main(int argc, char *argv[]) {
     Management *boss = new Management(gpusNum, gamesNum, gpusList, AUTOGTP_VERSION, maxNum,
                                       parser.isSet(eraseOption), parser.value(keepSgfOption),
                                       parser.value(keepDebugOption), parser.value(serverUrlOption),
-                                      parser.value(publicAuthKeyOption));
+                                      parser.value(publicAuthKeyOption), parser.value(usernameOption),
+                                      parser.value(passwordOption));
     QObject::connect(&app, &QCoreApplication::aboutToQuit, boss, &Management::storeGames);
     QTimer *timer = new QTimer();
     boss->giveAssignments();

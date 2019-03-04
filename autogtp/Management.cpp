@@ -46,7 +46,9 @@ Management::Management(const int gpus,
                        const QString& keep,
                        const QString& debug,
                        const QString& serverUrl,
-                       const QString& publicAuthKey)
+                       const QString& publicAuthKey,
+                       const QString& username,
+                       const QString& password)
 
     : m_syncMutex(),
     m_gamesThreads(gpus * games),
@@ -60,6 +62,9 @@ Management::Management(const int gpus,
     m_debugPath(debug),
     m_serverUrl(serverUrl),
     m_publicAuthKey(publicAuthKey),
+    m_username(username),
+    m_password(password),
+    m_hashedPassword(QCryptographicHash::hash(password.toUtf8(),QCryptographicHash::Sha256).toHex()),
     m_version(ver),
     m_fallBack(Order::Error),
     m_lastMatch(Order::Error),
@@ -699,19 +704,21 @@ void Management::sendAllGames() {
 }
 
 bool Management::sendCurl(const QStringList &lines) {
-    QString prog_cmdline("curl");
+    QString prog("curl");
 #ifdef WIN32
-    prog_cmdline.append(".exe");
+    prog.append(".exe");
 #endif
-    prog_cmdline.append(" -f");
-    prog_cmdline.append(" -F key=\"" + m_publicAuthKey + "\"");
-    QStringList::ConstIterator it = lines.constBegin();
-    while (it != lines.constEnd()) {
-        prog_cmdline.append(" " + *it);
-        ++it;
-    }
+    QStringList arguments;
+    arguments << "-f";
+    if (!m_username.isEmpty() && !m_password.isEmpty())
+        arguments << "-F" << "username=" + m_username << "-F" << "password=" + m_hashedPassword;
+    else
+        arguments << "-F" << "key=" + m_publicAuthKey;
+    for (const QString& s: lines)
+        arguments << s.split(' ');
+
     QProcess curl;
-    curl.start(prog_cmdline);
+    curl.start(prog, arguments);
     curl.waitForFinished(-1);
     if (curl.exitCode()) {
         QTextStream(stdout) << "Upload failed. Curl Exit code: "

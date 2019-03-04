@@ -44,7 +44,9 @@ public:
                const QString& keep,
                const QString& debug,
                const QString& serverUrl,
-               const QString& publicAuthKey);
+               const QString& publicAuthKey,
+               const QString& username,
+               const QString& password);
     ~Management() = default;
     void giveAssignments();
     void incMoves() { m_movesMade++; }
@@ -76,6 +78,9 @@ private:
     QString m_debugPath;
     QString m_serverUrl;
     QString m_publicAuthKey;
+    QString m_username;
+    QString m_password;
+    QString m_hashedPassword;
     int m_version;
     std::chrono::high_resolution_clock::time_point m_start;
     int m_storeGames;
