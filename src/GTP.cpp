@@ -343,7 +343,7 @@ void GTP::setup_default_parameters() {
     cfg_max_memory = UCTSearch::DEFAULT_MAX_MEMORY;
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
-    cfg_komi = 7.5f;
+    cfg_komi = KOMI;
     cfg_lambda = 0.5f;
     cfg_mu = 0.0f;
     // This will be overwriiten in initialize() after network size is known.
