@@ -293,7 +293,7 @@ class ChunkParser:
         assert stm == 0 or stm == 1
 
         #        komi = struct.unpack('i', komi)
-        komi = float(komi/2)
+        komi = float(komi/2.0)
         komi = struct.pack('f', komi)
 
         if (INPUT_STM == 0):
