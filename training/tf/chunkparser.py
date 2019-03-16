@@ -231,7 +231,7 @@ class ChunkParser:
 
         # Load the game winner color.
         winner = float(text_item[18])
-        if not(winner == 1.0 or winner == -1.0):
+        if not(winner == 1.0 or winner == -1.0 or winner == 0.0):
             return False, None
         winner = int((winner + 1) / 2)
 
