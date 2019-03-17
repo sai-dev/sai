@@ -193,13 +193,14 @@ bool UCTNode::randomize_first_proportionally(int color,
 
     auto distribution = std::uniform_real_distribution<double>{0.0, accum};
     auto pick = distribution(Random::get_Rng());
-    auto index = size_t{0};
-    for (size_t i = 0; i < accum_vector.size(); i++) {
-        if (pick < accum_vector[i]) {
-            index = i;
-            break;
-        }
-    }
+    auto index = std::lower_bound( begin(accum_vector), end(accum_vector), pick ) - begin(accum_vector);
+    // auto index = size_t{0};
+    // for (size_t i = 0; i < accum_vector.size(); i++) {
+    //     if (pick < accum_vector[i]) {
+    //         index = i;
+    //         break;
+    //     }
+    // }
 
 #ifndef NDEBUG
     myprintf("Accum=%f, pick=%f, index=%d.\n", accum, pick, index);
