@@ -238,6 +238,9 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 #ifndef NDEBUG
                 myprintf(": TT (score) %.3f\n", score);
 #endif
+#ifdef USE_EVALCMD
+                node->set_progid(m_nodecounter++);
+#endif
             }
         } else {
 	        float value, alpkt, beta;
@@ -634,6 +637,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 
     // if we aren't passing, should we consider resigning?
     if (bestmove != FastBoard::PASS) {
+      //      myprintf("Eval (%.2f%%)\n", 100.0f * besteval);
         if (should_resign(passflag, besteval)) {
             myprintf("Eval (%.2f%%) looks bad. Resigning.\n",
                      100.0f * besteval);
@@ -1014,7 +1018,8 @@ Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_st
     return result;
 }
 
-void UCTSearch::dump_evals_recursion(std::string & dump_str,  UCTNode* const node,
+void UCTSearch::dump_evals_recursion(std::string & dump_str,
+				     UCTNode* const node,
                                      int father_progid, int color,
                                      std::string & sgf_str,
                                      std::vector<float> & value_vec,
@@ -1030,25 +1035,54 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,  UCTNode* const nod
 
     {
         std::stringstream ss;
-        ss << m_rootstate.board.move_to_text(node->get_move());
-        ss << "," << node->get_progid();
-        ss << "," << father_progid;
-        ss << "," << node->get_policy();
-        ss << "," << node->get_net_eval();
-        ss << "," << node->get_net_alpkt();
-        ss << "," << node->get_net_beta();
-        ss << "," << node->get_eval_bonus();
-        ss << "," << node->get_eval_base();
-        //    ss << "," << node->get_eval_bonus_father();
-        //    ss << "," << node->get_eval_base_father();
-        ss << "," << node->get_visits();
-        ss << "," << node->get_agent_eval(FastBoard::BLACK);
-        ss << "," << visited_children.size();
-        for (auto childptr : visited_children) {
-            ss << "," << childptr->get_visits();
-        }
-        ss << std::endl;
-        
+
+	if (dump_str.size() == 0) {
+	  ss << "move"
+	     << ",prog_id"
+	     << ",father_prog_id"
+	     << ",policy"
+	     << ",net_eval"
+	     << ",alpkt"
+	     << ",beta"
+	     << ",bonus"
+	     << ",base"
+	     << ",visits"
+	     << ",agent_eval"
+#ifndef NDEBUG
+	     << ",urgency"
+	     << ",psa"
+	     << ",q"
+	     << ",denom"
+	     << ",numer"
+#endif
+	     << ",children"
+	     << std::endl;
+	}
+
+	ss << m_rootstate.board.move_to_text(node->get_move());
+	ss << "," << node->get_progid();
+	ss << "," << father_progid;
+	ss << "," << node->get_policy();
+	ss << "," << node->get_net_eval();
+	ss << "," << node->get_net_alpkt();
+	ss << "," << node->get_net_beta();
+	ss << "," << node->get_eval_bonus();
+	ss << "," << node->get_eval_base();
+	ss << "," << node->get_visits();
+	ss << "," << node->get_agent_eval(FastBoard::BLACK);
+#ifndef NDEBUG
+	ss << "," << node->get_urgency()[0];
+	ss << "," << node->get_urgency()[1];
+	ss << "," << node->get_urgency()[2];
+	ss << "," << node->get_urgency()[3];
+	ss << "," << node->get_urgency()[4];
+#endif
+	ss << "," << visited_children.size();
+	for (auto childptr : visited_children) {
+	  ss << "," << childptr->get_visits();
+	}
+	ss << std::endl;
+
         dump_str.append(ss.str());
     }
 

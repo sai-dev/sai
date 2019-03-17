@@ -520,6 +520,16 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
 #ifndef NDEBUG
     best->get()->set_urgency(best_value, b_psa, b_q,
                              b_denom, numerator);
+    // if (best->get()->get_move() == FastBoard::PASS) {
+    //   const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) *
+    //             currstate.final_score();
+    //   myprintf("\nUCT selected PASS. Passes %d, color %d, score %f, winrate %f, visits %d\n",
+    // 	       currstate.get_passes(),
+    // 	       color,
+    // 	       score,
+    // 	       Utils::winner(score),
+    // 	       best->get()->get_visits());
+    }
 #endif
     return best->get();
 }
