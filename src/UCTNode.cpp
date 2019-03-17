@@ -529,7 +529,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     // 	       score,
     // 	       Utils::winner(score),
     // 	       best->get()->get_visits());
-    }
+    //    }
 #endif
     return best->get();
 }

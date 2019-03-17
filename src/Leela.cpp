@@ -129,8 +129,11 @@ static void parse_commandline(int argc, char *argv[]) {
             "Temperature to use for random move selection.")
         ("blunderthr",
 	    po::value<float>()->default_value(cfg_blunder_thr),
-	    "If visits ratio with best is less than this, it's a blunder. "
+	    "Moves with winrate drop higher than this, are blunders. "
 	    "Don't save training data for moves before last blunder.")
+        ("blunder_maxavg",
+	    po::value<float>()->default_value(cfg_blunder_rndmax_avg),
+	    "Blunders number is bounded by a Poisson r.v. with this mean.")
         ("recordvisits", "Don't normalize visits to probabilities "
          "when writing training info.")
         ;
@@ -378,6 +381,9 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("blunderthr")) {
         cfg_blunder_thr = vm["blunderthr"].as<float>();
+    }
+    if (vm.count("blunder_maxavg")) {
+        cfg_blunder_rndmax_avg = vm["blunder_maxavg"].as<float>();
     }
     if (vm.count("symm")) {
         cfg_exploit_symmetries = true;

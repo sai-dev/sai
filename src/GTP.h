@@ -83,6 +83,7 @@ extern bool cfg_benchmark;
 extern bool cfg_cpu_only;
 extern int cfg_analyze_interval_centis;
 extern float cfg_blunder_thr;
+extern float cfg_blunder_rndmax_avg;
 
 static constexpr size_t MiB = 1024LL * 1024LL;
 

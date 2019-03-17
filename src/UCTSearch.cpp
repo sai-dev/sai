@@ -239,7 +239,9 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                 myprintf(": TT (score) %.3f\n", score);
 #endif
 #ifdef USE_EVALCMD
-                node->set_progid(m_nodecounter++);
+		if (node->get_progid() != -1) {
+		    node->set_progid(m_nodecounter++);
+		}
 #endif
             }
         } else {
@@ -520,18 +522,21 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     auto movenum = int(m_rootstate.get_movenum());
 
     if (movenum < cfg_random_cnt) {
-        const auto dumb_move_chosen = m_root->randomize_first_proportionally(color);
+        const auto blunder_move_chosen =
+	    m_root->randomize_first_proportionally(color,
+						   m_rootstate.is_blunder_allowed());
 
 #ifndef NDEBUG
-	myprintf("Done. Chosen move is %s.\n", (dumb_move_chosen ? "blunder" : "ok") );
+	myprintf("Done. Chosen move is %s.\n", (blunder_move_chosen ? "blunder" : "ok") );
 #endif
 
 	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
 	    myprintf("Random move would lead to immediate resignation... \n"
 		     "Reverting to best move.\n");
 	    m_root->sort_children(color);
-	} else if (dumb_move_chosen) {
+	} else if (blunder_move_chosen) {
 	    m_rootstate.set_blunder_state(true);
+	    m_rootstate.dec_allowed_blunders();
 	}
     }
 

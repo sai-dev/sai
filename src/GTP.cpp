@@ -101,6 +101,7 @@ bool cfg_benchmark;
 bool cfg_cpu_only;
 int cfg_analyze_interval_centis;
 float cfg_blunder_thr;
+float cfg_blunder_rndmax_avg;
 
 std::unique_ptr<Network> GTP::s_network;
 
@@ -177,7 +178,8 @@ void GTP::setup_default_parameters() {
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
-    cfg_blunder_thr = 0.0f;
+    cfg_blunder_thr = 1.0f;
+    cfg_blunder_rndmax_avg = 1.38629436112f; // nu = ln(4) => P(X=0) = 0.25
 #ifdef USE_CPU_ONLY
     cfg_cpu_only = true;
 #else

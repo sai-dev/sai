@@ -22,10 +22,13 @@
 
 #include <algorithm>
 #include <iterator>
+#include <random>
 #include <vector>
 
 #include "FastBoard.h"
+#include "GTP.h"
 #include "Network.h"
+#include "Random.h"
 #include "Utils.h"
 #include "Zobrist.h"
 
@@ -42,6 +45,9 @@ void FastState::init_game(int size, float komi) {
     m_handicap = 0;
     m_passes = 0;
 
+    if (cfg_blunder_thr < 1.0f) {
+	init_allowed_blunders();
+    }
     return;
 }
 
@@ -227,6 +233,24 @@ void FastState::set_blunder_state(bool state) {
 
 bool FastState::is_blunder() {
     return m_blunder_chosen;
+}
+
+void FastState::init_allowed_blunders() {
+    auto distribution = std::poisson_distribution<>{cfg_blunder_rndmax_avg};
+    m_allowed_blunders = distribution(Random::get_Rng());
+#ifndef NDEBUG
+    myprintf("Initially allowed blunders: %d\n", m_allowed_blunders);
+#endif
+}
+
+void FastState::dec_allowed_blunders() {
+    if (m_allowed_blunders > 0) {
+        m_allowed_blunders--;
+    }
+}
+
+bool FastState::is_blunder_allowed() {
+    return (m_allowed_blunders != 0); // both positive values and -1 are ok
 }
 
 bool FastState::is_symmetry_invariant(const int symmetry) const {

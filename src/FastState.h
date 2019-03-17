@@ -58,6 +58,9 @@ public:
 
     void set_blunder_state(bool state);
     bool is_blunder();
+    void init_allowed_blunders();
+    void dec_allowed_blunders();
+    bool is_blunder_allowed();
     bool is_symmetry_invariant(const int symmetry) const;
 
     FullBoard board;
@@ -69,9 +72,13 @@ public:
     size_t m_movenum;
     int m_lastmove;
 
-    // last rndly chosen move with low probability
+    // is last (randomly chosen) move a blunder?
     // we don't save training info before that point
     bool m_blunder_chosen = false;
+
+    // keeps count of the number of blunders we are
+    // still allowed to play; -1 means no limit
+    int m_allowed_blunders = -1;
 
 protected:
     void play_move(int color, int vertex);
