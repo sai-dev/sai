@@ -36,7 +36,7 @@ public:
 
     void play_move(int color, int vertex);
     void play_move(int vertex);
-    std::tuple<float,float,float,float,float> get_eval();
+    std::tuple<float,float,float,float,float> get_eval() const;
     void set_eval(float alpkt, float beta, float pi,
 		  float avg_eval, float eval_bonus, float eval_base);
 private:

@@ -45,10 +45,15 @@ void FastState::init_game(int size, float komi) {
     m_handicap = 0;
     m_passes = 0;
 
+    m_nonblunders = {};
     if (cfg_blunder_thr < 1.0f) {
 	init_allowed_blunders();
     }
     return;
+}
+
+void FastState::set_nonblunders(const std::vector<int> &nonblunders) {
+    m_nonblunders = std::move(nonblunders);
 }
 
 void FastState::set_komi(float komi) {
@@ -97,7 +102,17 @@ void FastState::play_move(int color, int vertex) {
 
     m_lastmove = vertex;
     m_movenum++;
-    m_blunder_chosen = false;
+
+    m_blunder_chosen = true;
+    for (const auto nb : m_nonblunders) {
+	if (nb == vertex) {
+	    m_blunder_chosen = false;
+	    break;
+	}
+    }
+    if (m_blunder_chosen && m_allowed_blunders > 0) {
+	m_allowed_blunders--;
+    }
 
     if (board.m_tomove == color) {
         board.m_hash ^= Zobrist::zobrist_blacktomove;
@@ -227,9 +242,9 @@ std::uint64_t FastState::get_symmetry_hash(int symmetry) const {
 //     return m_lastrndmovenum;
 // }
 
-void FastState::set_blunder_state(bool state) {
-    m_blunder_chosen = state;
-}
+// void FastState::set_blunder_state(bool state) {
+//     m_blunder_chosen = state;
+// }
 
 bool FastState::is_blunder() {
     return m_blunder_chosen;
@@ -243,11 +258,11 @@ void FastState::init_allowed_blunders() {
 #endif
 }
 
-void FastState::dec_allowed_blunders() {
-    if (m_allowed_blunders > 0) {
-        m_allowed_blunders--;
-    }
-}
+// void FastState::dec_allowed_blunders() {
+//     if (m_allowed_blunders > 0) {
+//         m_allowed_blunders--;
+//     }
+// }
 
 bool FastState::is_blunder_allowed() {
     return (m_allowed_blunders != 0); // both positive values and -1 are ok

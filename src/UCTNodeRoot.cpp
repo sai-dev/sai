@@ -115,7 +115,8 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
 }
 
 bool UCTNode::randomize_first_proportionally(int color,
-					     bool is_blunder_allowed) {
+					     bool is_blunder_allowed,
+					     std::vector<int> &nonblunders) {
     auto accum = 0.0;
     auto norm_factor = 0.0;
     auto accum_vector = std::vector<double>{};
@@ -147,6 +148,9 @@ bool UCTNode::randomize_first_proportionally(int color,
 	    }
 	    accum_vector.emplace_back(accum);
 	    blunder_vector.emplace_back(child_is_blunder);
+	    if (!child_is_blunder) {
+		nonblunders.push_back(child->get_move());
+	    }
 #ifndef NDEBUG
 	    // myprintf("--> %d. blunder? %s, drop=%f, "
 	    // 	     "accum=%f <--\n",
@@ -184,7 +188,10 @@ bool UCTNode::randomize_first_proportionally(int color,
 
     auto distribution = std::uniform_real_distribution<double>{0.0, accum};
     auto pick = distribution(Random::get_Rng());
-    auto index = std::upper_bound( begin(accum_vector), end(accum_vector), pick ) - begin(accum_vector);
+    const auto index =
+	static_cast<unsigned int>(std::upper_bound( begin(accum_vector),
+						    end(accum_vector),
+						    pick ) - begin(accum_vector));
     // auto index = size_t{0};
     // for (size_t i = 0; i < accum_vector.size(); i++) {
     //     if (pick < accum_vector[i]) {

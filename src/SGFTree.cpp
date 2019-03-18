@@ -30,7 +30,6 @@
 #include <type_traits>
 #include <utility>
 #include <tuple>
-#include <iomanip>
 
 #include "FullBoard.h"
 #include "GTP.h"
@@ -467,7 +466,8 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     int counter = 0;
 
     while (state->forward_move()) {
-        int move = state->get_last_move();
+	state->eval_comment(moves);
+	int move = state->get_last_move();
         assert(move != FastBoard::RESIGN);
         std::string movestr = state->board.move_to_text_sgf(move);
         if (state->board.black_to_move()) {
@@ -475,19 +475,11 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         } else {
             moves.append(";B[" + movestr + "]");
         }
-	const auto ev = state->get_eval();
-        auto comstr = std::stringstream{};
-	comstr << std::setprecision(3)
-	       << std::get<0>(ev) << ", " // alpkt
-	       << std::get<1>(ev) << ", " // beta
-	       << std::get<2>(ev) << ", " // pi
-	       << std::get<3>(ev) << ", " // avg_eval
-	       << std::get<4>(ev);        // eval_bonus
-	moves.append("C[" + comstr.str() + "]");
         if (++counter % 10 == 0) {
             moves.append("\n");
         }
     }
+    state->eval_comment(moves);
 
     if (!state->has_resigned()) {
         float score = state->final_score();

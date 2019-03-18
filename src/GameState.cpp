@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <iomanip>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -34,7 +35,7 @@
 #include "KoState.h"
 #include "UCTSearch.h"
 
-std::tuple<float,float,float,float,float> GameState::get_eval() {
+std::tuple<float,float,float,float,float> GameState::get_eval() const {
     return KoState::get_eval();
 }
 
@@ -328,3 +329,15 @@ std::shared_ptr<const KoState> GameState::get_past_state(int moves_ago) const {
 //     const auto num = game_history[m_movenum - 1]->m_lastrndmovenum;
 //     m_lastrndmovenum = num;
 // }
+
+void GameState::eval_comment(std::string &sgf_str) const {
+	const auto ev = get_eval();
+        auto comstr = std::stringstream{};
+	comstr << std::setprecision(3)
+	       << std::get<0>(ev) << ", " // alpkt
+	       << std::get<1>(ev) << ", " // beta
+	       << std::get<2>(ev) << ", " // pi
+	       << std::get<3>(ev) << ", " // avg_eval
+	       << std::get<4>(ev);        // eval_bonus
+	sgf_str.append("C[" + comstr.str() + "]");
+}

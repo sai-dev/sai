@@ -522,9 +522,12 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     auto movenum = int(m_rootstate.get_movenum());
 
     if (movenum < cfg_random_cnt) {
+	std::vector<int> nonblunders;
         const auto blunder_move_chosen =
 	    m_root->randomize_first_proportionally(color,
-						   m_rootstate.is_blunder_allowed());
+						   m_rootstate.is_blunder_allowed(),
+						   nonblunders);
+	m_rootstate.set_nonblunders(nonblunders);
 
 #ifndef NDEBUG
 	myprintf("Done. Chosen move is %s.\n", (blunder_move_chosen ? "blunder" : "ok") );
@@ -534,10 +537,10 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 	    myprintf("Random move would lead to immediate resignation... \n"
 		     "Reverting to best move.\n");
 	    m_root->sort_children(color);
-	} else if (blunder_move_chosen) {
-	    m_rootstate.set_blunder_state(true);
-	    m_rootstate.dec_allowed_blunders();
 	}
+    } else {
+	std::vector<int> nonblunder{m_root->get_first_child()->get_move()};
+	m_rootstate.set_nonblunders(nonblunder);
     }
 
     auto first_child = m_root->get_first_child();
@@ -951,7 +954,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 			 sigmoid(alpkt, beta, 0.0f).first,
 			 m_root->get_eval(FastBoard::BLACK),
 			 m_root->get_eval_bonus(),
-             m_root->get_eval_base());
+			 m_root->get_eval_base());
 
 #ifndef NDEBUG
     const auto ev = m_rootstate.get_eval();

@@ -56,10 +56,11 @@ public:
     void display_legal(int color);
     std::string move_to_text(int move);
 
-    void set_blunder_state(bool state);
+    void set_nonblunders(const std::vector<int> &nonblunders);
+    //    void set_blunder_state(bool state);
     bool is_blunder();
     void init_allowed_blunders();
-    void dec_allowed_blunders();
+    //    void dec_allowed_blunders();
     bool is_blunder_allowed();
     bool is_symmetry_invariant(const int symmetry) const;
 
@@ -72,6 +73,7 @@ public:
     size_t m_movenum;
     int m_lastmove;
 
+    std::vector<int> m_nonblunders;
     // is last (randomly chosen) move a blunder?
     // we don't save training info before that point
     bool m_blunder_chosen = false;
