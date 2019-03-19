@@ -246,7 +246,7 @@ std::uint64_t FastState::get_symmetry_hash(int symmetry) const {
 //     m_blunder_chosen = state;
 // }
 
-bool FastState::is_blunder() {
+bool FastState::is_blunder() const {
     return m_blunder_chosen;
 }
 
@@ -258,14 +258,12 @@ void FastState::init_allowed_blunders() {
 #endif
 }
 
-// void FastState::dec_allowed_blunders() {
-//     if (m_allowed_blunders > 0) {
-//         m_allowed_blunders--;
-//     }
-// }
-
-bool FastState::is_blunder_allowed() {
+bool FastState::is_blunder_allowed() const {
     return (m_allowed_blunders != 0); // both positive values and -1 are ok
+}
+
+int FastState::get_allowed_blunders() const {
+    return (m_allowed_blunders);
 }
 
 bool FastState::is_symmetry_invariant(const int symmetry) const {

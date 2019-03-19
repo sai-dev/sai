@@ -330,7 +330,7 @@ std::shared_ptr<const KoState> GameState::get_past_state(int moves_ago) const {
 //     m_lastrndmovenum = num;
 // }
 
-void GameState::eval_comment(std::string &sgf_str) const {
+std::string GameState::eval_comment() const {
 	const auto ev = get_eval();
         auto comstr = std::stringstream{};
 	comstr << std::setprecision(3)
@@ -338,6 +338,7 @@ void GameState::eval_comment(std::string &sgf_str) const {
 	       << std::get<1>(ev) << ", " // beta
 	       << std::get<2>(ev) << ", " // pi
 	       << std::get<3>(ev) << ", " // avg_eval
-	       << std::get<4>(ev);        // eval_bonus
-	sgf_str.append("C[" + comstr.str() + "]");
+	       << std::get<4>(ev); // eval_bonus
+
+	return comstr.str();
 }

@@ -523,15 +523,12 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 
     if (movenum < cfg_random_cnt) {
 	std::vector<int> nonblunders;
-        const auto blunder_move_chosen =
-	    m_root->randomize_first_proportionally(color,
+	if (m_root->randomize_first_proportionally(color,
 						   m_rootstate.is_blunder_allowed(),
-						   nonblunders);
+						   nonblunders)) {
+	    myprintf("Random move is a blunder.\n");
+	}
 	m_rootstate.set_nonblunders(nonblunders);
-
-#ifndef NDEBUG
-	myprintf("Done. Chosen move is %s.\n", (blunder_move_chosen ? "blunder" : "ok") );
-#endif
 
 	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
 	    myprintf("Random move would lead to immediate resignation... \n"

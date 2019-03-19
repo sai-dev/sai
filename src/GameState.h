@@ -71,7 +71,7 @@ public:
     void set_eval(float alpkt, float beta, float pi,
 		  float avg_eval, float eval_bonus, float eval_base);
     //    void copy_last_rnd_move_num ();
-    void eval_comment(std::string &sgf_str) const;
+    std::string eval_comment() const;
 
 private:
     bool valid_handicap(int stones);

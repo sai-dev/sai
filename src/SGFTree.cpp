@@ -464,9 +464,17 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     moves.append("\n");
 
     int counter = 0;
+    std::string initial_eval;
+    bool prev_blunder = false;
 
     while (state->forward_move()) {
-	state->eval_comment(moves);
+	if (counter == 0) {
+	    initial_eval = state->eval_comment();
+	} else {
+	    moves.append("C[" + state->eval_comment()
+			 + ", " + std::to_string(prev_blunder) + "]");
+	}
+	prev_blunder = state->is_blunder();
 	int move = state->get_last_move();
         assert(move != FastBoard::RESIGN);
         std::string movestr = state->board.move_to_text_sgf(move);
@@ -479,14 +487,15 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
             moves.append("\n");
         }
     }
-    state->eval_comment(moves);
+    moves.append("C[" + state->eval_comment()
+		 + ", " + std::to_string(prev_blunder) + "]");
 
     if (!state->has_resigned()) {
         float score = state->final_score();
 
         if (score > 0.0001f) {
             header.append("RE[B+" + str(boost::format("%.1f") % score) + "]");
-        } else if (score < -0.0001f) {   // **FRANCESCO** -0.0001f is 0.0f in LeelaZ next
+        } else if (score < -0.0001f) {
             header.append("RE[W+" + str(boost::format("%.1f") % -score) + "]");
         } else {
             header.append("RE[0]");
@@ -499,7 +508,12 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         }
     }
 
-    header.append("\nC[" + std::string{PROGRAM_NAME} + " options:" + cfg_options_str + "]");
+    header.append("\nC[" + std::string{PROGRAM_NAME} + " options:"
+		  + cfg_options_str);
+    if (cfg_blunder_thr < 1.0f) {
+	header.append(", blunders allowed: " + std::to_string(state->get_allowed_blunders()));
+    }
+    header.append(", " + initial_eval + "]");
 
     std::string result(header);
     result.append("\n");

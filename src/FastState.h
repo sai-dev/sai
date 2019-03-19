@@ -58,10 +58,11 @@ public:
 
     void set_nonblunders(const std::vector<int> &nonblunders);
     //    void set_blunder_state(bool state);
-    bool is_blunder();
+    bool is_blunder() const;
     void init_allowed_blunders();
     //    void dec_allowed_blunders();
-    bool is_blunder_allowed();
+    bool is_blunder_allowed() const;
+    int get_allowed_blunders() const;
     bool is_symmetry_invariant(const int symmetry) const;
 
     FullBoard board;
