@@ -466,6 +466,7 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     int counter = 0;
     std::string initial_eval;
     bool prev_blunder = false;
+    const auto allowed_blunders = state->get_allowed_blunders();
 
     while (state->forward_move()) {
 	if (counter == 0) {
@@ -483,7 +484,7 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         } else {
             moves.append(";B[" + movestr + "]");
         }
-        if (++counter % 10 == 0) {
+        if (++counter % 3 == 0) {
             moves.append("\n");
         }
     }
@@ -511,7 +512,10 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     header.append("\nC[" + std::string{PROGRAM_NAME} + " options:"
 		  + cfg_options_str);
     if (cfg_blunder_thr < 1.0f) {
-	header.append(", blunders allowed: " + std::to_string(state->get_allowed_blunders()));
+	const auto remaining_blunders = state->get_allowed_blunders();
+	header.append(", blunders allowed: " + std::to_string(allowed_blunders));
+	header.append(", blunders played: " +
+		      std::to_string(allowed_blunders - remaining_blunders));
     }
     header.append(", " + initial_eval + "]");
 
