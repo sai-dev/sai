@@ -297,7 +297,7 @@ void UCTNode::prepare_root_node(Network & network, int color,
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size
         auto alpha = cfg_noise_value * 361.0f / NUM_INTERSECTIONS;
-        dirichlet_noise(0.25f, alpha);
+        dirichlet_noise(cfg_noise_weight, alpha);
     }
 
     if (cfg_japanese_mode) {

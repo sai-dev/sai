@@ -70,6 +70,7 @@ bool cfg_adv_features;
 bool cfg_exploit_symmetries;
 bool cfg_symm_nonrandom;
 float cfg_noise_value;
+float cfg_noise_weight;
 float cfg_lambda;
 float cfg_mu;
 float cfg_komi;
@@ -170,6 +171,7 @@ void GTP::setup_default_parameters() {
     cfg_symm_nonrandom = false;
     cfg_noise = false;
     cfg_noise_value = 0.03;
+    cfg_noise_weight = 0.25;
     cfg_random_cnt = 0;
     cfg_random_min_visits = 1;
     cfg_random_temp = 1.0f;

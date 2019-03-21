@@ -843,6 +843,12 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // play something legal and decent even in time trouble)
     m_root->prepare_root_node(m_network, color, m_nodes, m_rootstate);
 
+    if (m_rootstate.get_movenum() < cfg_random_cnt) {
+	m_per_node_maxvisits = int((1.0 - cfg_noise_weight) * m_maxvisits);
+    } else {
+	m_per_node_maxvisits = 0;
+    }
+
 #ifndef NDEBUG
     myprintf("We are at root. Move choices by policy are: ");
     print_move_choices_by_policy(m_rootstate, *m_root, 5, 0.01f);
@@ -885,7 +891,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
         }
         keeprunning  = is_running();
         keeprunning &= !stop_thinking(elapsed_centis, time_for_move);
-        keeprunning &= have_alternate_moves(elapsed_centis, time_for_move);
+	if (m_per_node_maxvisits == 0) {
+	    keeprunning &= have_alternate_moves(elapsed_centis, time_for_move);
+	}
     } while (keeprunning);
 
     // stop the search
