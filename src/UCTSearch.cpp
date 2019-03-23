@@ -849,8 +849,8 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // play something legal and decent even in time trouble)
     m_root->prepare_root_node(m_network, color, m_nodes, m_rootstate);
 
-    if (m_rootstate.get_movenum() < cfg_random_cnt) {
-	m_per_node_maxvisits = int((1.0 - cfg_noise_weight) * m_maxvisits);
+    if (m_rootstate.get_movenum() < static_cast<int>(cfg_random_cnt)) {
+	m_per_node_maxvisits = static_cast<int>((1.0 - cfg_noise_weight) * m_maxvisits);
     } else {
 	m_per_node_maxvisits = 0;
     }

@@ -120,28 +120,30 @@ std::tuple<bool,std::vector<int>>
     assert(!m_children.empty());
 
     // if no choice is possible or when the number of visits is too low: nothing to do
-    if( m_children.size() < 2 || m_children.front()->get_visits() <= cfg_random_min_visits ){
-        return std::make_tuple(false, std::vector<int>{m_children.front()->get_move()});
+    if (m_children.size() < 2 ||
+        m_children.front()->get_visits() <= cfg_random_min_visits ){
+        return std::make_tuple(false,
+            std::vector<int>{m_children.front()->get_move()});
     }
 
-    auto accum          = 0.0;
-    auto accum_vector   = std::vector<double>{};
+    auto accum = 0.0;
+    auto accum_vector = std::vector<double>{};
     auto blunder_vector = std::vector<bool>{};
-    auto non_blunders   = std::vector<int>{};
+    auto non_blunders = std::vector<int>{};
 
-    double norm_factor      = m_children.front()->get_visits();
-    auto   first_child_eval = m_children.front()->get_eval(color);
+    double norm_factor = m_children.front()->get_visits();
+    auto first_child_eval = m_children.front()->get_eval(color);
 
     for (const auto& child : m_children) {
         const auto visits = child->get_visits();
-        const auto eval   = child->get_eval(color);
-        
-        if (visits <= cfg_random_min_visits) { // here we use the fact that the number of visits is non-increasing
+
+        // here we use the fact that the number of visits is non-increasing
+        if (visits <= cfg_random_min_visits) {
             break;
         }
 
-        const auto child_is_blunder = (eval < first_child_eval-cfg_blunder_thr);
-
+        const auto child_is_blunder =
+            (child->get_eval(color) < first_child_eval-cfg_blunder_thr);
         if (!child_is_blunder || is_blunder_allowed) {
             accum += std::pow(visits / norm_factor, 1.0 / cfg_random_temp);
         }
@@ -177,6 +179,11 @@ std::tuple<bool,std::vector<int>>
 		 accum_vector.size());
     }
 #endif
+
+    if( accum_vector.size() < 2 ) {
+        // nothing left to do
+        return std::make_tuple(false, non_blunders);
+    }
 
     auto distribution = std::uniform_real_distribution<double>{0.0, accum};
     auto pick = distribution(Random::get_Rng());

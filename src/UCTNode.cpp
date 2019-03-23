@@ -430,21 +430,10 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         }
 
         if( !move_list.empty() && 
-            std::find( begin(move_list), end(move_list), child.get_move() ) == end(move_list) ) {// is listed
+            std::find( begin(move_list), end(move_list),
+                       child.get_move() ) == end(move_list) ) {
           continue;
         }
-#if 0
-        auto is_listed = false;
-        for (auto& listed : move_list) {
-            if (child.get_move() == listed) {
-                is_listed = true;
-                break;
-            }
-        }
-        if (!is_listed && move_list.size() > 0) {
-            continue;
-        }
-#endif
 
         const auto visits = child.get_visits();
 
@@ -457,7 +446,8 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         }
 
         auto winrate = fpu_eval;
-        if (child.is_inflated() && child->m_expand_state.load() == ExpandState::EXPANDING) {
+        if (child.is_inflated() &&
+            child->m_expand_state.load() == ExpandState::EXPANDING) {
             // Someone else is expanding this node, never select it
             // if we can avoid so, because we'd block on it.
             winrate = -1.0f - fpu_reduction; // why not simply 'continue'?
