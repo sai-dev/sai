@@ -105,7 +105,7 @@ public:
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
     std::tuple<bool,std::vector<int>>
-      randomize_first_proportionally(int color, bool is_bluder_allowed);
+      randomize_first_proportionally(int color, bool is_blunder_allowed);
 
     void prepare_root_node(Network & network, int color,
                            std::atomic<int>& nodecount,

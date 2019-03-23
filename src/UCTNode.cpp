@@ -430,7 +430,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         }
 
         if( !move_list.empty() && 
-            std::find( begin(move_list), end(move_list), child.getMove() ) == end(move_list) ) {// is listed
+            std::find( begin(move_list), end(move_list), child.get_move() ) == end(move_list) ) {// is listed
           continue;
         }
 #if 0

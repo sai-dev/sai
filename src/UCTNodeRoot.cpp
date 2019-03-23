@@ -115,13 +115,13 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
 }
 
 std::tuple<bool,std::vector<int>>
-    UCTNode::randomize_first_proportionally(int color, bool is_bluder_allowed) {
+    UCTNode::randomize_first_proportionally(int color, bool is_blunder_allowed) {
 
     assert(!m_children.empty());
 
     // if no choice is possible or when the number of visits is too low: nothing to do
     if( m_children.size() < 2 || m_children.front()->get_visits() <= cfg_random_min_visits ){
-        return {false,{m_children.front()->get_move()}};
+        return std::make_tuple(false, std::vector<int>{m_children.front()->get_move()});
     }
 
     auto accum          = 0.0;
@@ -129,7 +129,7 @@ std::tuple<bool,std::vector<int>>
     auto blunder_vector = std::vector<bool>{};
     auto non_blunders   = std::vector<int>{};
 
-    double norm_factor      = child->get_visits();
+    double norm_factor      = m_children.front()->get_visits();
     auto   first_child_eval = m_children.front()->get_eval(color);
 
     for (const auto& child : m_children) {
@@ -192,7 +192,7 @@ std::tuple<bool,std::vector<int>>
              (blunder_vector[index] ? "blunder" : "ok") );
 #endif
 
-    assert(m_children.size() > index);
+    assert(m_children.size() > static_cast<size_t>(index));
 
     // Take the early out
     if (index != 0) {
@@ -200,7 +200,7 @@ std::tuple<bool,std::vector<int>>
         std::iter_swap(begin(m_children), begin(m_children) + index);
     }
 
-    return {blunder_vector[index],non_blunders};
+    return std::make_tuple(blunder_vector[index], non_blunders);
 }
 
 UCTNode* UCTNode::get_nopass_child(FastState& state) const {

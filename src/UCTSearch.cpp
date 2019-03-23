@@ -531,10 +531,10 @@ int UCTSearch::get_best_move(passflag_t passflag) {
             m_root->randomize_first_proportionally(color,
                                                    m_rootstate.is_blunder_allowed());
 
-        if (is_bluder) {
+        if (is_blunder) {
             myprintf("Random move is a blunder.\n");
         }
-        m_rootstate.set_nonblunders(non_blunders);
+        m_rootstate.set_non_blunders(non_blunders);
 
 	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
 	    myprintf("Random move would lead to immediate resignation... \n"
@@ -543,7 +543,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 	}
     } else {
 	std::vector<int> non_blunders{m_root->get_first_child()->get_move()};
-	m_rootstate.set_nonblunders(non_blunders);
+	m_rootstate.set_non_blunders(non_blunders);
     }
 
     auto first_child = m_root->get_first_child();
