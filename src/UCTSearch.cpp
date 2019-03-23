@@ -112,8 +112,8 @@ bool UCTSearch::advance_to_new_rootstate() {
         return false;
     }
 
-    auto depth =
-        int(m_rootstate.get_movenum() - m_last_rootstate->get_movenum());
+    auto depth = static_cast<ptrdiff_t>(m_rootstate.get_movenum() -
+                                        m_last_rootstate->get_movenum());
 
     if (depth < 0) {
         return false;
@@ -512,19 +512,19 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
 }
 
 int UCTSearch::get_best_move(passflag_t passflag) {
-    int color = m_rootstate.board.get_to_move();
+    const int color = m_rootstate.board.get_to_move();
 
     // Make sure best is first
     m_root->sort_children(color);
 
     // Check whether to randomize the best move proportional
     // to the playout counts, early game only.
-    auto movenum = int(m_rootstate.get_movenum());
+    const auto movenum = m_rootstate.get_movenum();
 
     // following code requires that there are children!
     assert(!m_root->get_children().empty());
     
-    if (movenum < cfg_random_cnt) {
+    if (movenum < static_cast<size_t>(cfg_random_cnt)) {
         bool is_blunder;
         std::vector<int> non_blunders;
         tie(is_blunder,non_blunders) =
@@ -849,7 +849,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // play something legal and decent even in time trouble)
     m_root->prepare_root_node(m_network, color, m_nodes, m_rootstate);
 
-    if (m_rootstate.get_movenum() < static_cast<int>(cfg_random_cnt)) {
+    if (m_rootstate.get_movenum() < static_cast<size_t>(cfg_random_cnt)) {
 	m_per_node_maxvisits = static_cast<int>((1.0 - cfg_noise_weight) * m_maxvisits);
     } else {
 	m_per_node_maxvisits = 0;

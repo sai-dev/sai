@@ -682,8 +682,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         return;
     } else if (command.find("auto") == 0) {
 #ifndef NDEBUG
-	int blunders=0, last=0;
-	int movenum = game.get_movenum();
+        size_t blunders = 0, last = 0, movenum = game.get_movenum();
 #endif
         do {
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
@@ -700,8 +699,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 #endif
         } while (game.get_passes() < 2 && !game.has_resigned());
 #ifndef NDEBUG
-	myprintf("Game ended. There where %d blunders in a total of %d moves.\n"
-		 "The last blunder was on move %d, for %d training moves available.\n",
+	myprintf("Game ended. There where %u blunders in a total of %u moves.\n"
+		 "The last blunder was on move %u, for %u training moves available.\n",
 		 blunders, movenum, last, movenum-last);
 #endif
         return;
@@ -748,7 +747,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         cmdstream >> filename;
         if (cmdstream.fail()) {
             char num[8], komi[16], lambda[16], mu[16];
-            std::sprintf(num, "%03d", int(game.get_movenum()));
+            std::sprintf(num, "%03zu", game.get_movenum());
             std::sprintf(komi, "%.1f", game.get_komi());
             std::sprintf(lambda, "%.2f", cfg_lambda);
             std::sprintf(mu, "%.2f", cfg_mu);
