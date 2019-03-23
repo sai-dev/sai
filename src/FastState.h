@@ -56,7 +56,7 @@ public:
     void display_legal(int color);
     std::string move_to_text(int move);
 
-    void set_nonblunders(const std::vector<int> &nonblunders);
+    void set_non_blunders(const std::vector<int> & non_blunders);
     //    void set_blunder_state(bool state);
     bool is_blunder() const;
     void init_allowed_blunders();
@@ -74,10 +74,10 @@ public:
     size_t m_movenum;
     int m_lastmove;
 
-    std::vector<int> m_nonblunders;
     // is last (randomly chosen) move a blunder?
     // we don't save training info before that point
     bool m_blunder_chosen = false;
+    std::vector<int> m_non_blunders;
 
     // keeps count of the number of blunders we are
     // still allowed to play; -1 means no limit

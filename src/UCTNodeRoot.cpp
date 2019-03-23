@@ -114,58 +114,51 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
     }
 }
 
-bool UCTNode::randomize_first_proportionally(int color,
-					     bool is_blunder_allowed,
-					     std::vector<int> &nonblunders) {
-    auto accum = 0.0;
-    auto norm_factor = 0.0;
-    auto accum_vector = std::vector<double>{};
-    auto blunder_vector = std::vector<bool>{};
-    auto first_child_eval = 0.0f;
+std::tuple<bool,std::vector<int>>
+    UCTNode::randomize_first_proportionally(int color, bool is_bluder_allowed) {
 
-#ifndef NDEBUG
-    auto allowed_moves = 0;
-    auto allowed_blunder_moves = 0;
-#endif
+    assert(!m_children.empty());
+
+    // if no choice is possible or when the number of visits is too low: nothing to do
+    if( m_children.size() < 2 || m_children.front()->get_visits() <= cfg_random_min_visits ){
+        return {false,{m_children.front()->get_move()}};
+    }
+
+    auto accum          = 0.0;
+    auto accum_vector   = std::vector<double>{};
+    auto blunder_vector = std::vector<bool>{};
+    auto non_blunders   = std::vector<int>{};
+
+    double norm_factor      = child->get_visits();
+    auto   first_child_eval = m_children.front()->get_eval(color);
 
     for (const auto& child : m_children) {
-        auto visits = child->get_visits();
+        const auto visits = child->get_visits();
+        const auto eval   = child->get_eval(color);
+        
+        if (visits <= cfg_random_min_visits) { // here we use the fact that the number of visits is non-increasing
+            break;
+        }
 
-        if (norm_factor == 0.0) {
-            norm_factor = visits;
-            // Nonsensical options? End of game?
-            if (visits <= cfg_random_min_visits) {
-                return false;
-            }
-	    first_child_eval = child->get_eval(color);
+        const auto child_is_blunder = (eval < first_child_eval-cfg_blunder_thr);
+
+        if (!child_is_blunder || is_blunder_allowed) {
+            accum += std::pow(visits / norm_factor, 1.0 / cfg_random_temp);
         }
-        if (visits > cfg_random_min_visits) {
-	    const auto child_is_blunder =
-		(child->get_eval(color) < first_child_eval - cfg_blunder_thr);
-	    if (!child_is_blunder || is_blunder_allowed) {
-		accum += std::pow(visits / norm_factor,
-				  1.0 / cfg_random_temp);
-	    }
-	    accum_vector.emplace_back(accum);
-	    blunder_vector.emplace_back(child_is_blunder);
-	    if (!child_is_blunder) {
-		nonblunders.push_back(child->get_move());
-	    }
+        accum_vector.push_back(accum);
+        blunder_vector.push_back(child_is_blunder);
+        if (!child_is_blunder) {
+            non_blunders.push_back(child->get_move());
+	}
+        
 #ifndef NDEBUG
-	    // myprintf("--> %d. blunder? %s, drop=%f, "
-	    // 	     "accum=%f <--\n",
-	    // 	     accum_vector.size()-1,
-	    // 	     child_is_blunder ? "yes" : "no",
-	    // 	     first_child_eval - child->get_eval(color),
-	    // 	     accum);
-	    if (child_is_blunder && is_blunder_allowed) {
-		allowed_blunder_moves++;
-		allowed_moves++;
-	    } else if (!child_is_blunder) {
-		allowed_moves++;
-	    }
-#endif
-        }
+        // myprintf("--> %d. blunder? %s, drop=%f, "
+        // 	     "accum=%f <--\n",
+        // 	     accum_vector.size()-1,
+        // 	     child_is_blunder ? "yes" : "no",
+        // 	     first_child_eval - child->get_eval(color),
+        // 	     accum);
+#endif        
     }
 
 #ifndef NDEBUG
@@ -173,32 +166,23 @@ bool UCTNode::randomize_first_proportionally(int color,
 	myprintf("Rnd_first: blunders still allowed. "
 		 "Choice between %d moves with %d blunders.\n",
 		 accum_vector.size(),
-		 allowed_blunder_moves);
+                 accum_vector.size() - non_blunders.size());
     } else {
+        // here we use that non-allowed moves do not increment accum
+        auto tmp = accum_vector;
+        auto allowed_moves = std::unique( begin(tmp), end(tmp) ) - begin(tmp);
 	myprintf("Rnd_first: blunders NOT allowed. "
 		 "Choice between %d good of %d possible moves.\n",
 		 allowed_moves,
 		 accum_vector.size());
     }
 #endif
-    // No choice
-    if (accum_vector.size() == 1) {
-	return false;
-    }
 
     auto distribution = std::uniform_real_distribution<double>{0.0, accum};
     auto pick = distribution(Random::get_Rng());
-    const auto index =
-	static_cast<unsigned int>(std::upper_bound( begin(accum_vector),
-						    end(accum_vector),
-						    pick ) - begin(accum_vector));
-    // auto index = size_t{0};
-    // for (size_t i = 0; i < accum_vector.size(); i++) {
-    //     if (pick < accum_vector[i]) {
-    //         index = i;
-    //         break;
-    //     }
-    // }
+    const auto index = std::upper_bound( begin(accum_vector),
+                                         end(accum_vector),
+                                         pick ) - begin(accum_vector);
 
 #ifndef NDEBUG
     myprintf("Accum=%f, pick=%f, index=%d.\n", accum, pick, index);
@@ -208,17 +192,15 @@ bool UCTNode::randomize_first_proportionally(int color,
              (blunder_vector[index] ? "blunder" : "ok") );
 #endif
 
-    // Take the early out
-    if (index == 0) {
-        return false;
-    }
-
     assert(m_children.size() > index);
 
-    // Now swap the child at index with the first child
-    std::iter_swap(begin(m_children), begin(m_children) + index);
+    // Take the early out
+    if (index != 0) {
+        // Now swap the child at index with the first child
+        std::iter_swap(begin(m_children), begin(m_children) + index);
+    }
 
-    return blunder_vector[index];
+    return {blunder_vector[index],non_blunders};
 }
 
 UCTNode* UCTNode::get_nopass_child(FastState& state) const {

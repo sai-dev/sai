@@ -384,7 +384,7 @@ void UCTNode::accumulate_eval(float eval) {
 
 UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
                                    int max_visits,
-                                   std::vector<int> move_list,
+                                   const std::vector<int> & move_list,
                                    bool nopass) {
     wait_expanded();
 
@@ -429,6 +429,11 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             continue;
         }
 
+        if( !move_list.empty() && 
+            std::find( begin(move_list), end(move_list), child.getMove() ) == end(move_list) ) {// is listed
+          continue;
+        }
+#if 0
         auto is_listed = false;
         for (auto& listed : move_list) {
             if (child.get_move() == listed) {
@@ -439,6 +444,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         if (!is_listed && move_list.size() > 0) {
             continue;
         }
+#endif
 
         const auto visits = child.get_visits();
 

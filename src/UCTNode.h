@@ -25,6 +25,7 @@
 #include <atomic>
 #include <memory>
 #include <vector>
+#include <tuple>
 #include <cassert>
 #include <cstring>
 
@@ -57,7 +58,7 @@ public:
     UCTNode& get_best_root_child(int color);
     UCTNode* uct_select_child(const GameState & currstate, bool is_root,
                               int max_visits,
-                              std::vector<int> move_list,
+                              const std::vector<int> & move_list,
                               bool nopass = false);
 
     size_t count_nodes_and_clear_expand_state();
@@ -103,8 +104,9 @@ public:
     void update(float eval);
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
-    bool randomize_first_proportionally(int color, bool is_bluder_allowed,
-					std::vector<int> &nonblunders);
+    std::tuple<bool,std::vector<int>>
+      randomize_first_proportionally(int color, bool is_bluder_allowed);
+
     void prepare_root_node(Network & network, int color,
                            std::atomic<int>& nodecount,
                            GameState& state,

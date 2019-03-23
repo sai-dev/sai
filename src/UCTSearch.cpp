@@ -521,14 +521,20 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     // to the playout counts, early game only.
     auto movenum = int(m_rootstate.get_movenum());
 
+    // following code requires that there are children!
+    assert(!m_root->get_children().empty());
+    
     if (movenum < cfg_random_cnt) {
-	std::vector<int> nonblunders;
-	if (m_root->randomize_first_proportionally(color,
-						   m_rootstate.is_blunder_allowed(),
-						   nonblunders)) {
-	    myprintf("Random move is a blunder.\n");
-	}
-	m_rootstate.set_nonblunders(nonblunders);
+        bool is_blunder;
+        std::vector<int> non_blunders;
+        tie(is_blunder,non_blunders) =
+            m_root->randomize_first_proportionally(color,
+                                                   m_rootstate.is_blunder_allowed());
+
+        if (is_bluder) {
+            myprintf("Random move is a blunder.\n");
+        }
+        m_rootstate.set_nonblunders(non_blunders);
 
 	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
 	    myprintf("Random move would lead to immediate resignation... \n"
@@ -536,8 +542,8 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 	    m_root->sort_children(color);
 	}
     } else {
-	std::vector<int> nonblunder{m_root->get_first_child()->get_move()};
-	m_rootstate.set_nonblunders(nonblunder);
+	std::vector<int> non_blunders{m_root->get_first_child()->get_move()};
+	m_rootstate.set_nonblunders(non_blunders);
     }
 
     auto first_child = m_root->get_first_child();
