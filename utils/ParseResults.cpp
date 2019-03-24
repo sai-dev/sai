@@ -61,6 +61,21 @@ void get_first_line(ifstream& data, string& s, const int header_lines = 4) {
 }
 
 
+bool quote_opened (const string &s) {
+    const auto n = std::count(s.begin(), s.end(), '"');
+    return n % 2;
+}
+
+void complete_quote (ifstream &netsdata, string &s) {
+    string tmp;
+
+    while (netsdata >> tmp) {
+	s.append(tmp);
+	if (!quote_opened(s))
+	    break;
+    }
+}
+
 void load_netsdata(string filename, string hook) {
     ifstream netsdata;
 
@@ -69,6 +84,8 @@ void load_netsdata(string filename, string hook) {
         cerr << "Unable to open nets data file " << filename
              << "." << endl;
         exit (1);
+    } else {
+	cerr << "File " + filename + " opened." << endl;
     }
 
     string s;
@@ -78,6 +95,9 @@ void load_netsdata(string filename, string hook) {
     bool hookfound = false;
     sainet tmp;
     while (netsdata >> s) {
+	if (quote_opened(s)) {
+	    complete_quote(netsdata, s);
+	}
         //        cout << s << endl;
         switch (i) {
             // i counts the words of the current line
@@ -204,6 +224,8 @@ void load_matchdata(string filename) {
         cerr << "Unable to open matchdata file " << filename
              << "." << endl;
         exit (1);
+    } else {
+	cerr << "File " + filename + " opened." << endl;
     }
 
     string s;
