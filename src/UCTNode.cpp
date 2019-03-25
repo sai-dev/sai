@@ -96,8 +96,9 @@ bool UCTNode::create_children(Network & network,
 
     // DCNN returns value as side to move
     // our search functions evaluate from black's point of view
-    if (state.board.white_to_move())
+    if (to_move == FastBoard::WHITE) {
         value = 1.0f - value;
+    }
 
     if (network.m_value_head_sai) {
         const auto result_extended = Network::get_extended(state, raw_netlist);
