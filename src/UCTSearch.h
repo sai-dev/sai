@@ -138,7 +138,7 @@ private:
                                       int at_least_as_many, float probab_threash);
     void tree_stats(const UCTNode& node);
     std::string get_pv(FastState& state, UCTNode& parent);
-    std::string get_analysis();
+    std::string get_analysis(int playouts);
     bool should_resign(passflag_t passflag, float besteval);
     bool have_alternate_moves(int elapsed_centis, int time_for_move);
     int est_playouts_left(int elapsed_centis, int time_for_move) const;
