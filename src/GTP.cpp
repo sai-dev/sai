@@ -106,6 +106,8 @@ float cfg_logconst;
 float cfg_softmax_temp;
 float cfg_fpu_reduction;
 float cfg_fpu_root_reduction;
+float cfg_ci_alpha;
+float cfg_lcb_min_visit_ratio;
 std::string cfg_weightsfile;
 std::string cfg_logfile;
 FILE* cfg_logfile_handle;
@@ -362,32 +364,35 @@ void GTP::setup_default_parameters() {
 #endif
 #endif
     cfg_policy_temp = 1.0f;
+    cfg_adv_features = false;
+    cfg_exploit_symmetries = false;
+    cfg_symm_nonrandom = false;
+    cfg_fpuzero = false;
+    cfg_noise_value = 0.03;
+    cfg_noise_weight = 0.25;
+    cfg_recordvisits = false;
+    cfg_blunder_thr = 1.0f;
+    // nu = ln(4) => P(X=0) = 0.25
+    cfg_blunder_rndmax_avg = 1.38629436112f;
+
     cfg_puct = 0.5f;
     cfg_logpuct = 0.015f;
     cfg_logconst = 1.7f;
     cfg_softmax_temp = 1.0f;
     cfg_fpu_reduction = 0.25f;
-    cfg_fpu_root_reduction = cfg_fpu_reduction;
     // see UCTSearch::should_resign
-    // if negative, the default is 10%, otherwise, this value % is used
     cfg_resignpct = -1;
-    cfg_fpuzero = false;
-    cfg_adv_features = false;
-    cfg_exploit_symmetries = false;
-    cfg_symm_nonrandom = false;
     cfg_noise = false;
-    cfg_noise_value = 0.03;
-    cfg_noise_weight = 0.25;
+    cfg_fpu_root_reduction = cfg_fpu_reduction;
+    cfg_ci_alpha = 1e-5f;
+    cfg_lcb_min_visit_ratio = 0.10f;
     cfg_random_cnt = 0;
     cfg_random_min_visits = 1;
     cfg_random_temp = 1.0f;
     cfg_dumbpass = false;
-    cfg_recordvisits = false;
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
     cfg_benchmark = false;
-    cfg_blunder_thr = 1.0f;
-    cfg_blunder_rndmax_avg = 1.38629436112f; // nu = ln(4) => P(X=0) = 0.25
 #ifdef USE_CPU_ONLY
     cfg_cpu_only = true;
 #else

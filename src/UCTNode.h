@@ -64,8 +64,8 @@ public:
                          float min_psa_ratio = 0.0f);
 
     const std::vector<UCTNodePointer>& get_children() const;
-    void sort_children(int color);
     void sort_children_by_policy();
+    void sort_children(int color, float lcb_min_visits);
     UCTNode& get_best_root_child(int color);
     UCTNode* uct_select_child(const GameState & currstate, bool is_root,
                               int max_visits,
@@ -85,6 +85,7 @@ public:
     int get_visits() const;
     float get_policy() const;
     void set_policy(float policy);
+    float get_eval_variance(float default_var = 0.0f) const;
     float get_eval(int tomove) const;
     float get_raw_eval(int tomove, int virtual_loss = 0) const;
     float get_net_eval(int tomove) const;
@@ -113,6 +114,7 @@ public:
     void clear_visits();
     void clear_children_visits();
     void update(float eval);
+    float get_eval_lcb(int color) const;
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
     std::tuple<bool,std::vector<int>>
@@ -179,6 +181,10 @@ private:
 
     // the following is used only in fpu, with reduction
     float m_agent_eval{0.5f}; // eval_with_bonus(eval_bonus()) no father
+    // Variable used for calculating variance of evaluations.
+    // Initialized to small non-zero value to avoid accidental zero variances
+    // at low visits.
+    std::atomic<float> m_squared_eval_diff{1e-4f};
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
 

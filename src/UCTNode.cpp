@@ -280,8 +280,16 @@ void UCTNode::clear_children_visits() {
 }
 
 void UCTNode::update(float eval) {
+    // Cache values to avoid race conditions.
+    auto old_eval = static_cast<float>(m_blackevals);
+    auto old_visits = static_cast<int>(m_visits);
+    auto old_delta = old_visits > 0 ? eval - old_eval / old_visits : 0.0f;
     m_visits++;
     accumulate_eval(eval);
+    auto new_delta = eval - (old_eval + eval) / (old_visits + 1);
+    // Welford's online algorithm for calculating variance.
+    auto delta = old_delta * new_delta;
+    atomic_add(m_squared_eval_diff, delta);
 }
 
 bool UCTNode::has_children() const {
@@ -360,6 +368,10 @@ int UCTNode::get_progid() const {
 }
 #endif
 
+float UCTNode::get_eval_variance(float default_var) const {
+    return m_visits > 1 ? m_squared_eval_diff / (m_visits - 1) : default_var;
+}
+
 int UCTNode::get_visits() const {
     return m_visits;
 }
@@ -377,6 +389,20 @@ std::array<float, 5> UCTNode::get_urgency() const {
     return m_last_urgency;
 }
 #endif
+float UCTNode::get_eval_lcb(int color) const {
+    // Lower confidence bound of winrate.
+    auto visits = get_visits();
+    if (visits < 2) {
+        // Return large negative value if not enough visits.
+        return -1e6f + visits;
+    }
+    auto mean = get_raw_eval(color);
+
+    auto stddev = std::sqrt(get_eval_variance(1.0f) / visits);
+    auto z = cached_t_quantile(visits - 1);
+
+    return mean - z * stddev;
+}
 
 float UCTNode::get_raw_eval(int tomove, int virtual_loss) const {
     auto visits = get_visits() + virtual_loss;
@@ -572,7 +598,8 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
 class NodeComp : public std::binary_function<UCTNodePointer&,
                                              UCTNodePointer&, bool> {
 public:
-    NodeComp(int color) : m_color(color) {};
+    NodeComp(int color, float lcb_min_visits) : m_color(color),
+        m_lcb_min_visits(lcb_min_visits){};
 
     // WARNING : on very unusual cases this can be called on multithread
     // contexts (e.g., UCTSearch::get_pv()) so beware of race conditions
@@ -580,6 +607,22 @@ public:
                     const UCTNodePointer& b) {
         auto a_visit = a.get_visits();
         auto b_visit = b.get_visits();
+
+        // Need at least 2 visits for LCB.
+        if (m_lcb_min_visits < 2) {
+            m_lcb_min_visits = 2;
+        }
+
+        // Calculate the lower confidence bound for each node.
+        if ((a_visit > m_lcb_min_visits) && (b_visit > m_lcb_min_visits)) {
+            auto a_lcb = a.get_eval_lcb(m_color);
+            auto b_lcb = b.get_eval_lcb(m_color);
+
+            // Sort on lower confidence bounds
+            if (a_lcb != b_lcb) {
+                return a_lcb < b_lcb;
+            }
+        }
 
         // if visits are not same, sort on visits
         if (a_visit != b_visit) {
@@ -596,10 +639,11 @@ public:
     }
 private:
     int m_color;
+    float m_lcb_min_visits;
 };
 
-void UCTNode::sort_children(int color) {
-    std::stable_sort(rbegin(m_children), rend(m_children), NodeComp(color));
+void UCTNode::sort_children(int color, float lcb_min_visits) {
+    std::stable_sort(rbegin(m_children), rend(m_children), NodeComp(color, lcb_min_visits));
 }
 
 class NodeCompByPolicy : public std::binary_function<UCTNodePointer&,
@@ -620,8 +664,13 @@ UCTNode& UCTNode::get_best_root_child(int color) {
 
     assert(!m_children.empty());
 
+    auto max_visits = 0;
+    for (const auto& node : m_children) {
+        max_visits = std::max(max_visits, node.get_visits());
+    }
+
     auto ret = std::max_element(begin(m_children), end(m_children),
-                                NodeComp(color));
+                                NodeComp(color, cfg_lcb_min_visit_ratio * max_visits));
     ret->inflate();
 
     return *(ret->get());
