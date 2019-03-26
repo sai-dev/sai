@@ -69,9 +69,6 @@ bool UCTNode::create_children(Network & network,
 			                  float& beta,
                               float min_psa_ratio) {
 
-    const auto to_move = state.board.get_to_move();
-    const auto komi = state.get_komi();
-
     // no successors in final state
     if (state.get_passes() >= 2) {
         return false;
@@ -91,16 +88,13 @@ bool UCTNode::create_children(Network & network,
     const auto raw_netlist = network.get_output(
         &state, Network::Ensemble::RANDOM_SYMMETRY, -1, cfg_symm_nonrandom);
 
-    beta = m_net_beta = raw_netlist.beta;
-    value = raw_netlist.value; // = m_net_value
-
     // DCNN returns value as side to move
+    auto stm_eval = raw_netlist.value; // = m_net_value
+    const auto to_move = state.board.get_to_move();
     // our search functions evaluate from black's point of view
-    if (to_move == FastBoard::WHITE) {
-        value = 1.0f - value;
-    }
 
     if (network.m_value_head_sai) {
+	m_net_beta = beta = raw_netlist.beta;
         const auto result_extended = Network::get_extended(state, raw_netlist);
         m_net_alpkt = alpkt = result_extended.alpkt;
         m_eval_bonus = result_extended.eval_bonus;
@@ -108,10 +102,22 @@ bool UCTNode::create_children(Network & network,
         m_agent_eval = result_extended.agent_eval;
         m_net_eval = result_extended.pi;
 
+	if (to_move == FastBoard::WHITE) {
+	    stm_eval = 1.0f - m_agent_eval;
+	} else {
+	    stm_eval = m_agent_eval;
+	}
     } else {
-        m_net_alpkt = -komi;
+	m_net_beta = beta = 1.0f;
+        m_net_alpkt = alpkt = -state.get_komi();
         m_eval_bonus = 0.0f;
         m_eval_base = 0.0f;
+
+	if (to_move == FastBoard::WHITE) {
+	    value = 1.0f - stm_eval;
+	} else {
+	    value = stm_eval;
+	}
         m_net_eval = value;
         m_agent_eval = value;
     }
@@ -161,10 +167,26 @@ bool UCTNode::create_children(Network & network,
             legal_sum += warm_policy;
         }
     }
-    const auto warm_pass_policy = std::pow(raw_netlist.policy_pass,
+
+    // Always try passes if we're not trying to be clever.
+    auto allow_pass = cfg_dumbpass;
+
+    // If we're clever, only try passing if we're winning on the
+    // net score and on the board count.
+    if (!allow_pass && (stm_eval > 0.8f || nodelist.size() <= NUM_INTERSECTIONS / 18)) {
+        const auto relative_score =
+            (to_move == FastBoard::BLACK ? 1 : -1) * state.final_score();
+        if (relative_score >= 0) {
+            allow_pass = true;
+        }
+    }
+
+    if (allow_pass) {
+	const auto warm_pass_policy = std::pow(raw_netlist.policy_pass,
                                            1.0f/cfg_policy_temp);
-    nodelist.emplace_back(warm_pass_policy, FastBoard::PASS);
-    legal_sum += warm_pass_policy;
+	nodelist.emplace_back(warm_pass_policy, FastBoard::PASS);
+	legal_sum += warm_pass_policy;
+    }
 
     if (legal_sum > std::numeric_limits<float>::min()) {
         // re-normalize after removing illegal moves.
