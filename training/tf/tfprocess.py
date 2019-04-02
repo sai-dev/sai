@@ -24,22 +24,27 @@ import tensorflow as tf
 import time
 import unittest
 
+from mixprec import float32_variable_storage_getter, LossScalingOptimizer
+
 from config import *
 
-def weight_variable(name, shape):
+def weight_variable(name, shape, dtype):
     """Xavier initialization"""
     stddev = np.sqrt(2.0 / (sum(shape)))
-    initial = tf.truncated_normal(shape, stddev=stddev)
-    weights = tf.get_variable(name, initializer=initial)
+    # Do not use a constant as the initializer, that will cause the
+    # variable to be stored in wrong dtype.
+    weights = tf.get_variable(
+        name, shape, dtype=dtype,
+        initializer=tf.truncated_normal_initializer(stddev=stddev, dtype=dtype))
     tf.add_to_collection(tf.GraphKeys.WEIGHTS, weights)
     return weights
 
 # Bias weights for layers not followed by BatchNorm
 # We do not regularlize biases, so they are not
 # added to the regularlizer collection
-def bias_variable(name, shape):
-    initial = tf.constant(0.0, shape=shape)
-    bias = tf.get_variable(name, initializer=initial)
+def bias_variable(name, shape, dtype):
+    bias = tf.get_variable(name, shape, dtype=dtype,
+                           initializer=tf.zeros_initializer())
     return bias
 
 
@@ -113,6 +118,15 @@ class TFProcess:
         self.RESIDUAL_FILTERS = RESIDUAL_FILTERS
         self.RESIDUAL_BLOCKS = RESIDUAL_BLOCKS
 
+        # model type: full precision (fp32) or mixed precision (fp16)
+        self.model_dtype = tf.float32
+
+        # Scale the loss to prevent gradient underflow
+        self.loss_scale = 1 if self.model_dtype == tf.float32 else 128
+
+        # L2 regularization parameter applied to weights.
+        self.l2_scale = 1e-4
+
         # Set number of GPUs for training
         self.gpus_num = 1
 
@@ -158,7 +172,7 @@ class TFProcess:
         komi = tf.decode_raw(self.komi, tf.float32)
         winner = tf.decode_raw(self.winner, tf.float32)
 
-        planes = tf.to_float(planes)
+        planes = tf.cast(planes, self.model_dtype)
 
         planes = tf.reshape(planes, (batch_size, 17+INPUT_STM, BOARD_SQUARES))
         probs = tf.reshape(probs, (batch_size, BOARD_SQUARES + 1))
@@ -183,6 +197,8 @@ class TFProcess:
         opt = tf.train.MomentumOptimizer(
             learning_rate=0.05, momentum=0.9, use_nesterov=True)
 
+        opt = LossScalingOptimizer(opt, scale=self.loss_scale)
+
         # Construct net here.
         tower_grads = []
         tower_loss = []
@@ -190,7 +206,9 @@ class TFProcess:
         tower_mse_loss = []
         tower_reg_term = []
         tower_y_conv = []
-        with tf.variable_scope(tf.get_variable_scope()):
+        with tf.variable_scope("fp32_storage",
+                               # this forces trainable variables to be stored as fp32
+                               custom_getter=float32_variable_storage_getter):
             for i in range(gpus_num):
                 with tf.device("/gpu:%d" % i):
                     with tf.name_scope("tower_%d" % i):
@@ -337,6 +355,12 @@ class TFProcess:
 
     def tower_loss(self, x, y_, z_):
         y_conv, z_conv = self.construct_net(x)
+
+        # Cast the nn result back to fp32 to avoid loss overflow/underflow
+        if self.model_dtype != tf.float32:
+            y_conv = tf.cast(y_conv, tf.float32)
+            z_conv = tf.cast(z_conv, tf.float32)
+
         # Calculate loss on policy head
         cross_entropy = \
             tf.nn.softmax_cross_entropy_with_logits(labels=y_,
@@ -348,10 +372,9 @@ class TFProcess:
             tf.reduce_mean(tf.squared_difference(z_, z_conv))
 
         # Regularizer
-        regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
         reg_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
-        reg_term = \
-            tf.contrib.layers.apply_regularization(regularizer, reg_variables)
+        reg_term = self.l2_scale * tf.add_n(
+            [tf.cast(tf.nn.l2_loss(v), tf.float32) for v in reg_variables])
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
@@ -539,16 +562,22 @@ class TFProcess:
         self.batch_norm_count = 0
         self.reuse_var = True
 
-    def add_weights(self, variable):
+    def add_weights(self, var):
         if self.reuse_var is None:
-            self.weights.append(variable)
+            if var.name[-11:] == "fp16_cast:0":
+                name = var.name[:-12] + ":0"
+                var = tf.get_default_graph().get_tensor_by_name(name)
+            # All trainable variables should be stored as fp32
+            assert var.dtype.base_dtype == tf.float32
+            self.weights.append(var)
 
     def batch_norm(self, net):
         # The weights are internal to the batchnorm layer, so apply
         # a unique scope that we can store, and use to look them back up
         # later on.
         scope = self.get_batchnorm_key()
-        with tf.variable_scope(scope):
+        with tf.variable_scope(scope,
+                               custom_getter=float32_variable_storage_getter):
             net = tf.layers.batch_normalization(
                     net,
                     epsilon=1e-5, axis=1, fused=True,
@@ -557,7 +586,7 @@ class TFProcess:
                     reuse=self.reuse_var)
 
         for v in ['beta', 'moving_mean', 'moving_variance' ]:
-            name = scope + '/batch_normalization/' + v + ':0'
+            name = "fp32_storage/" + scope + '/batch_normalization/' + v + ':0'
             var = tf.get_default_graph().get_tensor_by_name(name)
             self.add_weights(var)
 
@@ -566,7 +595,8 @@ class TFProcess:
     def conv_block(self, inputs, filter_size, input_channels, output_channels, name):
         W_conv = weight_variable(
             name,
-            [filter_size, filter_size, input_channels, output_channels])
+            [filter_size, filter_size, input_channels, output_channels],
+            self.model_dtype)
 
         self.add_weights(W_conv)
 
@@ -581,7 +611,8 @@ class TFProcess:
         orig = tf.identity(net)
 
         # First convnet weights
-        W_conv_1 = weight_variable(name + "_conv_1", [3, 3, channels, channels])
+        W_conv_1 = weight_variable(name + "_conv_1", [3, 3, channels, channels],
+                                   self.model_dtype)
         self.add_weights(W_conv_1)
 
         net = conv2d(net, W_conv_1)
@@ -589,7 +620,8 @@ class TFProcess:
         net = tf.nn.relu(net)
 
         # Second convnet weights
-        W_conv_2 = weight_variable(name + "_conv_2", [3, 3, channels, channels])
+        W_conv_2 = weight_variable(name + "_conv_2", [3, 3, channels, channels],
+                                   self.model_dtype)
         self.add_weights(W_conv_2)
 
         net = conv2d(net, W_conv_2)
@@ -627,23 +659,23 @@ class TFProcess:
         # in the case of policy dependent komi, append subjective komi
         if WEIGHTS_FILE_VER == "49":
             # layer 1 of komi policy
-            W_kpl1 = weight_variable("w_kpl_1",[POLICY_DENSE_INPUTS + 1, KOMI_POLICY_CHANS])
-            b_kpl1 = bias_variable("b_kpl_1",[KOMI_POLICY_CHANS])
+            W_kpl1 = weight_variable("w_kpl_1",[POLICY_DENSE_INPUTS + 1, KOMI_POLICY_CHANS], self.model_dtype)
+            b_kpl1 = bias_variable("b_kpl_1",[KOMI_POLICY_CHANS], self.model_dtype)
             self.add_weights(W_kpl1)
             self.add_weights(b_kpl1)
             h_kpl1 = tf.nn.relu(tf.add(tf.matmul(tf.concat([h_conv_pol_flat, x_komi], 1), W_kpl1), b_kpl1))
 
             # layer2 of komi policy
-            W_kpl2 = weight_variable("w_kpl_2",[KOMI_POLICY_CHANS, KOMI_POLICY_CHANS])
-            b_kpl2 = bias_variable("b_kpl_2",[KOMI_POLICY_CHANS])
+            W_kpl2 = weight_variable("w_kpl_2",[KOMI_POLICY_CHANS, KOMI_POLICY_CHANS], self.model_dtype)
+            b_kpl2 = bias_variable("b_kpl_2",[KOMI_POLICY_CHANS], self.model_dtype)
             self.add_weights(W_kpl2)
             self.add_weights(b_kpl2)
             h_kpl2 = tf.nn.relu(tf.add(tf.matmul(h_kpl1, W_kpl2), b_kpl2))
 
             h_conv_pol_flat = tf.concat([h_conv_pol_flat, h_kpl2], 1)
             POLICY_DENSE_INPUTS += KOMI_POLICY_CHANS
-        W_fc1 = weight_variable("w_fc_1",[POLICY_DENSE_INPUTS, BOARD_SQUARES + 1])
-        b_fc1 = bias_variable("b_fc_1",[BOARD_SQUARES + 1])
+        W_fc1 = weight_variable("w_fc_1",[POLICY_DENSE_INPUTS, BOARD_SQUARES + 1], self.model_dtype)
+        b_fc1 = bias_variable("b_fc_1",[BOARD_SQUARES + 1], self.model_dtype)
         self.add_weights(W_fc1)
         self.add_weights(b_fc1)
         h_fc1 = tf.add(tf.matmul(h_conv_pol_flat, W_fc1), b_fc1)
@@ -655,8 +687,8 @@ class TFProcess:
                                    name="value_head")
         h_conv_val_flat = tf.reshape(conv_val, [-1, VAL_OUTPUTS * BOARD_SQUARES])
 
-        W_fc2 = weight_variable("w_fc_2",[VAL_OUTPUTS * BOARD_SQUARES, VAL_CHANS])
-        b_fc2 = bias_variable("b_fc_2",[VAL_CHANS])
+        W_fc2 = weight_variable("w_fc_2",[VAL_OUTPUTS * BOARD_SQUARES, VAL_CHANS], self.model_dtype)
+        b_fc2 = bias_variable("b_fc_2",[VAL_CHANS], self.model_dtype)
         self.add_weights(W_fc2)
         self.add_weights(b_fc2)
         h_fc2 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc2), b_fc2))
@@ -666,8 +698,8 @@ class TFProcess:
         else:
             value_head_rets = 1
 
-        W_fc3 = weight_variable("w_fc_3",[VAL_CHANS, value_head_rets])
-        b_fc3 = bias_variable("b_fc_3",[value_head_rets])
+        W_fc3 = weight_variable("w_fc_3",[VAL_CHANS, value_head_rets], self.model_dtype)
+        b_fc3 = bias_variable("b_fc_3",[value_head_rets], self.model_dtype)
         self.add_weights(W_fc3)
         self.add_weights(b_fc3)
         h_fc3 = tf.add(tf.matmul(h_fc2, W_fc3), b_fc3)
@@ -684,8 +716,8 @@ class TFProcess:
             h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3[0], x_komi))) # correct? wrong?
 
         elif VALUE_HEAD_TYPE == DOUBLE_T:
-            W_fc5 = weight_variable("w_fc_5",[VAL_CHANS, 1])
-            b_fc5 = bias_variable("b_fc_5",[1])
+            W_fc5 = weight_variable("w_fc_5",[VAL_CHANS, 1], self.model_dtype)
+            b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
             self.add_weights(W_fc5)
             self.add_weights(b_fc5)
 
@@ -693,14 +725,14 @@ class TFProcess:
             h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
 
         elif VALUE_HEAD_TYPE == DOUBLE_Y:
-            W_fc4 = weight_variable([VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS])
-            b_fc4 = bias_variable([VBE_CHANS])
+            W_fc4 = weight_variable([VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
+            b_fc4 = bias_variable([VBE_CHANS], self.model_dtype)
             self.add_weights("w_fc_4",W_fc4)
             self.add_weights("b_fc_4",b_fc4)
             h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
 
-            W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1])
-            b_fc5 = bias_variable("b_fc_5",[1])
+            W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1], self.model_dtype)
+            b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
             self.add_weights(W_fc5)
             self.add_weights(b_fc5)
 
@@ -714,14 +746,14 @@ class TFProcess:
                                        name="vbe_head")
             h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, VBE_OUTPUTS * BOARD_SQUARES])
 
-            W_fc4 = weight_variable("w_fc_4",[VBE_OUTPUTS * BOARD_SQUARES, VBE_CHANS])
-            b_fc4 = bias_variable("b_fc_4",[VBE_CHANS])
+            W_fc4 = weight_variable("w_fc_4",[VBE_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
+            b_fc4 = bias_variable("b_fc_4",[VBE_CHANS], self.model_dtype)
             self.add_weights(W_fc4)
             self.add_weights(b_fc4)
             h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_vbe_flat, W_fc4), b_fc4))
 
-            W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1])
-            b_fc5 = bias_variable("b_fc_5",[1])
+            W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1], self.model_dtype)
+            b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
             self.add_weights(W_fc5)
             self.add_weights(b_fc5)
 
