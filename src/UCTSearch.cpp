@@ -54,8 +54,11 @@
 #include "Timing.h"
 #include "Training.h"
 #include "Utils.h"
-#include "Network.h"
+#ifdef USE_OPENCL
 #include "OpenCLScheduler.h"
+#endif
+
+#include "Network.h"
 
 using namespace Utils;
 
