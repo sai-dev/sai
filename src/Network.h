@@ -131,6 +131,7 @@ class Network
     size_t get_estimated_size();
     size_t get_estimated_cache_size();
     void nncache_resize(int max_count);
+    void nncache_clear();
 
     int m_value_head_type = SINGLE;
     bool m_value_head_sai; // was is_multi_komi_net
