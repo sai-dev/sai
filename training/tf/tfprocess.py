@@ -113,10 +113,10 @@ class Timer:
         return e
 
 class TFProcess:
-    def __init__(self):
+    def __init__(self, residual_blocks, residual_filters):
         # Network structure
-        self.RESIDUAL_FILTERS = RESIDUAL_FILTERS
-        self.RESIDUAL_BLOCKS = RESIDUAL_BLOCKS
+        self.residual_blocks = residual_blocks
+        self.residual_filters = residual_filters
 
         # model type: full precision (fp32) or mixed precision (fp16)
         self.model_dtype = tf.float32
@@ -640,17 +640,17 @@ class TFProcess:
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
                                input_channels=17+INPUT_STM,
-                               output_channels=self.RESIDUAL_FILTERS,
+                               output_channels=self.residual_filters,
                                name="first_conv")
         # Residual tower
-        for i in range(0, self.RESIDUAL_BLOCKS):
+        for i in range(0, self.residual_blocks):
             block_name = "res_" + str(i)
-            flow = self.residual_block(flow, self.RESIDUAL_FILTERS,
+            flow = self.residual_block(flow, self.residual_filters,
                                        name=block_name)
 
         # Policy head
         conv_pol = self.conv_block(flow, filter_size=1,
-                                   input_channels=self.RESIDUAL_FILTERS,
+                                   input_channels=self.residual_filters,
                                    output_channels=POLICY_OUTPUTS,
                                    name="policy_head")
         h_conv_pol_flat = tf.reshape(conv_pol, [-1, POLICY_OUTPUTS * BOARD_SQUARES])
@@ -682,7 +682,7 @@ class TFProcess:
 
         # Value head - alpha
         conv_val = self.conv_block(flow, filter_size=1,
-                                   input_channels=self.RESIDUAL_FILTERS,
+                                   input_channels=self.residual_filters,
                                    output_channels=VAL_OUTPUTS,
                                    name="value_head")
         h_conv_val_flat = tf.reshape(conv_val, [-1, VAL_OUTPUTS * BOARD_SQUARES])
@@ -741,7 +741,7 @@ class TFProcess:
 
         elif VALUE_HEAD_TYPE == DOUBLE_V:
             conv_vbe = self.conv_block(flow, filter_size=1,
-                                       input_channels=self.RESIDUAL_FILTERS,
+                                       input_channels=self.residual_filters,
                                        output_channels=VBE_OUTPUTS,
                                        name="vbe_head")
             h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, VBE_OUTPUTS * BOARD_SQUARES])
@@ -828,21 +828,21 @@ def gen_block(size, f_in, f_out):
 
 class TFProcessTest(unittest.TestCase):
     def test_can_replace_weights(self):
-        tfprocess = TFProcess()
+        tfprocess = TFProcess(6, 128)
         tfprocess.init(batch_size=1)
         # use known data to test replace_weights() works.
-        data = gen_block(3, 18, tfprocess.RESIDUAL_FILTERS) # input conv
-        for _ in range(tfprocess.RESIDUAL_BLOCKS):
+        data = gen_block(3, 18, tfprocess.residual_filters) # input conv
+        for _ in range(tfprocess.residual_blocks):
             data.extend(gen_block(3,
-                tfprocess.RESIDUAL_FILTERS, tfprocess.RESIDUAL_FILTERS))
+                tfprocess.residual_filters, tfprocess.residual_filters))
             data.extend(gen_block(3,
-                tfprocess.RESIDUAL_FILTERS, tfprocess.RESIDUAL_FILTERS))
+                tfprocess.residual_filters, tfprocess.residual_filters))
         # policy
-        data.extend(gen_block(1, tfprocess.RESIDUAL_FILTERS, 2))
+        data.extend(gen_block(1, tfprocess.residual_filters, 2))
         data.append([0.4] * 2*BOARD_SQUARES * (BOARD_SQUARES+1))
         data.append([0.5] * (BOARD_SQUARES+1))
         # value
-        data.extend(gen_block(1, tfprocess.RESIDUAL_FILTERS, 1))
+        data.extend(gen_block(1, tfprocess.residual_filters, 1))
         data.append([0.6] * BOARD_SQUARES * 256)
         data.append([0.7] * 256)
         data.append([0.8] * 256)
