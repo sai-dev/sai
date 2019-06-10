@@ -181,10 +181,10 @@ class TFProcess:
 
         if gpus_num is None:
             gpus_num = self.gpus_num
-        self.init_net(planes, probs, winner, gpus_num)
+        self.init_net(planes, probs, komi, winner, gpus_num)
 
     def init_net(self, planes, probs, komi, winner, gpus_num):
-        self.y_ = probs   # (tf.float32, [None, 362])
+        self.y_ = probs  # (tf.float32, [None, BOARD_SQUARE + 1])
         self.sx = tf.split(planes, gpus_num)
         self.sk = tf.split(komi, gpus_num)     # (tf.float32, [None, 1])
         self.sy_ = tf.split(probs, gpus_num)
@@ -213,7 +213,7 @@ class TFProcess:
                 with tf.device("/gpu:%d" % i):
                     with tf.name_scope("tower_%d" % i):
                         loss, policy_loss, mse_loss, reg_term, y_conv = self.tower_loss(
-                            self.sx[i], self.sy_[i], self.sz_[i])
+                            self.sx[i], self.sk[i], self.sy_[i], self.sz_[i])
 
                         # Reset batchnorm key to 0.
                         self.reset_batchnorm_key()
@@ -259,32 +259,7 @@ class TFProcess:
                 self.swa_accum_op = tf.assign_add(n, 1.)
             self.swa_load_op = tf.group(*load)
 
-        # Calculate loss on policy head
-        cross_entropy = \
-            tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.y_,
-                                                    logits=self.y_conv)
-        self.policy_loss = tf.reduce_mean(cross_entropy)
-
-        # Loss on value head
-        self.mse_loss = \
-            tf.reduce_mean(tf.squared_difference(self.z_, self.z_conv))
-
-        # Regularizer
-        regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
-        reg_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
-        self.reg_term = \
-            tf.contrib.layers.apply_regularization(regularizer, reg_variables)
-
-        # For training from a (smaller) dataset of strong players, you will
-        # want to reduce the factor in front of self.mse_loss here.
-        self.loss = 1.0 * self.policy_loss + 0.7 * self.mse_loss + self.reg_term
-
-        # You need to change the learning rate here if you are training
-        # from a self-play training set, for example start with 0.005 instead.
-        opt = tf.train.MomentumOptimizer(
-            learning_rate=LEARN_RATE, momentum=0.9, use_nesterov=True)
-
-        # Compute and accumulate gradients
+        # Accumulate gradients
         self.update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         total_grad=[]
         grad_ops=[]
@@ -353,8 +328,8 @@ class TFProcess:
             average_grads.append(grad_and_var)
         return average_grads
 
-    def tower_loss(self, x, y_, z_):
-        y_conv, z_conv = self.construct_net(x)
+    def tower_loss(self, x, komi, y_, z_):
+        y_conv, z_conv = self.construct_net(x, komi)
 
         # Cast the nn result back to fp32 to avoid loss overflow/underflow
         if self.model_dtype != tf.float32:
@@ -378,7 +353,7 @@ class TFProcess:
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
-        loss = 1.0 * policy_loss + 1.0 * mse_loss + reg_term
+        loss = 1.0 * policy_loss + 0.7 * mse_loss + reg_term
 
         return loss, policy_loss, mse_loss, reg_term, y_conv
 
@@ -725,10 +700,10 @@ class TFProcess:
             h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
 
         elif VALUE_HEAD_TYPE == DOUBLE_Y:
-            W_fc4 = weight_variable([VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
-            b_fc4 = bias_variable([VBE_CHANS], self.model_dtype)
-            self.add_weights("w_fc_4",W_fc4)
-            self.add_weights("b_fc_4",b_fc4)
+            W_fc4 = weight_variable("w_fc_4",[VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
+            b_fc4 = bias_variable("b_fc_4",[VBE_CHANS], self.model_dtype)
+            self.add_weights(W_fc4)
+            self.add_weights(b_fc4)
             h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
 
             W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1], self.model_dtype)
@@ -810,7 +785,7 @@ class TFProcess:
                 self.session.run(
                     [self.loss, self.update_ops],
                     feed_dict={self.training: True,
-                               self.planes: batch[0], self.probs: batch[1], # here!
+                               self.planes: batch[0], self.probs: batch[1],
                                self.winner: batch[2]})
 
         self.save_leelaz_weights(swa_path)

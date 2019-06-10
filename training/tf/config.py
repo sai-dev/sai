@@ -34,7 +34,7 @@ BATCH_SIZE = 512
 RAM_BATCH_SIZE = 128
 
 # Memory allocation
-GPU_MEM_FRACTION = 0.4
+GPU_MEM_FRACTION = 0.6
 
 # 20 bit should be about 2.2GB of RAM on 19x19 and 0.5GB on 9x9
 # Formula is M*S*(16/8+4) with M the shuffle buffer size, S the board
@@ -47,8 +47,8 @@ GPU_MEM_FRACTION = 0.4
 # In the case of "moving window" training set it is also reasonable to
 # reduce more and up to a factor equal to the number of times each chunk
 # enters a training.
-TRAIN_SHUFFLE_BITS=14
-TEST_SHUFFLE_BITS=12
+TRAIN_SHUFFLE_BITS=20
+TEST_SHUFFLE_BITS=17
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 # This should be between 2 and 4 times the ratio of N to M.
@@ -81,13 +81,13 @@ VAL_CHANS = 384
 VBE_CHANS = 256 # only for double W and Y
 
 # Learning rate
-LEARN_RATE = 0.0005
+LEARN_RATE = 0.00005
 
 # Outputs new network after the specified number of training steps
-TRAINING_STEPS = 2000
+TRAINING_STEPS = 4000
 
 # Display intermediate output after the specified number of training steps
-INFO_STEPS = 500
+INFO_STEPS = 1000
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 16000
+MAX_TRAINING_STEPS = 40000
