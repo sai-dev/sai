@@ -51,10 +51,10 @@ std::tuple<float,float,float,float,float> GameState::get_eval() const {
 }
 
 void GameState::set_eval(float alpkt,
-		       float beta,
-		       float pi,
-		       float avg_eval,
-		       float eval_bonus,
+                       float beta,
+                       float pi,
+                       float avg_eval,
+                       float eval_bonus,
                float eval_base) {
     KoState::set_eval(alpkt, beta, pi, avg_eval, eval_bonus, eval_base);
 }
@@ -346,16 +346,16 @@ std::shared_ptr<const KoState> GameState::get_past_state(int moves_ago) const {
 // }
 
 std::string GameState::eval_comment() const {
-	const auto ev = get_eval();
+        const auto ev = get_eval();
         auto comstr = std::stringstream{};
-	comstr << std::setprecision(3)
-	       << std::get<0>(ev) << ", " // alpkt
-	       << std::get<1>(ev) << ", " // beta
-	       << std::get<2>(ev) << ", " // pi
-	       << std::get<3>(ev) << ", " // avg_eval
-	       << std::get<4>(ev); // eval_bonus
+        comstr << std::setprecision(3)
+               << std::get<0>(ev) << ", " // alpkt
+               << std::get<1>(ev) << ", " // beta
+               << std::get<2>(ev) << ", " // pi
+               << std::get<3>(ev) << ", " // avg_eval
+               << std::get<4>(ev); // eval_bonus
 
-	return comstr.str();
+        return comstr.str();
 }
 
 const std::vector<std::shared_ptr<const KoState>>& GameState::get_game_history() const {

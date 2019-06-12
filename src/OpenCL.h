@@ -156,21 +156,21 @@ public:
             const int batch_size = 1);
 
     std::tuple<size_t,size_t,size_t,size_t> get_output_sizes() const {
-	const size_t input_planes = m_layers[0].channels;
-	size_t vbe_outputs = 0;
-	auto policy_conv_layer = get_layer_count() - 3;
+        const size_t input_planes = m_layers[0].channels;
+        size_t vbe_outputs = 0;
+        auto policy_conv_layer = get_layer_count() - 3;
 
-	if (m_layers[policy_conv_layer].is_convolve1) {
-	    vbe_outputs = m_layers[policy_conv_layer+2].outputs;
-	} else {
-	    policy_conv_layer++;
-	}
+        if (m_layers[policy_conv_layer].is_convolve1) {
+            vbe_outputs = m_layers[policy_conv_layer+2].outputs;
+        } else {
+            policy_conv_layer++;
+        }
 
-	const size_t policy_outputs = m_layers[policy_conv_layer].outputs;
-	const size_t val_outputs = m_layers[policy_conv_layer + 1].outputs;
+        const size_t policy_outputs = m_layers[policy_conv_layer].outputs;
+        const size_t val_outputs = m_layers[policy_conv_layer + 1].outputs;
 
-	return std::make_tuple(input_planes, policy_outputs,
-			       val_outputs, vbe_outputs);
+        return std::make_tuple(input_planes, policy_outputs,
+                               val_outputs, vbe_outputs);
     }
 
 private:

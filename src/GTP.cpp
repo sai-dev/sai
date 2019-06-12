@@ -885,21 +885,21 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         do {
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
 #ifndef NDEBUG
-	    if (game.is_blunder()) {
-		blunders++;
-		last=movenum;
-	    }
+            if (game.is_blunder()) {
+                blunders++;
+                last=movenum;
+            }
 #endif
             game.play_move(move);
             game.display_state();
 #ifndef NDEBUG
-	    movenum = game.get_movenum();
+            movenum = game.get_movenum();
 #endif
         } while (game.get_passes() < 2 && !game.has_resigned());
 #ifndef NDEBUG
-	myprintf("Game ended. There where %u blunders in a total of %u moves.\n"
-		 "The last blunder was on move %u, for %u training moves available.\n",
-		 blunders, movenum, last, movenum-last);
+        myprintf("Game ended. There where %u blunders in a total of %u moves.\n"
+                 "The last blunder was on move %u, for %u training moves available.\n",
+                 blunders, movenum, last, movenum-last);
 #endif
         return;
     } else if (command.find("go") == 0 && command.size() < 6) {
@@ -909,9 +909,9 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         std::string vertex = game.move_to_text(move);
         myprintf("%s", vertex.c_str());
 #ifndef NDEBUG
-	if (game.is_blunder()) {
-	    myprintf("       --- a blunder");
-	}
+        if (game.is_blunder()) {
+            myprintf("       --- a blunder");
+        }
 #endif
         myprintf("\n");
         return;

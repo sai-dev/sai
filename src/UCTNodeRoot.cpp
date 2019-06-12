@@ -177,32 +177,32 @@ std::tuple<bool,std::vector<int>>
         blunder_vector.push_back(child_is_blunder);
         if (!child_is_blunder) {
             non_blunders.push_back(child->get_move());
-	}
+        }
 
 #ifndef NDEBUG
         // myprintf("--> %d. blunder? %s, drop=%f, "
-        // 	     "accum=%f <--\n",
-        // 	     accum_vector.size()-1,
-        // 	     child_is_blunder ? "yes" : "no",
-        // 	     first_child_eval - child->get_eval(color),
-        // 	     accum);
+        //           "accum=%f <--\n",
+        //           accum_vector.size()-1,
+        //           child_is_blunder ? "yes" : "no",
+        //           first_child_eval - child->get_eval(color),
+        //           accum);
 #endif
     }
 
 #ifndef NDEBUG
     if (is_blunder_allowed) {
-	myprintf("Rnd_first: blunders still allowed. "
-		 "Choice between %d moves with %d blunders.\n",
-		 accum_vector.size(),
+        myprintf("Rnd_first: blunders still allowed. "
+                 "Choice between %d moves with %d blunders.\n",
+                 accum_vector.size(),
                  accum_vector.size() - non_blunders.size());
     } else {
         // here we use that non-allowed moves do not increment accum
         auto tmp = accum_vector;
         auto allowed_moves = std::unique( begin(tmp), end(tmp) ) - begin(tmp);
-	myprintf("Rnd_first: blunders NOT allowed. "
-		 "Choice between %d good of %d possible moves.\n",
-		 allowed_moves,
-		 accum_vector.size());
+        myprintf("Rnd_first: blunders NOT allowed. "
+                 "Choice between %d good of %d possible moves.\n",
+                 allowed_moves,
+                 accum_vector.size());
     }
 #endif
 
@@ -220,7 +220,7 @@ std::tuple<bool,std::vector<int>>
 #ifndef NDEBUG
     myprintf("Accum=%f, pick=%f, index=%d.\n", accum, pick, index);
     myprintf("Winrate=%.2f and winrate0=%.2f, move is %s\n",
-	     100.0f * m_children[index]->get_eval(color),
+             100.0f * m_children[index]->get_eval(color),
              100.0f * first_child_eval,
              (blunder_vector[index] ? "blunder" : "ok") );
 #endif
@@ -281,9 +281,9 @@ void UCTNode::prepare_root_node(Network & network, int color,
         create_children(network, nodes, root_state, root_value, root_alpkt, root_beta);
     }
     if (has_children() && !had_children) {
-	    // blackevals is useless here because root nodes are never
-	   // evaluated, nevertheless the number of visits must be updated
-	    update(0);
+            // blackevals is useless here because root nodes are never
+           // evaluated, nevertheless the number of visits must be updated
+            update(0);
     }
 
     //    root_eval = get_net_eval(color);

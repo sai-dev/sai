@@ -49,7 +49,7 @@ public:
     void play_move(int vertex);
     std::tuple<float,float,float,float,float> get_eval() const;
     void set_eval(float alpkt, float beta, float pi,
-		  float avg_eval, float eval_bonus, float eval_base);
+                  float avg_eval, float eval_bonus, float eval_base);
 private:
     std::vector<std::uint64_t> m_ko_hash_history;
     float m_alpkt = 0.0f;

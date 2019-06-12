@@ -505,14 +505,14 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     const auto allowed_blunders = state->get_allowed_blunders();
 
     while (state->forward_move()) {
-	if (counter == 0) {
-	    initial_eval = state->eval_comment();
-	} else {
-	    moves.append("C[" + state->eval_comment()
-			 + ", " + std::to_string(prev_blunder) + "]");
-	}
-	prev_blunder = state->is_blunder();
-	int move = state->get_last_move();
+        if (counter == 0) {
+            initial_eval = state->eval_comment();
+        } else {
+            moves.append("C[" + state->eval_comment()
+                         + ", " + std::to_string(prev_blunder) + "]");
+        }
+        prev_blunder = state->is_blunder();
+        int move = state->get_last_move();
         assert(move != FastBoard::RESIGN);
         std::string movestr = state->board.move_to_text_sgf(move);
         if (state->board.black_to_move()) {
@@ -525,7 +525,7 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         }
     }
     moves.append("C[" + state->eval_comment()
-		 + ", " + std::to_string(prev_blunder) + "]");
+                 + ", " + std::to_string(prev_blunder) + "]");
 
     if (!state->has_resigned()) {
         float score = state->final_score();
@@ -546,12 +546,12 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     }
 
     header.append("\nC[" + std::string{PROGRAM_NAME} + " options:"
-		  + cfg_options_str);
+                  + cfg_options_str);
     if (cfg_blunder_thr < 1.0f) {
-	const auto remaining_blunders = state->get_allowed_blunders();
-	header.append(", blunders allowed: " + std::to_string(allowed_blunders));
-	header.append(", blunders played: " +
-		      std::to_string(allowed_blunders - remaining_blunders));
+        const auto remaining_blunders = state->get_allowed_blunders();
+        header.append(", blunders allowed: " + std::to_string(allowed_blunders));
+        header.append(", blunders played: " +
+                      std::to_string(allowed_blunders - remaining_blunders));
     }
     header.append(", " + initial_eval + "]");
 

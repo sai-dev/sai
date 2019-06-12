@@ -372,7 +372,7 @@ void OpenCLScheduler<net_t>::batch_worker(const size_t gnum) {
     size_t vbe_outputs;
 
     std::tie(input_planes, policy_outputs, val_outputs, vbe_outputs)
-	= m_networks[gnum]->get_output_sizes();
+        = m_networks[gnum]->get_output_sizes();
 
     const auto in_size = input_planes * NUM_INTERSECTIONS;
     const auto out_pol_size = policy_outputs * NUM_INTERSECTIONS;
@@ -417,12 +417,12 @@ void OpenCLScheduler<net_t>::batch_worker(const size_t gnum) {
             std::copy(begin(batch_output_val) + out_val_size * index,
                       begin(batch_output_val) + out_val_size * (index + 1),
                       begin(x->out_va));
-	    if (out_vbe_size > 0) {
-		std::copy(begin(batch_output_vbe) + out_vbe_size * index,
-			  begin(batch_output_vbe) + out_vbe_size * (index + 1),
-			  begin(x->out_vb));
-	    }
-	    x->cv.notify_all();
+            if (out_vbe_size > 0) {
+                std::copy(begin(batch_output_vbe) + out_vbe_size * index,
+                          begin(batch_output_vbe) + out_vbe_size * (index + 1),
+                          begin(x->out_vb));
+            }
+            x->cv.notify_all();
             index++;
         }
 

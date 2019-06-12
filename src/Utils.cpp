@@ -216,17 +216,17 @@ size_t Utils::ceilMultiple(size_t a, size_t b) {
 
 float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
     if (s>t) {
-	std::swap(s,t);
+        std::swap(s,t);
     }
     const auto h = beta * (t - s);
 
     if (h < 0.001f) {
-	return sigmoid(alpkt,beta,(s+t)/2).first;
+        return sigmoid(alpkt,beta,(s+t)/2).first;
     }
 
     #ifndef NDEBUG
     if (std::abs(s) + std::abs(t) > 2000.0f) {
-	myprintf("Warning: integration interval out of bound: [%f,%f].\n", s, t);
+        myprintf("Warning: integration interval out of bound: [%f,%f].\n", s, t);
     }
     #endif
 
@@ -234,15 +234,15 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
     const auto b = std::abs(alpkt+t);
 
     const auto main_term = (alpkt+s)*(alpkt+t) > 0 ?
-	( alpkt+s > 0 ? 1.0f : 0.0f ) :
-	0.5f + 0.5f*(b-a)/(t-s);
+        ( alpkt+s > 0 ? 1.0f : 0.0f ) :
+        0.5f + 0.5f*(b-a)/(t-s);
 
     const auto aa = log_sigmoid(a*beta) / h;
     const auto bb = log_sigmoid(b*beta) / h;
 
     //    myprintf("integral: alpkt=%f, beta=%f, s=%f, t=%f\n"
-    //	     "h=%f, a=%f, b=%f, main_term=%f, aa=%f, bb=%f\n",
-    //	     alpkt, beta, s, t, h, a, b, main_term, aa, bb);
+    //       "h=%f, a=%f, b=%f, main_term=%f, aa=%f, bb=%f\n",
+    //       alpkt, beta, s, t, h, a, b, main_term, aa, bb);
     return main_term - bb + aa;
 }
 

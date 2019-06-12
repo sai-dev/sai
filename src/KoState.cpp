@@ -82,11 +82,11 @@ std::tuple<float,float,float,float,float> KoState::get_eval() const {
 }
 
 void KoState::set_eval(float alpkt,
-		       float beta,
-		       float pi,
-		       float avg_eval,
-		       float eval_bonus,
-		       float eval_base) {
+                       float beta,
+                       float pi,
+                       float avg_eval,
+                       float eval_bonus,
+                       float eval_base) {
     m_alpkt = alpkt;
     m_beta = beta;
     m_pi = pi;

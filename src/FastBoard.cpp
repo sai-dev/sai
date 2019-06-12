@@ -209,10 +209,10 @@ int FastBoard::liberties_to_capture(int vtx) const {
     short unsigned int minlibs = 9;
     for (int k = 0; k < 4; k++) {
         int ai = vtx + m_dirs[k];
-	const auto libs = m_libs[m_parent[ai]];
-	if (libs < minlibs) {
-	    minlibs = libs;
-	}
+        const auto libs = m_libs[m_parent[ai]];
+        if (libs < minlibs) {
+            minlibs = libs;
+        }
     }
     return minlibs;
 }

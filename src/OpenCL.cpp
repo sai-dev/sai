@@ -216,7 +216,7 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
             opencl_context.m_pinnedOutBuffer_vbe = cl::Buffer(
                 m_opencl.m_context,
                 CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, getOpenCL().m_batch_size * finalSize_vbe);
-	    }
+            }
 
         opencl_context.m_buffers_allocated = true;
     }

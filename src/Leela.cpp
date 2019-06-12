@@ -211,12 +211,12 @@ static void parse_commandline(int argc, char *argv[]) {
             po::value<float>()->default_value(cfg_random_temp),
             "Temperature to use for random move selection.")
         ("blunderthr",
-	    po::value<float>()->default_value(cfg_blunder_thr),
-	    "Moves with winrate drop higher than this, are blunders. "
-	    "Don't save training data for moves before last blunder.")
+            po::value<float>()->default_value(cfg_blunder_thr),
+            "Moves with winrate drop higher than this, are blunders. "
+            "Don't save training data for moves before last blunder.")
         ("blunder_maxavg",
-	    po::value<float>()->default_value(cfg_blunder_rndmax_avg),
-	    "Blunders number is bounded by a Poisson r.v. with this mean.")
+            po::value<float>()->default_value(cfg_blunder_rndmax_avg),
+            "Blunders number is bounded by a Poisson r.v. with this mean.")
         ("recordvisits", "Don't normalize visits to probabilities "
          "when writing training info.")
         ;
@@ -230,7 +230,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("softmax_temp", po::value<float>())
         ("fpu_reduction", po::value<float>())
         ("fpu_zero", "Use constant fpu=0.0 (AlphaGoZero). "
-	 "The default is reduced parent's value (LeelaZero).")
+         "The default is reduced parent's value (LeelaZero).")
         ("adv_features", "Include advanced features (legal moves, "
          "last liberty intersections) when saving training data. Shorten "
          "history from 8 past moves to last 4.")
@@ -325,7 +325,7 @@ static void parse_commandline(int argc, char *argv[]) {
         cfg_fpuzero = true;
     }
     if (vm.count("adv_features")) {
-	cfg_adv_features  = true;
+        cfg_adv_features  = true;
     }
     if (vm.count("ci_alpha")) {
         cfg_ci_alpha = vm["ci_alpha"].as<float>();

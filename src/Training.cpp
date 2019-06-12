@@ -153,10 +153,10 @@ void Training::clear_training() {
 
 TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
     const auto input_data =
-	Network::gather_features(state, 0,
-				 cfg_adv_features ? Network::REDUCED_INPUT_MOVES :
-				 Network::DEFAULT_INPUT_MOVES,
-				 cfg_adv_features, false);
+        Network::gather_features(state, 0,
+                                 cfg_adv_features ? Network::REDUCED_INPUT_MOVES :
+                                 Network::DEFAULT_INPUT_MOVES,
+                                 cfg_adv_features, false);
     auto planes = TimeStep::NNPlanes{};
 
     // for now the number of planes coding the position is always 16,
@@ -164,7 +164,7 @@ TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
     // depending on advanced features) times a number of moves in
     // recorded history (8 or 4 depending on advanced features)
     const auto moves_planes = (2 + (cfg_adv_features ? 2 : 0))
-	* (cfg_adv_features ? Network::REDUCED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
+        * (cfg_adv_features ? Network::REDUCED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
     planes.resize(moves_planes);
 
     for (auto c = size_t{0}; c < moves_planes; c++) {
@@ -186,7 +186,7 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     step.komi = komi;
     step.is_blunder = state.is_blunder();
     step.net_winrate = sigmoid(result.alpha, result.beta,
-			                   state.board.black_to_move() ? -komi : komi).first;
+                                           state.board.black_to_move() ? -komi : komi).first;
     //    step.net_winrate = result.winrate;
 
     const auto& best_node = root.get_best_root_child(step.to_move);
@@ -253,14 +253,14 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     auto training_str = std::string{};
 
     if (m_data.size()==0) {
-	return;
+        return;
     }
 
     auto it = m_data.end()-1;
     for ( ; it!=m_data.begin() ; --it ) {
-	if (it->is_blunder) {
-	    break;
-	}
+        if (it->is_blunder) {
+            break;
+        }
     }
 
     for ( ; it!=m_data.end() ; ++it ) {
@@ -285,8 +285,8 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         // The side to move planes can be compactly encoded into a single
         // bit, 0 = black to move.
         out << (it->to_move == FastBoard::BLACK ? "0" : "1")
-	    << " " << it->komi
-	    << std::endl;
+            << " " << it->komi
+            << std::endl;
         // Then a POTENTIAL_MOVES long array of float probabilities
         for (auto its = begin(it->probabilities);
             its != end(it->probabilities); ++its) {

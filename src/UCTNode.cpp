@@ -64,9 +64,9 @@ bool UCTNode::first_visit() const {
 bool UCTNode::create_children(Network & network,
                               std::atomic<int>& nodecount,
                               GameState& state,
-			                  float& value,
+                                          float& value,
                               float& alpkt,
-			                  float& beta,
+                                          float& beta,
                               float min_psa_ratio) {
 
     // no successors in final state
@@ -94,7 +94,7 @@ bool UCTNode::create_children(Network & network,
     // our search functions evaluate from black's point of view
 
     if (network.m_value_head_sai) {
-	m_net_beta = beta = raw_netlist.beta;
+        m_net_beta = beta = raw_netlist.beta;
         const auto result_extended = Network::get_extended(state, raw_netlist);
         m_net_alpkt = alpkt = result_extended.alpkt;
         m_eval_bonus = result_extended.eval_bonus;
@@ -102,22 +102,22 @@ bool UCTNode::create_children(Network & network,
         m_agent_eval = result_extended.agent_eval;
         m_net_eval = result_extended.pi;
 
-	if (to_move == FastBoard::WHITE) {
-	    stm_eval = 1.0f - m_agent_eval;
-	} else {
-	    stm_eval = m_agent_eval;
-	}
+        if (to_move == FastBoard::WHITE) {
+            stm_eval = 1.0f - m_agent_eval;
+        } else {
+            stm_eval = m_agent_eval;
+        }
     } else {
-	m_net_beta = beta = 1.0f;
+        m_net_beta = beta = 1.0f;
         m_net_alpkt = alpkt = -state.get_komi();
         m_eval_bonus = 0.0f;
         m_eval_base = 0.0f;
 
-	if (to_move == FastBoard::WHITE) {
-	    value = 1.0f - stm_eval;
-	} else {
-	    value = stm_eval;
-	}
+        if (to_move == FastBoard::WHITE) {
+            value = 1.0f - stm_eval;
+        } else {
+            value = stm_eval;
+        }
         m_net_eval = value;
         m_agent_eval = value;
     }
@@ -187,10 +187,10 @@ bool UCTNode::create_children(Network & network,
     }
 
     if (allow_pass) {
-	const auto warm_pass_policy = std::pow(raw_netlist.policy_pass,
+        const auto warm_pass_policy = std::pow(raw_netlist.policy_pass,
                                            1.0f/cfg_policy_temp);
-	nodelist.emplace_back(warm_pass_policy, FastBoard::PASS);
-	legal_sum += warm_pass_policy;
+        nodelist.emplace_back(warm_pass_policy, FastBoard::PASS);
+        legal_sum += warm_pass_policy;
     }
 
     if (legal_sum > std::numeric_limits<float>::min()) {
@@ -566,11 +566,11 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             best_value = value;
             best = &child;
 #ifndef NDEBUG
-	    b_psa = psa;
-	    b_q = winrate;
-	    b_denom = denom;
+            b_psa = psa;
+            b_q = winrate;
+            b_denom = denom;
 #endif
-	}
+        }
     }
 
     assert(best != nullptr);
@@ -585,11 +585,11 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     //   const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) *
     //             currstate.final_score();
     //   myprintf("\nUCT selected PASS. Passes %d, color %d, score %f, winrate %f, visits %d\n",
-    // 	       currstate.get_passes(),
-    // 	       color,
-    // 	       score,
-    // 	       Utils::winner(score),
-    // 	       best->get()->get_visits());
+    //         currstate.get_passes(),
+    //         color,
+    //         score,
+    //         Utils::winner(score),
+    //         best->get()->get_visits());
     //    }
 #endif
     return best->get();

@@ -267,14 +267,14 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                 myprintf(": TT (score) %.3f\n", score);
 #endif
 #ifdef USE_EVALCMD
-		if (node->get_progid() != -1) {
-		    node->set_progid(m_nodecounter++);
-		}
+                if (node->get_progid() != -1) {
+                    node->set_progid(m_nodecounter++);
+                }
 #endif
             }
         } else {
-	        float value, alpkt, beta;
-	        const auto had_children = node->has_children();
+                float value, alpkt, beta;
+                const auto had_children = node->has_children();
             const auto success =
                 node->create_children(m_network, m_nodes, currstate, value, alpkt, beta,
                                       get_min_psa_ratio());
@@ -329,8 +329,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     }
 
     if (result.valid()) {
-	    const auto eval = m_network.m_value_head_sai ?
-	        result.eval_with_bonus(node->get_eval_bonus_father(),
+            const auto eval = m_network.m_value_head_sai ?
+                result.eval_with_bonus(node->get_eval_bonus_father(),
                                    node->get_eval_base_father()) : result.eval();
         node->update(eval);
         if (m_stopping_visits >= 1 && m_stopping_moves.size() >= 1) {
@@ -375,26 +375,26 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         auto tmpstate = FastState{state};
         tmpstate.play_move(node->get_move());
         auto pv = move + " " + get_pv(tmpstate, *node);
-	
+        
 #ifdef NDEBUG
-	myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
-		 move.c_str(),
+        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+                 move.c_str(),
                  node->get_visits(),
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
-		 std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
+                 std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
                  node->get_policy() * 100.0f,
                  pv.c_str());
 #else
-	myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %.2f, den: %d) "
-		 "(V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+        myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %.2f, den: %d) "
+                 "(V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
                  move.c_str(),
                  node->get_visits(),
                  node->get_urgency()[0] * 100.0f,
                  node->get_urgency()[2] * 100.0f,
-		 node->get_urgency()[4],
-		 int(node->get_urgency()[3]),
+                 node->get_urgency()[4],
+                 int(node->get_urgency()[3]),
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
-		 std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
+                 std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
                  node->get_policy() * 100.0f,
                  pv.c_str());
 #endif
@@ -588,14 +588,14 @@ int UCTSearch::get_best_move(passflag_t passflag) {
         }
         m_rootstate.set_non_blunders(non_blunders);
 
-	if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
-	    myprintf("Random move would lead to immediate resignation... \n"
-		     "Reverting to best move.\n");
-	    m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
-	}
+        if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
+            myprintf("Random move would lead to immediate resignation... \n"
+                     "Reverting to best move.\n");
+            m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
+        }
     } else {
-	std::vector<int> non_blunders{m_root->get_first_child()->get_move()};
-	m_rootstate.set_non_blunders(non_blunders);
+        std::vector<int> non_blunders{m_root->get_first_child()->get_move()};
+        m_rootstate.set_non_blunders(non_blunders);
     }
 
     auto first_child = m_root->get_first_child();
@@ -877,13 +877,13 @@ void UCTSearch::print_move_choices_by_policy(KoState & state, UCTNode & parent, 
     float policy_value_of_move = 1.0f;
     for (const auto& node : parent.get_children()) {
         if (++movecount > at_least_as_many && policy_value_of_move<probab_threash)
-	    break;
+            break;
 
         policy_value_of_move = node.get_policy();
         std::string tmp = state.move_to_text(node.get_move());
         myprintf("%4s %4.1f",
-		 tmp.c_str(),
-		 policy_value_of_move * 100.0f);
+                 tmp.c_str(),
+                 policy_value_of_move * 100.0f);
     }
     myprintf("\n");
 }
@@ -912,9 +912,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
     m_root->prepare_root_node(m_network, color, m_nodes, m_rootstate);
 
     if (m_rootstate.get_movenum() < static_cast<size_t>(cfg_random_cnt)) {
-	m_per_node_maxvisits = static_cast<int>((1.0 - cfg_noise_weight) * m_maxvisits);
+        m_per_node_maxvisits = static_cast<int>((1.0 - cfg_noise_weight) * m_maxvisits);
     } else {
-	m_per_node_maxvisits = 0;
+        m_per_node_maxvisits = 0;
     }
 
 #ifndef NDEBUG
@@ -939,7 +939,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
         auto result = play_simulation(*currstate, m_root.get());
         if (result.valid()) {
-	  increment_playouts();
+          increment_playouts();
         }
 
         Time elapsed;
@@ -959,9 +959,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
         }
         keeprunning  = is_running();
         keeprunning &= !stop_thinking(elapsed_centis, time_for_move);
-	if (m_per_node_maxvisits == 0) {
-	    keeprunning &= have_alternate_moves(elapsed_centis, time_for_move);
-	}
+        if (m_per_node_maxvisits == 0) {
+            keeprunning &= have_alternate_moves(elapsed_centis, time_for_move);
+        }
     } while (keeprunning);
 
     // Make sure to post at least once.
@@ -1029,19 +1029,19 @@ int UCTSearch::think(int color, passflag_t passflag) {
     const auto alpkt = m_root->get_net_alpkt();
     const auto beta = m_root->get_net_beta();
     m_rootstate.set_eval(alpkt, beta,
-			 sigmoid(alpkt, beta, 0.0f).first,
-			 m_root->get_eval(FastBoard::BLACK),
-			 m_root->get_eval_bonus(),
-			 m_root->get_eval_base());
+                         sigmoid(alpkt, beta, 0.0f).first,
+                         m_root->get_eval(FastBoard::BLACK),
+                         m_root->get_eval_bonus(),
+                         m_root->get_eval_base());
 
 #ifndef NDEBUG
     const auto ev = m_rootstate.get_eval();
     myprintf("alpkt=%.2f, beta=%.3f, pi=%.3f, avg=%.3f, xbar=%.1f\n",
-	     std::get<0>(ev),
-	     std::get<1>(ev),
-	     std::get<2>(ev),
-	     std::get<3>(ev),
-	     std::get<4>(ev));
+             std::get<0>(ev),
+             std::get<1>(ev),
+             std::get<2>(ev),
+             std::get<3>(ev),
+             std::get<4>(ev));
 #endif
 
     Time elapsed;
@@ -1122,7 +1122,7 @@ Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_st
 }
 
 void UCTSearch::dump_evals_recursion(std::string & dump_str,
-				     UCTNode* const node,
+                                     UCTNode* const node,
                                      int father_progid, int color,
                                      std::string & sgf_str,
                                      std::vector<float> & value_vec,
@@ -1139,52 +1139,52 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
     {
         std::stringstream ss;
 
-	if (dump_str.size() == 0) {
-	  ss << "move"
-	     << ",prog_id"
-	     << ",father_prog_id"
-	     << ",policy"
-	     << ",net_eval"
-	     << ",alpkt"
-	     << ",beta"
-	     << ",bonus"
-	     << ",base"
-	     << ",visits"
-	     << ",agent_eval"
+        if (dump_str.size() == 0) {
+          ss << "move"
+             << ",prog_id"
+             << ",father_prog_id"
+             << ",policy"
+             << ",net_eval"
+             << ",alpkt"
+             << ",beta"
+             << ",bonus"
+             << ",base"
+             << ",visits"
+             << ",agent_eval"
 #ifndef NDEBUG
-	     << ",urgency"
-	     << ",psa"
-	     << ",q"
-	     << ",denom"
-	     << ",numer"
+             << ",urgency"
+             << ",psa"
+             << ",q"
+             << ",denom"
+             << ",numer"
 #endif
-	     << ",children"
-	     << std::endl;
-	}
+             << ",children"
+             << std::endl;
+        }
 
-	ss << m_rootstate.board.move_to_text(node->get_move());
-	ss << "," << node->get_progid();
-	ss << "," << father_progid;
-	ss << "," << node->get_policy();
-	ss << "," << node->get_net_eval();
-	ss << "," << node->get_net_alpkt();
-	ss << "," << node->get_net_beta();
-	ss << "," << node->get_eval_bonus();
-	ss << "," << node->get_eval_base();
-	ss << "," << node->get_visits();
-	ss << "," << node->get_agent_eval(FastBoard::BLACK);
+        ss << m_rootstate.board.move_to_text(node->get_move());
+        ss << "," << node->get_progid();
+        ss << "," << father_progid;
+        ss << "," << node->get_policy();
+        ss << "," << node->get_net_eval();
+        ss << "," << node->get_net_alpkt();
+        ss << "," << node->get_net_beta();
+        ss << "," << node->get_eval_bonus();
+        ss << "," << node->get_eval_base();
+        ss << "," << node->get_visits();
+        ss << "," << node->get_agent_eval(FastBoard::BLACK);
 #ifndef NDEBUG
-	ss << "," << node->get_urgency()[0];
-	ss << "," << node->get_urgency()[1];
-	ss << "," << node->get_urgency()[2];
-	ss << "," << node->get_urgency()[3];
-	ss << "," << node->get_urgency()[4];
+        ss << "," << node->get_urgency()[0];
+        ss << "," << node->get_urgency()[1];
+        ss << "," << node->get_urgency()[2];
+        ss << "," << node->get_urgency()[3];
+        ss << "," << node->get_urgency()[4];
 #endif
-	ss << "," << visited_children.size();
-	for (auto childptr : visited_children) {
-	  ss << "," << childptr->get_visits();
-	}
-	ss << std::endl;
+        ss << "," << visited_children.size();
+        for (auto childptr : visited_children) {
+          ss << "," << childptr->get_visits();
+        }
+        ss << std::endl;
 
         dump_str.append(ss.str());
     }

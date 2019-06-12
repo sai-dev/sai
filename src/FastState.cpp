@@ -59,7 +59,7 @@ void FastState::init_game(int size, float komi) {
 
     m_non_blunders = {};
     if (cfg_blunder_thr < 1.0f) {
-	init_allowed_blunders();
+        init_allowed_blunders();
     }
     return;
 }
@@ -119,7 +119,7 @@ void FastState::play_move(int color, int vertex) {
     m_blunder_chosen = std::find( begin(m_non_blunders), end(m_non_blunders), vertex ) == end(m_non_blunders);
 
     if (m_blunder_chosen && m_allowed_blunders > 0) {
-	m_allowed_blunders--;
+        m_allowed_blunders--;
     }
 
     if (board.m_tomove == color) {
@@ -197,11 +197,11 @@ void FastState::display_legal(int color) {
     board.print_columns();
     for (int j = boardsize-1; j >= 0; j--) {
         myprintf("%2d", j+1);
-	myprintf(" ");
+        myprintf(" ");
         for (int i = 0; i < boardsize; i++) {
             if (is_move_legal(color, board.get_vertex(i,j))) {
-		//                myprintf("O");
-		myprintf("%1d", board.liberties_to_capture(board.get_vertex(i,j)));
+                //                myprintf("O");
+                myprintf("%1d", board.liberties_to_capture(board.get_vertex(i,j)));
             } else {
                 myprintf(".");
             }
