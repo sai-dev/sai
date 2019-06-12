@@ -396,7 +396,7 @@ bool Game::loadSgf(const QString &fileName) {
 
 bool Game::loadSgf(const QString &fileName, const int moves) {
     QTextStream(stdout) << "Loading " << fileName + ".sgf with " << moves << " moves" << endl;
-    return sendGtpCommand(qPrintable("loadsgf " + fileName + ".sgf " + QString::number(moves)));
+    return sendGtpCommand(qPrintable("loadsgf " + fileName + ".sgf " + QString::number(moves+1)));
 }
 
 bool Game::komi(float komi) {

@@ -478,7 +478,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             std::log(cfg_logpuct * double(parentvisits) + cfg_logconst));
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
     // Estimated eval for unknown nodes = original parent NN eval - reduction
-    const auto fpu_eval = cfg_fpuzero ? 0.5f : std::max(0.0f, max_eval - fpu_reduction);
+    const auto fpu_eval = cfg_fpuzero ? 0.0f : std::max(0.0f, max_eval - fpu_reduction);
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();

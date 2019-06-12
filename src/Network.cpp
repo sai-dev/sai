@@ -751,7 +751,7 @@ void Network::initialize(int playouts, const std::string & weightsfile) {
     }
 
     // Load network from file
-    if (load_network_file(cfg_weightsfile)) {
+    if (load_network_file(weightsfile)) {
         exit(EXIT_FAILURE);
     }
     m_value_head_sai = (m_value_head_type != SINGLE);

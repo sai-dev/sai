@@ -229,7 +229,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("logconst", po::value<float>())
         ("softmax_temp", po::value<float>())
         ("fpu_reduction", po::value<float>())
-        ("fpu_zero", "Use constant fpu=0.5 (AlphaGoZero). "
+        ("fpu_zero", "Use constant fpu=0.0 (AlphaGoZero). "
 	 "The default is reduced parent's value (LeelaZero).")
         ("adv_features", "Include advanced features (legal moves, "
          "last liberty intersections) when saving training data. Shorten "
