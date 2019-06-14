@@ -93,6 +93,7 @@ extern int cfg_max_cache_ratio_percent;
 extern TimeManagement::enabled_t cfg_timemanage;
 extern int cfg_lagbuffer_cs;
 extern int cfg_resignpct;
+extern float cfg_resign_threshold;
 extern int cfg_noise;
 extern bool cfg_fpuzero;
 extern bool cfg_adv_features;
@@ -137,6 +138,7 @@ extern std::string cfg_options_str;
 extern bool cfg_benchmark;
 extern bool cfg_cpu_only;
 extern float cfg_blunder_thr;
+extern float cfg_losing_thr;
 extern float cfg_blunder_rndmax_avg;
 extern AnalyzeTags cfg_analyze_tags;
 

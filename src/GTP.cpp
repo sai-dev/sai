@@ -75,6 +75,7 @@ int cfg_max_cache_ratio_percent;
 TimeManagement::enabled_t cfg_timemanage;
 int cfg_lagbuffer_cs;
 int cfg_resignpct;
+float cfg_resign_threshold;
 int cfg_noise;
 bool cfg_fpuzero;
 bool cfg_adv_features;
@@ -116,6 +117,7 @@ std::string cfg_options_str;
 bool cfg_benchmark;
 bool cfg_cpu_only;
 float cfg_blunder_thr;
+float cfg_losing_thr;
 float cfg_blunder_rndmax_avg;
 AnalyzeTags cfg_analyze_tags;
 
@@ -348,7 +350,7 @@ void GTP::setup_default_parameters() {
     cfg_komi = KOMI;
     cfg_lambda = 0.5f;
     cfg_mu = 0.0f;
-    // This will be overwriiten in initialize() after network size is known.
+    // This will be overwritten in initialize() after network size is known.
     cfg_max_tree_size = UCTSearch::DEFAULT_MAX_MEMORY;
     cfg_max_cache_ratio_percent = 10;
     cfg_timemanage = TimeManagement::AUTO;
@@ -372,6 +374,7 @@ void GTP::setup_default_parameters() {
     cfg_noise_weight = 0.25;
     cfg_recordvisits = false;
     cfg_blunder_thr = 1.0f;
+    cfg_losing_thr = 0.05f;
     // nu = ln(4) => P(X=0) = 0.25
     cfg_blunder_rndmax_avg = 1.38629436112f;
 
@@ -382,6 +385,7 @@ void GTP::setup_default_parameters() {
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign
     cfg_resignpct = -1;
+    cfg_resign_threshold = 0.10f;
     cfg_noise = false;
     cfg_fpu_root_reduction = cfg_fpu_reduction;
     cfg_ci_alpha = 1e-5f;
@@ -497,6 +501,10 @@ std::string GTP::get_life_list(const GameState & game, bool live) {
 void GTP::execute(GameState & game, const std::string& xinput) {
     std::string input;
     static auto search = std::make_unique<UCTSearch>(game, *s_network);
+
+    // Maybe something changed resignpct, so recompute threshold
+    cfg_resign_threshold =
+        0.01f * (cfg_resignpct < 0 ? 10 : cfg_resignpct);
 
     bool transform_lowercase = true;
 

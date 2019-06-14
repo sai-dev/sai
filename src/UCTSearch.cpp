@@ -527,8 +527,8 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
     const auto color = m_rootstate.board.get_to_move();
 
     const auto is_default_cfg_resign = cfg_resignpct < 0;
-    const auto resign_threshold =
-        0.01f * (is_default_cfg_resign ? 10 : cfg_resignpct);
+    const auto resign_threshold = cfg_resign_threshold;
+
     if (besteval > resign_threshold) {
         // eval > cfg_resign
         return false;
@@ -577,24 +577,23 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     assert(!m_root->get_children().empty());
 
     if (movenum < static_cast<size_t>(cfg_random_cnt)) {
-        bool is_blunder;
-        std::vector<int> non_blunders;
+
+        auto is_blunder = false;
+        auto non_blunders = std::vector<int>{};
         tie(is_blunder,non_blunders) =
             m_root->randomize_first_proportionally(color,
                                                    m_rootstate.is_blunder_allowed());
-
-        if (is_blunder) {
-            myprintf("Random move is a blunder.\n");
-        }
         m_rootstate.set_non_blunders(non_blunders);
 
         if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
             myprintf("Random move would lead to immediate resignation... \n"
                      "Reverting to best move.\n");
             m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
+        } else if (is_blunder) {
+            myprintf("Random move is a blunder.\n");
         }
     } else {
-        std::vector<int> non_blunders{m_root->get_first_child()->get_move()};
+        const auto non_blunders = std::vector<int>{m_root->get_first_child()->get_move()};
         m_rootstate.set_non_blunders(non_blunders);
     }
 
@@ -1028,6 +1027,10 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
     const auto alpkt = m_root->get_net_alpkt();
     const auto beta = m_root->get_net_beta();
+    // The function set_eval() updates the current KoState but not
+    // GameState history; when the next move is played, the updated
+    // KoState is written in history, hence the current evaluation is
+    // always stored into the following move record.
     m_rootstate.set_eval(alpkt, beta,
                          sigmoid(alpkt, beta, 0.0f).first,
                          m_root->get_eval(FastBoard::BLACK),

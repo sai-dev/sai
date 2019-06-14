@@ -185,8 +185,9 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     const auto komi = state.get_komi();
     step.komi = komi;
     step.is_blunder = state.is_blunder();
-    step.net_winrate = sigmoid(result.alpha, result.beta,
-                                           state.board.black_to_move() ? -komi : komi).first;
+    step.net_winrate =
+        sigmoid(result.alpha, result.beta,
+                state.board.black_to_move() ? -komi : komi).first;
     //    step.net_winrate = result.winrate;
 
     const auto& best_node = root.get_best_root_child(step.to_move);
@@ -264,6 +265,12 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     }
 
     for ( ; it!=m_data.end() ; ++it ) {
+        // Stop writing training if below losing threshold, as
+        // positions tend to be irregular and quite meaningless
+        if (it->root_uct_winrate <=
+            std::max(cfg_resign_threshold, cfg_losing_thr)) {
+            break;
+        }
         auto out = std::stringstream{};
         // First output 16 times an input feature plane
         for (auto p = size_t{0}; p < 16; p++) {

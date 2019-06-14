@@ -152,8 +152,9 @@ std::tuple<bool,std::vector<int>>
             std::vector<int>{m_children.front()->get_move()});
     }
 
-    auto accum = 0.0;
+    auto accum = 0.0f;
     auto accum_vector = std::vector<double>{};
+    auto accum_num = size_t{0};
     auto blunder_vector = std::vector<bool>{};
     auto non_blunders = std::vector<int>{};
 
@@ -163,19 +164,26 @@ std::tuple<bool,std::vector<int>>
     for (const auto& child : m_children) {
         const auto visits = child->get_visits();
 
-        // here we use the fact that the number of visits is non-increasing
         if (visits <= cfg_random_min_visits) {
-            break;
+            continue;
         }
 
-        const auto child_is_blunder =
-            (child->get_eval(color) < first_child_eval-cfg_blunder_thr);
-        if (!child_is_blunder || is_blunder_allowed) {
+        const auto eval = child->get_eval(color);
+
+        // Choose randomly among the moves whose evaluation is greater
+        // than both resign threshold and cfg_losing_thr (which
+        // defaults to 5%). In this way also '-r 0' games will avoid
+        // choosing very bad moves.
+        const auto child_is_not_blunder =
+            (eval >= first_child_eval-cfg_blunder_thr);
+        if ( (child_is_not_blunder || is_blunder_allowed) &&
+             eval > std::max(cfg_resign_threshold, cfg_losing_thr)) {
             accum += std::pow(visits / norm_factor, 1.0 / cfg_random_temp);
+            accum_num++;
         }
         accum_vector.push_back(accum);
-        blunder_vector.push_back(child_is_blunder);
-        if (!child_is_blunder) {
+        blunder_vector.push_back(!child_is_not_blunder);
+        if (child_is_not_blunder) {
             non_blunders.push_back(child->get_move());
         }
 
@@ -192,22 +200,20 @@ std::tuple<bool,std::vector<int>>
 #ifndef NDEBUG
     if (is_blunder_allowed) {
         myprintf("Rnd_first: blunders still allowed. "
-                 "Choice between %d moves with %d blunders.\n",
-                 accum_vector.size(),
-                 accum_vector.size() - non_blunders.size());
+                 "Choice between %d moves with %d non-blunders.\n",
+                 accum_num,
+                 non_blunders.size());
     } else {
-        // here we use that non-allowed moves do not increment accum
-        auto tmp = accum_vector;
-        auto allowed_moves = std::unique( begin(tmp), end(tmp) ) - begin(tmp);
         myprintf("Rnd_first: blunders NOT allowed. "
-                 "Choice between %d good of %d possible moves.\n",
-                 allowed_moves,
+                 "Choice between %d good of %d moves with enough visits.\n",
+                 accum_num,
                  accum_vector.size());
     }
 #endif
 
-    if( accum_vector.size() < 2 ) {
-        // nothing left to do
+    // In the case that all moves are below threshold, or only the
+    // best move has enough visits, revert to best move.
+    if(accum == 0.0f || accum_vector.size() < 2) {
         return std::make_tuple(false, non_blunders);
     }
 
