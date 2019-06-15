@@ -269,6 +269,7 @@ void UCTNode::virtual_loss_undo() {
 void UCTNode::clear_visits() {
     m_visits = 0;
     m_blackevals = 0;
+    m_alpkt_median = 0;
 }
 
 void UCTNode::clear_children_visits() {
@@ -290,6 +291,23 @@ void UCTNode::update(float eval) {
     // Welford's online algorithm for calculating variance.
     auto delta = old_delta * new_delta;
     atomic_add(m_squared_eval_diff, delta);
+}
+
+void UCTNode::update_alpkt_median(float new_value) {
+    // Cache values to avoid race conditions.
+    const auto new_visits = static_cast<int>(m_visits);
+    assert (new_visits > 0);
+    if (new_visits == 1) {
+        m_alpkt_median = new_value;
+    } else {
+        const auto variation_cap = std::max(0.5f, 40.0f / new_visits);
+        const auto old_median = static_cast<float>(m_alpkt_median);
+        const auto delta =
+            std::min(variation_cap,
+                     std::max(-variation_cap,
+                              new_value - old_median)) / new_visits;
+        atomic_add(m_alpkt_median, delta);
+    }
 }
 
 bool UCTNode::has_children() const {
@@ -345,6 +363,10 @@ float UCTNode::get_net_beta() const {
 
 float UCTNode::get_net_alpkt() const {
     return m_net_alpkt;
+}
+
+float UCTNode::get_alpkt_online_median() const {
+    return m_alpkt_median;
 }
 
 void UCTNode::set_values(float value, float alpkt, float beta) {
@@ -726,6 +748,8 @@ void UCTNode::get_subtree_alpkts(std::vector<float> & vector,
                                  bool is_tromptaylor_scoring) const {
     auto children_visits = 0;
 
+    // check and correct: 'passes' doesn't do anything here.
+
     vector.emplace_back(get_net_alpkt());
     for (auto& child : m_children) {
         const auto child_visits = child.get_visits();
@@ -739,6 +763,9 @@ void UCTNode::get_subtree_alpkts(std::vector<float> & vector,
 
     const auto missing_nodes = get_visits() - children_visits - 1;
     if (missing_nodes > 0 && is_tromptaylor_scoring) {
+        // check: this seems to happen only on second pass node, where
+        // get_net_alpkt() would return a meningless value
+        
         const std::vector<float> rep(missing_nodes, get_net_alpkt());
         vector.insert(vector.end(), std::begin(rep), std::end(rep));
     }

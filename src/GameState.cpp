@@ -46,17 +46,12 @@
 #include "KoState.h"
 #include "UCTSearch.h"
 
-std::tuple<float,float,float,float,float> GameState::get_eval() const {
+StateEval GameState::get_eval() const {
     return KoState::get_eval();
 }
 
-void GameState::set_eval(float alpkt,
-                       float beta,
-                       float pi,
-                       float avg_eval,
-                       float eval_bonus,
-               float eval_base) {
-    KoState::set_eval(alpkt, beta, pi, avg_eval, eval_bonus, eval_base);
+void GameState::set_eval(const StateEval& ev) {
+    KoState::set_eval(ev);
 }
 
 
@@ -345,17 +340,28 @@ std::shared_ptr<const KoState> GameState::get_past_state(int moves_ago) const {
 //     m_lastrndmovenum = num;
 // }
 
-std::string GameState::eval_comment() const {
-        const auto ev = get_eval();
-        auto comstr = std::stringstream{};
-        comstr << std::setprecision(3)
-               << std::get<0>(ev) << ", " // alpkt
-               << std::get<1>(ev) << ", " // beta
-               << std::get<2>(ev) << ", " // pi
-               << std::get<3>(ev) << ", " // avg_eval
-               << std::get<4>(ev); // eval_bonus
+std::string GameState::eval_comment(bool print_header) const {
+    auto comstr = std::stringstream{};
 
-        return comstr.str();
+    if (print_header) {
+        comstr << "alpkt_online_median" << ", "
+               << "alpkt" << ", "
+               << "beta" << ", "
+               << "pi" << ", "
+               << "agent_eval_avg" << ", "
+               << "agent_x_lambda";
+    } else {
+        const auto ev = get_eval();
+        comstr << std::setprecision(3)
+               << ev.alpkt_online_median << ", "
+               << ev.alpkt << ", "
+               << ev.beta << ", "
+               << ev.pi << ", "
+               << ev.agent_eval_avg << ", "
+               << ev.agent_x_lambda;
+    }
+
+    return comstr.str();
 }
 
 const std::vector<std::shared_ptr<const KoState>>& GameState::get_game_history() const {

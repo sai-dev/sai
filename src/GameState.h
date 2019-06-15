@@ -80,11 +80,10 @@ public:
     void display_state();
     bool has_resigned() const;
     int who_resigned() const;
-    std::tuple<float,float,float,float,float> get_eval() const;
-    void set_eval(float alpkt, float beta, float pi,
-                  float avg_eval, float eval_bonus, float eval_base);
+    StateEval get_eval() const;
+    void set_eval(const StateEval& ev);
     //    void copy_last_rnd_move_num ();
-    std::string eval_comment() const;
+    std::string eval_comment(bool print_header = false) const;
 
 private:
     bool valid_handicap(int stones);

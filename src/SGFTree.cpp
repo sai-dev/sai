@@ -500,18 +500,9 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
     moves.append("\n");
 
     int counter = 0;
-    std::string initial_eval;
-    bool prev_blunder = false;
     const auto allowed_blunders = state->get_allowed_blunders();
 
     while (state->forward_move()) {
-        if (counter == 0) {
-            initial_eval = state->eval_comment();
-        } else {
-            moves.append("C[" + state->eval_comment()
-                         + ", " + std::to_string(prev_blunder) + "]");
-        }
-        prev_blunder = state->is_blunder();
         int move = state->get_last_move();
         assert(move != FastBoard::RESIGN);
         std::string movestr = state->board.move_to_text_sgf(move);
@@ -520,12 +511,12 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         } else {
             moves.append(";B[" + movestr + "]");
         }
+        moves.append("C[" + state->eval_comment()
+            + ", " + std::to_string(state->is_blunder()) + "]");
         if (++counter % 3 == 0) {
             moves.append("\n");
         }
     }
-    moves.append("C[" + state->eval_comment()
-                 + ", " + std::to_string(prev_blunder) + "]");
 
     if (!state->has_resigned()) {
         float score = state->final_score();
@@ -553,7 +544,7 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         header.append(", blunders played: " +
                       std::to_string(allowed_blunders - remaining_blunders));
     }
-    header.append(", " + initial_eval + "]");
+    header.append(", " + state->eval_comment(true) + ", is_bluder]");
 
     std::string result(header);
     result.append("\n");

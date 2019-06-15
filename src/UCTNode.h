@@ -99,6 +99,7 @@ public:
     float get_net_eval() const;
     float get_net_beta() const;
     float get_net_alpkt() const;
+    float get_alpkt_online_median() const;
     void set_values(float value, float alpkt, float beta);
 #ifdef USE_EVALCMD
     void set_progid(int id);
@@ -135,6 +136,7 @@ public:
     void inflate_all_children();
     UCTNode* select_child(int move);
     float estimate_alpkt(int passes, bool is_tromptaylor_scoring = false) const;
+    void update_alpkt_median(float new_alpkt_value);
 
     void clear_expand_state();
 private:
@@ -187,6 +189,8 @@ private:
     std::atomic<float> m_squared_eval_diff{1e-4f};
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
+
+    std::atomic<float> m_alpkt_median{0.0f};
 
     // m_expand_state acts as the lock for m_children.
     // see manipulation methods below for possible state transition

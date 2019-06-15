@@ -212,6 +212,7 @@ void UCTSearch::update_root(bool is_evaluating) {
     if ( (!advance_to_new_rootstate() && !is_evaluating) || !m_root) {
         m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
     }
+
     // Clear last_rootstate to prevent accidental use.
     m_last_rootstate.reset(nullptr);
 
@@ -331,8 +332,10 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     if (result.valid()) {
             const auto eval = m_network.m_value_head_sai ?
                 result.eval_with_bonus(node->get_eval_bonus_father(),
-                                   node->get_eval_base_father()) : result.eval();
+                    node->get_eval_base_father()) : result.eval();
         node->update(eval);
+        node->update_alpkt_median(result.get_alpkt());
+
         if (m_stopping_visits >= 1 && m_stopping_moves.size() >= 1) {
             if (node->get_visits() >= m_stopping_visits) {
                 if (is_stopping(node->get_move())) {
@@ -377,16 +380,17 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         auto pv = move + " " + get_pv(tmpstate, *node);
         
 #ifdef NDEBUG
-        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (A: %4.1f) PV: %s\n",
                  move.c_str(),
                  node->get_visits(),
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
                  std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
                  node->get_policy() * 100.0f,
+                 node->get_alpkt_online_median(),
                  pv.c_str());
 #else
-        myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %.2f, den: %d) "
-                 "(V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+        myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %5.2f, den: %4d) "
+                 "(V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (A: %4.1f) PV: %s\n",
                  move.c_str(),
                  node->get_visits(),
                  node->get_urgency()[0] * 100.0f,
@@ -396,6 +400,7 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
                  std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
                  node->get_policy() * 100.0f,
+                 node->get_alpkt_online_median(),
                  pv.c_str());
 #endif
     }
@@ -582,7 +587,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
         auto non_blunders = std::vector<int>{};
         tie(is_blunder,non_blunders) =
             m_root->randomize_first_proportionally(color,
-                                                   m_rootstate.is_blunder_allowed());
+                m_rootstate.is_blunder_allowed());
         m_rootstate.set_non_blunders(non_blunders);
 
         if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
@@ -889,6 +894,7 @@ void UCTSearch::print_move_choices_by_policy(KoState & state, UCTNode & parent, 
 
 
 int UCTSearch::think(int color, passflag_t passflag) {
+    myprintf("Debug...\n");
     // Start counting time for us
     m_rootstate.start_clock(color);
 
@@ -1025,27 +1031,48 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
     Training::record(m_network, m_rootstate, *m_root);
 
-    const auto alpkt = m_root->get_net_alpkt();
-    const auto beta = m_root->get_net_beta();
     // The function set_eval() updates the current KoState but not
     // GameState history; when the next move is played, the updated
     // KoState is written in history, hence the current evaluation is
-    // always stored into the following move record.
-    m_rootstate.set_eval(alpkt, beta,
-                         sigmoid(alpkt, beta, 0.0f).first,
-                         m_root->get_eval(FastBoard::BLACK),
-                         m_root->get_eval_bonus(),
-                         m_root->get_eval_base());
-
+    // always stored into the following move record. This is correct,
+    // as we are going to store the statistics of the chosen
+    // move. Exception: if the best move is RESIGN, play_move()
+    // updates the last state and does not create a new one.
+    if(bestmove != FastBoard::RESIGN) {
+        auto chosen_child = m_root->get_first_child();
+        if(chosen_child->get_move() != bestmove) {
+            for(auto& child : m_root->get_children()) {
+                if(child->get_move() == bestmove) {
+                    chosen_child = child.get();
+                    break;
+                }
+            }
+        }
+        if(chosen_child) {
+            const auto alpkt = chosen_child->get_net_alpkt();
+            const auto beta = chosen_child->get_net_beta();
+            const auto x_lambda = chosen_child->get_eval_bonus();
+            const auto x_mu = chosen_child->get_eval_base();
+            const StateEval ev(chosen_child->get_visits(),
+                               alpkt, beta, sigmoid(alpkt, beta, 0.0f).first,
+                               Utils::sigmoid_interval_avg(alpkt, beta,
+                                                           x_mu, x_lambda),
+                               x_lambda, x_mu,
+                               chosen_child->get_eval(FastBoard::BLACK),
+                               chosen_child->estimate_alpkt(0, true),
+                               chosen_child->get_alpkt_online_median());
+            m_rootstate.set_eval(ev);
+            
 #ifndef NDEBUG
-    const auto ev = m_rootstate.get_eval();
-    myprintf("alpkt=%.2f, beta=%.3f, pi=%.3f, avg=%.3f, xbar=%.1f\n",
-             std::get<0>(ev),
-             std::get<1>(ev),
-             std::get<2>(ev),
-             std::get<3>(ev),
-             std::get<4>(ev));
+            myprintf("visits=%d, alpkt=%.2f, beta=%.3f, pi=%.3f, agent=%.3f, "
+                     "avg=%.3f, alpkt_med=%.3f, alpkt_online=%.3f, "
+                     "x_mu=%.1f, x_lambda=%.1f\n",
+                     ev.visits, ev.alpkt, ev.beta, ev.pi, ev.agent_eval,
+                     ev.agent_eval_avg, ev.alpkt_median, ev.alpkt_online_median,
+                     ev.agent_x_mu, ev.agent_x_lambda);
 #endif
+        }
+    }
 
     Time elapsed;
     int elapsed_centis = Time::timediff_centis(start, elapsed);
@@ -1381,7 +1408,7 @@ void UCTSearch::set_visit_limit(int visits) {
     m_maxvisits = std::min(visits, UNLIMITED_PLAYOUTS);
 }
 
-float SearchResult::eval_with_bonus(float xbar, float xbase) {
+float SearchResult::eval_with_bonus(float xbar, float xbase) const {
     return Utils::sigmoid_interval_avg(m_alpkt, m_beta, xbase, xbar);
 }
 

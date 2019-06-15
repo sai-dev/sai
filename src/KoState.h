@@ -39,6 +39,31 @@
 #include "FastState.h"
 #include "FullBoard.h"
 
+struct StateEval {
+    size_t visits = 0;
+    float alpkt = 0.0f;
+    float beta = 1.0f;
+    float pi = 0.5f;
+    float agent_eval = 0.5f;
+    float agent_x_lambda = 0.0f;
+    float agent_x_mu = 0.0f;
+    float agent_eval_avg = 0.5f;
+    float alpkt_median = 0.0f;
+    float alpkt_online_median = 0.0f;
+
+    StateEval(int visits, float alpkt, float beta, float pi,
+              float agent_eval, float agent_x_lambda, float agent_x_mu,
+              float agent_eval_avg, float alpkt_median,
+              float alpkt_online_median)
+    : visits(visits), alpkt(alpkt), beta(beta), pi(pi),
+        agent_eval(agent_eval), agent_x_lambda(agent_x_lambda),
+        agent_x_mu(agent_x_mu), agent_eval_avg(agent_eval_avg),
+        alpkt_median(alpkt_median), alpkt_online_median(alpkt_online_median)
+    {}
+
+    StateEval() {}
+};
+
 class KoState : public FastState {
 public:
     void init_game(int size, float komi);
@@ -47,17 +72,18 @@ public:
 
     void play_move(int color, int vertex);
     void play_move(int vertex);
-    std::tuple<float,float,float,float,float> get_eval() const;
-    void set_eval(float alpkt, float beta, float pi,
-                  float avg_eval, float eval_bonus, float eval_base);
+    StateEval get_eval() const;
+    void set_eval(const StateEval& ev);
+
 private:
     std::vector<std::uint64_t> m_ko_hash_history;
-    float m_alpkt = 0.0f;
-    float m_beta = 1.0f;
-    float m_pi = 0.5f;
-    float m_avg_eval = 0.5f;
-    float m_eval_bonus = 0.0f;
-    float m_eval_base = 0.0f;
+    StateEval m_ev;
+    /* float m_alpkt = 0.0f; */
+    /* float m_beta = 1.0f; */
+    /* float m_pi = 0.5f; */
+    /* float m_avg_eval = 0.5f; */
+    /* float m_eval_bonus = 0.0f; */
+    /* float m_eval_base = 0.0f; */
 };
 
 #endif
