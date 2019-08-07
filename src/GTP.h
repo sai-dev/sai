@@ -109,6 +109,7 @@ extern int cfg_random_min_visits;
 extern float cfg_random_temp;
 extern std::uint64_t cfg_rng_seed;
 extern bool cfg_dumbpass;
+extern bool cfg_restrict_tt;
 extern bool cfg_recordvisits;
 #ifdef USE_OPENCL
 extern std::vector<int> cfg_gpus;

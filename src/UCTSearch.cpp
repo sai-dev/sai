@@ -295,6 +295,9 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         }
     }
 
+    auto restrict_return = false;
+    auto update_with_current = false;
+
     if (node->has_children() && !result.valid()) {
         auto next = node->uct_select_child(currstate,
                                            node == m_root.get(),
@@ -306,6 +309,10 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             next->set_eval_bonus_father(node->get_eval_bonus());
             next->set_eval_base_father(node->get_eval_base());
 
+            restrict_return = (cfg_restrict_tt &&
+                               currstate.get_passes() == 1 &&
+                               move == FastBoard::PASS);
+            
             currstate.play_move(move);
             if (move != FastBoard::PASS && currstate.superko()) {
                 next->invalidate();
@@ -326,15 +333,41 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                     m_bestmove = move;
                 }
             }
+            update_with_current = (restrict_return &&
+                                   node->low_visits_child(next));
         }
     }
 
+    auto current_node_result = SearchResult::from_eval(node->get_net_eval(),
+                                                       node->get_net_alpkt(),
+                                                       node->get_net_beta());
+
     if (result.valid()) {
-            const auto eval = m_network.m_value_head_sai ?
-                result.eval_with_bonus(node->get_eval_bonus_father(),
-                    node->get_eval_base_father()) : result.eval();
+        // If we are restricting Tromp-Taylor, this is a first pass
+        // the selected child is second pass, then in some cases we
+        // update this node with result (which would be TT score), and
+        // in some cases we update with network's evaluation for this
+        // node. In particular we update with TT only after the second
+        // pass is visited a fair number of times. This way if the
+        // second pass would lose because of dead groups and TT
+        // scoring, but there are better and preferred moves, then
+        // this node evaluation is not polluted with unrealistic
+        // losing scores for the opponent and hence it will not
+        // generally be chosen because of that. On the other hand, if
+        // the second pass is actually a reasonable move even with TT
+        // scoring (because it wins, or because there are no better
+        // options) then this node is updated with TT score so that
+        // current player can knowingly choose whether to try the
+        // first pass again.
+        const auto & result_for_updating = update_with_current ?
+            current_node_result : result;
+        const auto eval = m_network.m_value_head_sai ?
+            result_for_updating.eval_with_bonus(node->get_eval_bonus_father(),
+                                                node->get_eval_base_father()) :
+            result_for_updating.eval();
         node->update(eval);
-        node->update_alpkt_median(result.get_alpkt());
+        // should check whether it is sai or lz before updating alpkt_median
+        node->update_alpkt_median(result_for_updating.get_alpkt());
 
         if (m_stopping_visits >= 1 && m_stopping_moves.size() >= 1) {
             if (node->get_visits() >= m_stopping_visits) {
@@ -346,7 +379,12 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     }
     node->virtual_loss_undo();
 
-    return result;
+    // If we are restricting Tromp-Taylor, this is a first pass and
+    // selected child is second pass, do not return result (which
+    // would be TT score), but network's evaluation for this
+    // node. This way TT score cannot propagate to more than two nodes
+    // (the first and the second passes).
+    return restrict_return ? current_node_result : result;
 }
 
 void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {

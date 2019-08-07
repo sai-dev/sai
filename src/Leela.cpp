@@ -202,6 +202,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("seed,s", po::value<std::uint64_t>(),
                    "Random number generation seed.")
         ("dumbpass,d", "Don't use heuristics for smarter passing.")
+        ("restrict_tt", "Restrict use of Tromp-Taylor score in search.")
         ("randomcnt,m", po::value<int>()->default_value(cfg_random_cnt),
                         "Play more randomly the first x moves.")
         ("randomvisits",
@@ -437,6 +438,10 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("dumbpass")) {
         cfg_dumbpass = true;
+    }
+
+    if (vm.count("restrict_tt")) {
+        cfg_restrict_tt = true;
     }
 
     if (vm.count("recordvisits")) {

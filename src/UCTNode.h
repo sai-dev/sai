@@ -101,6 +101,7 @@ public:
     float get_net_alpkt() const;
     float get_alpkt_online_median() const;
     void set_values(float value, float alpkt, float beta);
+    bool low_visits_child(UCTNode* const child) const;
 #ifdef USE_EVALCMD
     void set_progid(int id);
     int get_progid() const;

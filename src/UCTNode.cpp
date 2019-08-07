@@ -390,6 +390,21 @@ int UCTNode::get_progid() const {
 }
 #endif
 
+bool UCTNode::low_visits_child(UCTNode* const child) const {
+    const auto father_visits = get_visits();
+    const auto child_visits = child->get_visits();
+    // This formula encodes the following table:
+    // father  1-3  child always low
+    // father  4-6  child up to 3 low
+    // father  7-12 child up to 4 low
+    // father 13-20 child up to 5 low
+    // father 14-30 child up to 6 low ...
+    // If the child visits are high, then the child node is surely
+    // good and reliable, otherwise it may be a wrong move that is
+    // going to get dropped from tree search.
+    return (child_visits * (child_visits - 3) < father_visits - 2);
+}
+
 float UCTNode::get_eval_variance(float default_var) const {
     return m_visits > 1 ? m_squared_eval_diff / (m_visits - 1) : default_var;
 }
@@ -546,36 +561,6 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         if (nopass && child.get_move() == FastBoard::PASS) {
             psa = 0.0;
             winrate -= 0.05; // is this correct?
-        }
-
-        // If the move to explore is a second pass, or a first pass
-        // but -d was not specified, Tromp-Taylor score is checked.
-
-        // If the position appears to be losing, then exploration
-        // should be restricted as much as possible.  This is
-        // particularly important when there are dead stones and the
-        // position is actually winning, as in that case even a small
-        // number if visits could change the average probability
-        // significantly for the parent node.
-
-        // If the position appears to be winning, one must consider
-        // that maybe a larger victory could be achieved: if lambda is
-        // positive the average winrate holds this information, while
-        // T.T. score at official komi does not, so in this case we
-        // only adjust fpu to help the learning in the first
-        // generations.
-
-
-        if (child.get_move() == FastBoard::PASS &&
-            ( currstate.get_passes() >= 1 || !cfg_dumbpass ) ) {
-            const auto score = ( color == FastBoard::BLACK ? 1.0 : -1.0 ) *
-                currstate.final_score();
-            if (score < -0.001) {
-                winrate = 0.0;
-                psa = 0.0;
-            } else if (visits == 0 && currstate.get_passes() >= 1) {
-                winrate = Utils::winner(score);
-            }
         }
 
         const auto denom = 1.0 + visits;
