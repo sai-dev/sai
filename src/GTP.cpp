@@ -64,6 +64,7 @@ using namespace Utils;
 
 bool cfg_gtp_mode;
 bool cfg_japanese_mode;
+bool cfg_use_nncache;
 bool cfg_allow_pondering;
 unsigned int cfg_num_threads;
 unsigned int cfg_batch_size;
@@ -338,6 +339,7 @@ void GTP::initialize(std::unique_ptr<Network>&& net) {
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
     cfg_japanese_mode = false;
+    cfg_use_nncache = true;
     cfg_allow_pondering = true;
 
     // we will re-calculate this on Leela.cpp
@@ -991,19 +993,21 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             // Default = DIRECT with no symmetric change
             vec = s_network->get_output(
                 &game, Network::Ensemble::DIRECT,
-                Network::IDENTITY_SYMMETRY, false);
+                Network::IDENTITY_SYMMETRY, false, cfg_use_nncache);
         } else if (symmetry == "all") {
             for (auto s = 0; s < Network::NUM_SYMMETRIES; ++s) {
                 vec = s_network->get_output(
-                    &game, Network::Ensemble::DIRECT, s, false);
+                    &game, Network::Ensemble::DIRECT, s,
+                    false, cfg_use_nncache);
                 Network::show_heatmap(&game, vec, false);
             }
         } else if (symmetry == "average" || symmetry == "avg") {
             vec = s_network->get_output(
-                &game, Network::Ensemble::AVERAGE, -1, false);
+                &game, Network::Ensemble::AVERAGE, -1, false, cfg_use_nncache);
         } else if (symmetry.size() == 1 && std::isdigit(symmetry[0])) {
             vec = s_network->get_output(
-                &game, Network::Ensemble::DIRECT, std::stoi(symmetry), false);
+                &game, Network::Ensemble::DIRECT, std::stoi(symmetry),
+                false, cfg_use_nncache);
         } else {
             gtp_fail_printf(id, "syntax not understood");
             return;

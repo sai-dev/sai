@@ -180,8 +180,12 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     step.to_move = state.board.get_to_move();
     step.planes = get_planes(&state);
 
-    const auto result = network.get_output(
-        &state, Network::Ensemble::DIRECT, Network::IDENTITY_SYMMETRY);
+    const auto result =
+        network.get_output(&state,
+                           Network::Ensemble::DIRECT,
+                           Network::IDENTITY_SYMMETRY,
+                           cfg_use_nncache,
+                           cfg_use_nncache);
     const auto komi = state.get_komi();
     step.komi = komi;
     step.is_blunder = state.is_blunder();

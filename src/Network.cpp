@@ -736,7 +736,11 @@ void Network::initialize(int playouts, const std::string & weightsfile) {
 
     // Make a guess at a good size as long as the user doesn't
     // explicitly set a maximum memory usage.
-    m_nncache.set_size_from_playouts(playouts);
+    if (cfg_use_nncache) {
+        m_nncache.set_size_from_playouts(playouts);
+    } else {
+        m_nncache.resize(10);
+    }
 
     // Prepare symmetry table
     for (auto s = 0; s < NUM_SYMMETRIES; ++s) {
@@ -987,15 +991,18 @@ bool Network::probe_cache(const GameState* const state,
     return false;
 }
 
-Network::Netresult Network::get_output(
-    const GameState* const state, const Ensemble ensemble, const int symmetry,
-    const bool read_cache, const bool write_cache, const bool force_selfcheck) {
+Network::Netresult Network::get_output(const GameState* const state,
+                                       const Ensemble ensemble,
+                                       const int symmetry,
+                                       const bool read_cache,
+                                       const bool write_cache,
+                                       const bool force_selfcheck) {
     Netresult result;
     if (state->board.get_boardsize() != BOARD_SIZE) {
         return result;
     }
 
-    if (read_cache) {
+    if (read_cache && ensemble != AVERAGE) {
         // See if we already have this in the cache.
         if (probe_cache(state, result)) {
             return result;
@@ -1051,6 +1058,10 @@ Network::Netresult Network::get_output(
 
     if (write_cache) {
         // Insert result into cache.
+        // Notice that when ensemble == AVERAGE, the cache is in fact
+        // updated with the average result, unless of course it
+        // already contained that board state. Don't know if this is
+        // wanted.
         m_nncache.insert(state->board.get_hash(), result);
     }
 
