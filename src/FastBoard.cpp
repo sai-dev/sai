@@ -221,6 +221,10 @@ unsigned short FastBoard::chain_liberties(int vtx) const {
     return m_libs[m_parent[vtx]];
 }
 
+unsigned short FastBoard::chain_stones(int vtx) const {
+    return m_stones[m_parent[vtx]];
+}
+
 void FastBoard::add_neighbour(const int vtx, const int color) {
     assert(color == WHITE || color == BLACK || color == EMPTY);
 

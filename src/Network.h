@@ -111,6 +111,7 @@ class Network
     static constexpr unsigned int MINIMIZED_INPUT_MOVES = 1;
     static constexpr unsigned int DEFAULT_ADV_FEATURES = 0;
     static constexpr unsigned int CHAIN_LIBERTIES_PLANES = 4; // must be even
+    static constexpr unsigned int CHAIN_SIZE_PLANES = 4; // must be even
     static constexpr auto DEFAULT_COLOR_INPUT_PLANES = (2 + DEFAULT_ADV_FEATURES) * DEFAULT_INPUT_MOVES + 2;
 
     void initialize(int playouts, const std::string &weightsfile);
@@ -126,6 +127,7 @@ class Network
                                               const int input_moves = DEFAULT_INPUT_MOVES,
                                               const bool adv_features = false,
                                               const bool chainlibs_features = false,
+                                              const bool chainsize_features = false,
                                               const bool include_color = false);
     static std::pair<int, int> get_symmetry(const std::pair<int, int> &vertex,
                                             const int symmetry,
@@ -144,6 +146,7 @@ class Network
     size_t m_input_planes = size_t{DEFAULT_COLOR_INPUT_PLANES};
     bool m_adv_features = false;
     bool m_chainlibs_features = false;
+    bool m_chainsize_features = false;
     bool m_komi_policy = false;
     bool m_include_color = true;
     size_t m_policy_outputs = size_t{2};
@@ -190,6 +193,9 @@ class Network
                                          const int symmetry);
     static void fill_input_plane_chainlibsfeat(std::shared_ptr<const KoState> const state,
                                                std::vector<float>::iterator chainlibs,
+                                               const int symmetry);
+    static void fill_input_plane_chainsizefeat(std::shared_ptr<const KoState> const state,
+                                               std::vector<float>::iterator chainsize,
                                                const int symmetry);
 
     bool probe_cache(const GameState *const state, Network::Netresult &result);

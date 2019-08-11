@@ -61,10 +61,12 @@ RESIDUAL_BLOCKS = 12
 POLICY_OUTPUTS = 2
 INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
               # 0: only komi in input (17 input planes)
-WEIGHTS_FILE_VER = "49" #  1: LZ
-                        # 17: 'advanced features'
-                        # 49: 'advanced features' + 'komi policy'
-                        # 81: 'advanced features' + 'chain liberties'
+WEIGHTS_FILE_VER = "49"  # 'advanced features' + 'komi policy'
+                         # bit 0,   1: LZ must be on
+                         # bit 4,  16: advanced features (+2 planes)
+                         # bit 5,  32: komi policy
+                         # bit 6,  64: chain liberties features (+4 planes)
+                         # bit 7, 128: chain size features (+4 planes)
 KOMI_POLICY_CHANS = 14 # only used for komi policy net format
               
 # Network structure -- Sai value head

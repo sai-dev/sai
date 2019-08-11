@@ -238,6 +238,8 @@ static void parse_commandline(int argc, char *argv[]) {
          "history from 8 past moves to last 4.")
         ("chainlibs_feat", "Include 4 chain liberties feature plane "
          "when saving training data. Shorten history to 1 move.")
+        ("chainsize_feat", "Include 4 chain size feature plane "
+         "when saving training data. Shorten history to 1 move.")
         ("ci_alpha", po::value<float>())
         ;
 #endif
@@ -333,6 +335,9 @@ static void parse_commandline(int argc, char *argv[]) {
     }
     if (vm.count("chainlibs_feat")) {
         cfg_chainlibs_features  = true;
+    }
+    if (vm.count("chainsize_feat")) {
+        cfg_chainsize_features  = true;
     }
     if (vm.count("ci_alpha")) {
         cfg_ci_alpha = vm["ci_alpha"].as<float>();

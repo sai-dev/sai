@@ -81,6 +81,7 @@ int cfg_noise;
 bool cfg_fpuzero;
 bool cfg_adv_features;
 bool cfg_chainlibs_features;
+bool cfg_chainsize_features;
 bool cfg_exploit_symmetries;
 bool cfg_symm_nonrandom;
 float cfg_noise_value;
@@ -372,6 +373,7 @@ void GTP::setup_default_parameters() {
     cfg_policy_temp = 1.0f;
     cfg_adv_features = false;
     cfg_chainlibs_features = false;
+    cfg_chainsize_features = false;
     cfg_exploit_symmetries = false;
     cfg_symm_nonrandom = false;
     cfg_fpuzero = false;

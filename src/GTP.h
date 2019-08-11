@@ -99,6 +99,7 @@ extern int cfg_noise;
 extern bool cfg_fpuzero;
 extern bool cfg_adv_features;
 extern bool cfg_chainlibs_features;
+extern bool cfg_chainsize_features;
 extern bool cfg_exploit_symmetries;
 extern bool cfg_symm_nonrandom;
 extern float cfg_noise_value;

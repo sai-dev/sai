@@ -152,12 +152,12 @@ void Training::clear_training() {
 }
 
 TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
-    const auto default_input_moves = cfg_adv_features ?
-        (cfg_chainlibs_features ? Network::MINIMIZED_INPUT_MOVES : Network::REDUCED_INPUT_MOVES) :
-        (cfg_chainlibs_features ? Network::MINIMIZED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
+    const auto default_input_moves = (cfg_chainlibs_features || cfg_chainsize_features) ?
+        Network::MINIMIZED_INPUT_MOVES : 
+        (cfg_adv_features ? Network::REDUCED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
     const auto input_data =
-        Network::gather_features(state, 0, default_input_moves,
-                                 cfg_adv_features, cfg_chainlibs_features, false);
+        Network::gather_features(state, 0, default_input_moves, cfg_adv_features,
+                                 cfg_chainlibs_features, cfg_chainsize_features, false);
     auto planes = TimeStep::NNPlanes{};
 
     // for now the number of planes coding the position is always 16,
@@ -165,7 +165,9 @@ TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
     // depending on advanced features) times a number of moves in
     // recorded history (8 or 4 depending on advanced features)
     const auto moves_planes =
-        (2 + (cfg_adv_features ? 2 : 0) + (cfg_chainlibs_features ? Network::CHAIN_LIBERTIES_PLANES : 0))
+        ( 2 + (cfg_adv_features ? 2 : 0) +
+         (cfg_chainlibs_features ? Network::CHAIN_LIBERTIES_PLANES : 0) +
+         (cfg_chainsize_features ? Network::CHAIN_SIZE_PLANES : 0) )
         * default_input_moves;
     planes.resize(moves_planes);
 
