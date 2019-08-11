@@ -567,6 +567,11 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             winrate -= 0.05; // is this correct?
         }
 
+        if (currstate.get_passes() >= 1 &&
+            child.get_move() == FastBoard::PASS) {
+            psa += 0.2;
+        }
+
         const auto denom = 1.0 + visits;
         const auto puct = cfg_puct * psa * (numerator / denom);
 
