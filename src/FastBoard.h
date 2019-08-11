@@ -115,7 +115,8 @@ public:
     static bool starpoint(int size, int point);
     static bool starpoint(int size, int x, int y);
 
-    int liberties_to_capture(int vtx) const;
+    unsigned short int liberties_to_capture(int vtx) const;
+    unsigned short int chain_liberties(int vtx) const;
     int get_sym_move(const int vertex, const int symmetry) const;
 
     void find_dame(std::vector<int>& all_dames);

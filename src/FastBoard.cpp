@@ -205,7 +205,7 @@ int FastBoard::count_neighbours(const int c, const int v) const {
     return (m_neighbours[v] >> (NBR_SHIFT * c)) & NBR_MASK;
 }
 
-int FastBoard::liberties_to_capture(int vtx) const {
+unsigned short FastBoard::liberties_to_capture(int vtx) const {
     short unsigned int minlibs = 9;
     for (int k = 0; k < 4; k++) {
         int ai = vtx + m_dirs[k];
@@ -215,6 +215,10 @@ int FastBoard::liberties_to_capture(int vtx) const {
         }
     }
     return minlibs;
+}
+
+unsigned short FastBoard::chain_liberties(int vtx) const {
+    return m_libs[m_parent[vtx]];
 }
 
 void FastBoard::add_neighbour(const int vtx, const int color) {

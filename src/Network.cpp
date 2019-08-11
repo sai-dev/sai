@@ -309,8 +309,10 @@ int Network::load_v1_network(std::istream& wtfile, int format_version) {
                   // that for each move there are 2 bitplanes with
                   // stones positions and possibly 2 more bitplanes
                   // with some advanced features (legal and atari)
+                  const auto feature_planes = 2 + (m_adv_features ? 2 : 0)
+                      + (m_chainlibs_features ? CHAIN_LIBERTIES_PLANES : 0);
                   m_input_moves = (m_input_planes - (m_include_color ? 2 : 1)) /
-                      (m_adv_features ? 4 : 2);
+                      feature_planes;
 
                   assert (n_wts_1st_layer == m_input_planes*9*m_channels);
                   myprintf("%d input planes, %d input moves\n%d channels...",
@@ -603,22 +605,30 @@ int Network::load_network_file(const std::string& filename) {
                 m_value_head_not_stm = true;
             } else {
                 if (format_version == 1) {
-                            myprintf("Version 1 weights file (LZ).\n");
-                        }
+                    myprintf("Version 1 weights file (LZ).\n");
+                }
                 m_value_head_not_stm = false;
             }
             if (format_version == 17) {
-                        myprintf("Version 17 weights file (advanced board features).\n");
+                myprintf("Version 17 weights file (advanced board features).\n");
                 m_adv_features = true;
+                m_chainlibs_features = false;
                 m_komi_policy = false;
             } else if (format_version == 49) {
-                        myprintf("Version 49 weights file (komi policy + advanced board features).\n");
-                        m_adv_features = true;
+                myprintf("Version 49 weights file (komi policy + advanced board features).\n");
+                m_adv_features = true;
+                m_chainlibs_features = false;
                 m_komi_policy = true;
-            } else {
-                        m_adv_features = false;
+            } else if (format_version == 81) {
+                myprintf("Version 81 weights file (advanced board features + chain liberties).\n");
+                m_adv_features = true;
+                m_chainlibs_features = true;
                 m_komi_policy = false;
-                }
+            } else {
+                m_adv_features = false;
+                m_chainlibs_features = false;
+                m_komi_policy = false;
+            }
             return load_v1_network(buffer, format_version);
         }
     }
@@ -1078,7 +1088,10 @@ Network::Netresult Network::get_output_internal(
     // color of the current player is encoded in the last two planes
     const auto include_color = (0 == m_input_planes % 2);
 
-    const auto input_data = gather_features(state, symmetry, m_input_moves, m_adv_features, include_color);
+    //    myprintf("get_output_internal() -> m_chainlibs_features=%d\n", m_chainlibs_features);
+    const auto input_data = gather_features(state, symmetry, m_input_moves,
+                                            m_adv_features, m_chainlibs_features,
+                                            include_color);
     std::vector<float> policy_data(m_policy_outputs * width * height);
     std::vector<float> val_data(m_val_outputs * width * height);
     std::vector<float> vbe_data(m_vbe_outputs * width * height);
@@ -1312,9 +1325,9 @@ void Network::fill_input_plane_pair(const FullBoard& board,
 }
 
 void Network::fill_input_plane_advfeat(std::shared_ptr<const KoState> const state,
-                                    std::vector<float>::iterator legal,
-                                    std::vector<float>::iterator atari,
-                                    const int symmetry) {
+                                       std::vector<float>::iterator legal,
+                                       std::vector<float>::iterator atari,
+                                       const int symmetry) {
     for (auto idx = 0; idx < NUM_INTERSECTIONS; idx++) {
         const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
         const auto x = sym_idx % BOARD_SIZE;
@@ -1327,35 +1340,64 @@ void Network::fill_input_plane_advfeat(std::shared_ptr<const KoState> const stat
     }
 }
 
+void Network::fill_input_plane_chainlibsfeat(std::shared_ptr<const KoState> const state,
+                                             std::vector<float>::iterator chainlibs,
+                                             const int symmetry) {
+    for (auto idx = 0; idx < NUM_INTERSECTIONS; idx++) {
+        const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
+        const auto x = sym_idx % BOARD_SIZE;
+        const auto y = sym_idx / BOARD_SIZE;
+        const auto peek = state->board.get_state(x,y);
+        const auto is_stone = (peek == FastBoard::BLACK || peek == FastBoard::WHITE);
+        const auto vtx = state->board.get_vertex(x,y);
+        // if there is no stone, then put 0 in all planes
+        // if there is a stone, then put 1 if its chain has only 1 liberty,
+        //                               1 if its chain has <= 2 liberies,
+        //                               1 if its chain has <= 3 liberies,
+        //                               1 if its chain has <= 4 liberies
+        for (auto plane = size_t{0} ; plane < CHAIN_LIBERTIES_PLANES ; plane++) {
+            chainlibs[idx + plane * NUM_INTERSECTIONS] = is_stone &&
+                (state->board.chain_liberties(vtx) <= plane + 1);
+        }
+    }
+}
+
 std::vector<float> Network::gather_features(const GameState* const state,
                                             const int symmetry,
                                             const int input_moves,
                                             const bool adv_features,
+                                            const bool chainlibs_features,
                                             const bool include_color) {
+    //    myprintf("gather_features() sym=%d, moves=%d, adv_f=%d, ch_lib_f=%d, incl_col=%d\n",
+    //             symmetry, input_moves, adv_features, chainlibs_features, include_color);
     assert(symmetry >= 0 && symmetry < NUM_SYMMETRIES);
 
     // if advanced board features are included, for every input move
     // in addition to 2 planes with the stones there are 2 planes with
     // legal moves for current player and "atari" intersections for
     // either player
-    auto moves_planes = input_moves * (2 + (adv_features ? 2 : 0));
+    // if chain liberties feature is included, there are 4 additional
+    // planes with the number of liberties of the chain to which this
+    // stone bolongs; encoding is ==1, <=2, <=3, <=4
+    auto moves_planes = input_moves * (2 +
+                                       (adv_features ? 2 : 0) +
+                                       (chainlibs_features ? CHAIN_LIBERTIES_PLANES : 0));
+    //    myprintf("moves_planes=%d\n", moves_planes);
 
     // if the color of the current player is included, two more input
     // planes are needed, otherwise one input plane filled with ones
     // will provide information on the border of the board for the CNN
     auto input_planes = moves_planes + (include_color ? 2 : 1);
+    //    myprintf("input_planes=%d\n", input_planes);
 
     auto input_data = std::vector<float>(input_planes * NUM_INTERSECTIONS);
 
     const auto current_it = begin(input_data);
-    const auto opponent_it = begin(input_data) + input_moves * NUM_INTERSECTIONS;
-    auto legal_it = current_it;
-    auto atari_it = current_it;
-
-    if (adv_features) {
-        legal_it += 2 * input_moves * NUM_INTERSECTIONS;
-        atari_it += 3 * input_moves * NUM_INTERSECTIONS;
-    }
+    const auto opponent_it = current_it + input_moves * NUM_INTERSECTIONS;
+    const auto legal_it = opponent_it + input_moves * NUM_INTERSECTIONS;
+    const auto atari_it = legal_it + input_moves * NUM_INTERSECTIONS;
+    const auto chainlibs_it = (adv_features ? atari_it : opponent_it) +
+        input_moves * NUM_INTERSECTIONS;
 
     const auto to_move = state->get_to_move();
     const auto blacks_move = to_move == FastBoard::BLACK;
@@ -1387,7 +1429,11 @@ std::vector<float> Network::gather_features(const GameState* const state,
                                      legal_it + h * NUM_INTERSECTIONS,
                                      atari_it + h * NUM_INTERSECTIONS,
                                      symmetry);
-
+        }
+        if (chainlibs_features) {
+            fill_input_plane_chainlibsfeat(state->get_past_state(h),
+                                           chainlibs_it + h * NUM_INTERSECTIONS,
+                                           symmetry);
         }
     }
 

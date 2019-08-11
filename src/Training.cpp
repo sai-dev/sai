@@ -152,19 +152,21 @@ void Training::clear_training() {
 }
 
 TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
+    const auto default_input_moves = cfg_adv_features ?
+        (cfg_chainlibs_features ? Network::MINIMIZED_INPUT_MOVES : Network::REDUCED_INPUT_MOVES) :
+        (cfg_chainlibs_features ? Network::MINIMIZED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
     const auto input_data =
-        Network::gather_features(state, 0,
-                                 cfg_adv_features ? Network::REDUCED_INPUT_MOVES :
-                                 Network::DEFAULT_INPUT_MOVES,
-                                 cfg_adv_features, false);
+        Network::gather_features(state, 0, default_input_moves,
+                                 cfg_adv_features, cfg_chainlibs_features, false);
     auto planes = TimeStep::NNPlanes{};
 
     // for now the number of planes coding the position is always 16,
     // but in general it is a number of feature planes (2 or 4
     // depending on advanced features) times a number of moves in
     // recorded history (8 or 4 depending on advanced features)
-    const auto moves_planes = (2 + (cfg_adv_features ? 2 : 0))
-        * (cfg_adv_features ? Network::REDUCED_INPUT_MOVES : Network::DEFAULT_INPUT_MOVES);
+    const auto moves_planes =
+        (2 + (cfg_adv_features ? 2 : 0) + (cfg_chainlibs_features ? Network::CHAIN_LIBERTIES_PLANES : 0))
+        * default_input_moves;
     planes.resize(moves_planes);
 
     for (auto c = size_t{0}; c < moves_planes; c++) {
@@ -276,8 +278,8 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
             break;
         }
         auto out = std::stringstream{};
-        // First output 16 times an input feature plane
-        for (auto p = size_t{0}; p < 16; p++) {
+        // First output all input feature planes
+        for (auto p = size_t{0}; p < it->planes.size() ; p++) {
             const auto& plane = it->planes[p];
             // Write it out as a string of hex characters
             for (auto bit = size_t{0}; bit + 3 < plane.size(); bit += 4) {

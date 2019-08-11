@@ -64,6 +64,7 @@ INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
 WEIGHTS_FILE_VER = "49" #  1: LZ
                         # 17: 'advanced features'
                         # 49: 'advanced features' + 'komi policy'
+                        # 81: 'advanced features' + 'chain liberties'
 KOMI_POLICY_CHANS = 14 # only used for komi policy net format
               
 # Network structure -- Sai value head

@@ -236,6 +236,8 @@ static void parse_commandline(int argc, char *argv[]) {
         ("adv_features", "Include advanced features (legal moves, "
          "last liberty intersections) when saving training data. Shorten "
          "history from 8 past moves to last 4.")
+        ("chainlibs_feat", "Include 4 chain liberties feature plane "
+         "when saving training data. Shorten history to 1 move.")
         ("ci_alpha", po::value<float>())
         ;
 #endif
@@ -328,6 +330,9 @@ static void parse_commandline(int argc, char *argv[]) {
     }
     if (vm.count("adv_features")) {
         cfg_adv_features  = true;
+    }
+    if (vm.count("chainlibs_feat")) {
+        cfg_chainlibs_features  = true;
     }
     if (vm.count("ci_alpha")) {
         cfg_ci_alpha = vm["ci_alpha"].as<float>();
