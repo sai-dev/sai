@@ -174,7 +174,7 @@ class TFProcess:
 
         planes = tf.cast(planes, self.model_dtype)
 
-        planes = tf.reshape(planes, (batch_size, 17+INPUT_STM, BOARD_SQUARES))
+        planes = tf.reshape(planes, (batch_size, INPUT_PLANES + 1 + INPUT_STM, BOARD_SQUARES))
         probs = tf.reshape(probs, (batch_size, BOARD_SQUARES + 1))
         komi = tf.reshape(komi, (batch_size, 1))
         winner = tf.reshape(winner, (batch_size, 1))
@@ -353,7 +353,7 @@ class TFProcess:
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
-        loss = 1.0 * policy_loss + 0.7 * mse_loss + reg_term
+        loss = POLICY_LOSS_WT * policy_loss + MSE_LOSS_WT * mse_loss + REG_LOSS_WT * reg_term
 
         return loss, policy_loss, mse_loss, reg_term, y_conv
 
@@ -609,12 +609,12 @@ class TFProcess:
     def construct_net(self, planes, komi):
         # NCHW format
         # batch, 18 channels, BOARD_SIZE x BOARD_SIZE
-        x_planes = tf.reshape(planes, [-1, 17+INPUT_STM, BOARD_SIZE, BOARD_SIZE])
+        x_planes = tf.reshape(planes, [-1, INPUT_PLANES + 1 + INPUT_STM, BOARD_SIZE, BOARD_SIZE])
         x_komi = tf.reshape(komi, [-1, 1])
 
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
-                               input_channels=17+INPUT_STM,
+                               input_channels=INPUT_PLANES + 1 + INPUT_STM,
                                output_channels=self.residual_filters,
                                name="first_conv")
         # Residual tower
@@ -733,7 +733,7 @@ class TFProcess:
             self.add_weights(b_fc5)
 
             h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
-            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi))) # here!
+            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
 
         return h_fc1, h_fc6
 

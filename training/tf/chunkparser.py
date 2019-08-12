@@ -35,7 +35,7 @@ import unittest
 from config import *
 
 # 16 planes, 1 side to move, 1 x (BOARD_SQUARES + 1) probs, 1 winner = 19 lines
-DATA_ITEM_LINES = 16 + 1 + 1 + 1
+# DATA_ITEM_LINES = 16 + 1 + 1 + 1
 
 def remap_vertex(vertex, symmetry):
     """
@@ -106,7 +106,7 @@ class ChunkParser:
         # Build full 16-plane reflection tables.
         self.full_reflection_table = [
             np.array([remap_vertex(vertex, sym) + p * BOARD_SQUARES
-                for p in range(16) for vertex in range(BOARD_SQUARES)])
+                for p in range(INPUT_PLANES) for vertex in range(BOARD_SQUARES)])
                     for sym in range(8)]
         # Convert both to np.array.
         # This avoids a conversion step when they're actually used.
@@ -153,7 +153,7 @@ class ChunkParser:
         # int32 2*komi (4 byte)
         # uint8 is_winner (1 byte)
         s1 = (BOARD_SQUARES+1)*4
-        s2 = BOARD_SQUARES*2
+        s2 = (BOARD_SQUARES * INPUT_PLANES + 7) // 8
         self.v2_struct = struct.Struct('4s'+str(s1)+'s'+str(s2)+'sBiB')
 
         # Struct used to return data from child workers.
@@ -163,7 +163,7 @@ class ChunkParser:
         # uint8*BOARD_SQUARE*18 planes
         # (order is to ensure that no padding is required to
         #  make float32 be 32-bit aligned)
-        s3 = BOARD_SQUARES * (17 + INPUT_STM)
+        s3 = BOARD_SQUARES * (1 + INPUT_PLANES + INPUT_STM)
         self.raw_struct = struct.Struct('4s'+str(s1)+'si'+str(s3)+'s')
 
     def convert_v1_to_v2(self, text_item):
@@ -179,7 +179,7 @@ class ChunkParser:
         # each being a BOARD_SQUARES element array
         # of type np.uint8
         planes = []
-        for plane in range(0, 16):
+        for plane in range(0, INPUT_PLANES):
             hexchars = BOARD_SQUARES // 4
             # first bits are hexchars hex chars, encoded MSB
             hex_string = text_item[plane][0:hexchars]
@@ -203,7 +203,7 @@ class ChunkParser:
         planes = np.packbits(planes).tobytes()
 
         # Get the 'side to move' and komi
-        stmkomi = text_item[16].split()
+        stmkomi = text_item[INPUT_PLANES].split()
         if not(len(stmkomi) == 2):
             return False, None
         stm = int(stmkomi[0])
@@ -215,7 +215,7 @@ class ChunkParser:
 #        komi = struct.pack('i',komi)
 
         # Load the probabilities.
-        probabilities = np.array(text_item[17].split()).astype(np.float32)
+        probabilities = np.array(text_item[INPUT_PLANES + 1].split()).astype(np.float32)
         if np.any(np.isnan(probabilities)):
             # Work around a bug in leela-zero v0.3, skipping any
             # positions that have a NaN in the probabilities list.
@@ -233,10 +233,10 @@ class ChunkParser:
             return False, None
 
         # Load the game winner color.
-        winner = float(text_item[18])
+        winner = float(text_item[INPUT_PLANES + 2])
         if not(winner == 1.0 or winner == -1.0 or winner == 0.0):
             return False, None
-        winner = int((winner + 1) / 2)
+        winner = int(winner + 1)
 
         version = struct.pack('i', 1)
 
@@ -255,7 +255,7 @@ class ChunkParser:
         # We use the full length reflection tables to apply symmetry
         # to all 16 planes simultaneously
         planes = planes[self.full_reflection_table[symmetry]]
-        assert len(planes) == BOARD_SQUARES*16
+        assert len(planes) == BOARD_SQUARES*INPUT_PLANES
         planes = np.packbits(planes)
         planes = planes.tobytes()
 
@@ -290,7 +290,10 @@ class ChunkParser:
         (ver, probs, planes, to_move, komi, winner) = self.v2_struct.unpack(content)
         # Unpack planes.
         planes = np.unpackbits(np.frombuffer(planes, dtype=np.uint8))
-        assert len(planes) == BOARD_SQUARES*16
+#        print(len(planes))
+        assert len(planes) == ((BOARD_SQUARES*INPUT_PLANES + 7) // 8) * 8
+        planes = planes[np.array(range(BOARD_SQUARES*INPUT_PLANES))]
+        assert len(planes) == BOARD_SQUARES*INPUT_PLANES
         # Now we add the two final planes, being the 'color to move' planes.
         stm = to_move
         assert stm == 0 or stm == 1
@@ -304,10 +307,10 @@ class ChunkParser:
             
         # Flattern all planes to a single byte string
         planes = planes.tobytes() + self.flat_planes[stm]
-        assert len(planes) == ((17 + INPUT_STM) * BOARD_SQUARES), len(planes)
+        assert len(planes) == ((INPUT_PLANES + 1 + INPUT_STM) * BOARD_SQUARES), len(planes)
 
-        winner = float(winner * 2 - 1)
-        assert winner == 1.0 or winner == -1.0, winner
+        winner = float(winner - 1)
+        assert winner == 1.0 or winner == -1.0 or winner == 0.0, winner
         winner = struct.pack('f', winner)
 
         return (planes, probs, komi, winner)
