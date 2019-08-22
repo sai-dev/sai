@@ -428,7 +428,7 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  pv.c_str());
 #else
         myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %5.2f, den: %4d) "
-                 "(V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (A: %4.1f) PV: %s\n",
+                 "(V: %5.2f%%) (LCB: %8.5f%%) (N: %5.2f%%) (A: %4.1f) PV: %s\n",
                  move.c_str(),
                  node->get_visits(),
                  node->get_urgency()[0] * 100.0f,
@@ -436,7 +436,7 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  node->get_urgency()[4],
                  int(node->get_urgency()[3]),
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
-                 std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
+                 node->get_eval_lcb(color) * 100.0f,
                  node->get_policy() * 100.0f,
                  node->get_alpkt_online_median(),
                  pv.c_str());

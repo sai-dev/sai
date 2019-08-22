@@ -273,12 +273,12 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     }
 
     for ( ; it!=m_data.end() ; ++it ) {
-        // Stop writing training if below losing threshold, as
-        // positions tend to be irregular and quite meaningless
-        if (it->root_uct_winrate <=
-            std::max(cfg_resign_threshold, cfg_losing_thr)) {
-            break;
-        }
+        // // Stop writing training if below losing threshold, as
+        // // positions tend to be irregular and quite meaningless
+        // if (it->root_uct_winrate <=
+        //     std::max(cfg_resign_threshold, cfg_losing_thr)) {
+        //     break;
+        // }
         auto out = std::stringstream{};
         // First output all input feature planes
         for (auto p = size_t{0}; p < it->planes.size() ; p++) {
