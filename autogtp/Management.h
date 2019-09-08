@@ -109,7 +109,7 @@ private:
     void printTimingInfo(float duration);
     void runTuningProcess(const QString &tuneCmdLine);
     void gzipFile(const QString &fileName);
-    bool sendCurl(const QStringList &lines);
+    bool sendCurl(const QStringList &lines, const QStringList &args = QStringList());
     void saveCurlCmdLine(const QStringList &prog_cmdline, const QString &name);
     void archiveFiles(const QString &fileName);
     void cleanupFiles(const QString &fileName);

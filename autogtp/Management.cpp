@@ -433,6 +433,7 @@ Order Management::getWorkInternal(bool tuning) {
     if (ob.contains("options")) {
         parameters["optHash"] = ob.value("options_hash").toString();
         parameters["options"] = getOptionsString(ob.value("options").toObject(), rndSeed);
+        parameters["original_options"] = QJsonDocument(ob.value("options").toObject()).toJson(QJsonDocument::Compact);
     }
     if (ob.contains("gtp_commands")) {
         parameters["gtpCommands"] = getGtpCommandsString(ob.value("gtp_commands"));
@@ -753,7 +754,7 @@ void Management::sendAllGames() {
     }
 }
 
-bool Management::sendCurl(const QStringList &lines) {
+bool Management::sendCurl(const QStringList &lines, const QStringList &args) {
     QString prog("curl");
 #ifdef WIN32
     prog.append(".exe");
@@ -764,9 +765,9 @@ bool Management::sendCurl(const QStringList &lines) {
         arguments << "-F" << "username=" + m_username << "-F" << "password=" + m_hashedPassword;
     else
         arguments << "-F" << "key=" + m_publicAuthKey;
+    arguments << args;
     for (const QString& s: lines)
         arguments << s.split(' ');
-
     QProcess curl;
     curl.start(prog, arguments);
     curl.waitForFinished(-1);
@@ -871,10 +872,13 @@ void Management::uploadData(const QMap<QString,QString> &r, const QMap<QString,Q
     prog_cmdline.append("-F trainingdata=@" + r["file"] + ".txt.0.gz");
     prog_cmdline.append(m_serverUrl+"submit");
 
+    QStringList prog_other_args;
+    prog_other_args << "-F" << ("options=" + l["original_options"]);
+
     bool sent = false;
     for (auto retries = 0; retries < MAX_RETRIES; retries++) {
         try {
-            sent = sendCurl(prog_cmdline);
+            sent = sendCurl(prog_cmdline, prog_other_args);
             break;
         } catch (const NetworkException &ex) {
             QTextStream(stdout)
