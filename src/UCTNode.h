@@ -46,6 +46,12 @@
 #include "UCTNodePointer.h"
 #include "UCTSearch.h"
 
+struct UCTStats {
+    float alpkt_online_median;
+    float beta_median;
+    float azwinrate_avg;
+};
+
 class UCTNode {
 public:
     // When we visit a node, add this amount of virtual losses
@@ -137,6 +143,9 @@ public:
     void inflate_all_children();
     UCTNode* select_child(int move);
     float estimate_alpkt(int passes, bool is_tromptaylor_scoring = false) const;
+    float get_beta_median() const;
+    float get_azwinrate_avg() const;
+    UCTStats get_uct_stats() const;
     void update_alpkt_median(float new_alpkt_value);
 
     void clear_expand_state();
@@ -154,6 +163,8 @@ private:
     void dirichlet_noise(float epsilon, float alpha);
     void get_subtree_alpkts(std::vector<float> & vector, int passes,
                             bool is_tromptaylor_scoring) const;
+    void get_subtree_betas(std::vector<float> & vector) const;
+    void az_sum_recursion(float& sum, size_t& n) const;
 
     // Note : This class is very size-sensitive as we are going to create
     // tens of millions of instances of these.  Please put extra caution

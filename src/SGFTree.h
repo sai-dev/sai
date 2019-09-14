@@ -65,7 +65,9 @@ public:
     }
     FastBoard::vertex_t get_winner() const;
 
-    static std::string state_to_string(GameState& state, int compcolor);
+    static std::string state_to_string(GameState& state,
+                                       int compcolor,
+                                       bool selfplay = false);
 
 private:
     void populate_states();

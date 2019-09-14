@@ -202,17 +202,29 @@ class ChunkParser:
         # and then to a byte string
         planes = np.packbits(planes).tobytes()
 
-        # Get the 'side to move' and komi
-        stmkomi = text_item[INPUT_PLANES].split()
-        if not(len(stmkomi) == 2):
+        # Get the 'side to move' and global info
+        tomove_and_global_info = text_item[INPUT_PLANES].split()
+
+        # The first field is '0' for black (meaning to subtract komi)
+        # and '1' for white (meaning to add komi)
+        stm = float(tomove_and_global_info[0])
+        if not(stm == 0.0 or stm == 1.0):
             return False, None
-        stm = int(stmkomi[0])
-        if not(stm == 0 or stm == 1):
+
+        # If there is no other field, then the format is for LZ training;
+        # default to some komi value and go on
+        if len(tomove_and_global_info) == 1 and VALUE_HEAD_TYPE != SINGLE:
             return False, None
-        komi = int(2*float(stmkomi[1]))
-        if (stm == 0):
+
+        komi = 7.5
+        if len(tomove_and_global_info) >= 2:
+            komi = 2*float(tomove_and_global_info[1])
+        if komi != int(komi):
+            return False, None
+        komi = int(komi)
+        if (stm == 0.0):
             komi = -komi
-#        komi = struct.pack('i',komi)
+        # For the moment, we drop the other global info
 
         # Load the probabilities.
         probabilities = np.array(text_item[INPUT_PLANES + 1].split()).astype(np.float32)
@@ -232,8 +244,13 @@ class ChunkParser:
         if not(len(probs) == (BOARD_SQUARES + 1) * 4):
             return False, None
 
-        # Load the game winner color.
-        winner = float(text_item[INPUT_PLANES + 2])
+        # Load the game winner and other output values
+        winner_and_values = text_item[INPUT_PLANES + 2].split()
+        # For the moment, we drop the other values
+
+        # The first field is 1, 0, or -1 for current player wins,
+        # draws, or loses the game
+        winner = float(winner_and_values[0])
         if not(winner == 1.0 or winner == -1.0 or winner == 0.0):
             return False, None
         winner = int(winner + 1)
@@ -290,7 +307,6 @@ class ChunkParser:
         (ver, probs, planes, to_move, komi, winner) = self.v2_struct.unpack(content)
         # Unpack planes.
         planes = np.unpackbits(np.frombuffer(planes, dtype=np.uint8))
-#        print(len(planes))
         assert len(planes) == ((BOARD_SQUARES*INPUT_PLANES + 7) // 8) * 8
         planes = planes[np.array(range(BOARD_SQUARES*INPUT_PLANES))]
         assert len(planes) == BOARD_SQUARES*INPUT_PLANES
@@ -298,8 +314,7 @@ class ChunkParser:
         stm = to_move
         assert stm == 0 or stm == 1
 
-        #        komi = struct.unpack('i', komi)
-        komi = float(komi/2.0)
+        komi = float(komi)/2.0
         komi = struct.pack('f', komi)
 
         if (INPUT_STM == 0):

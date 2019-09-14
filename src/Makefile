@@ -48,7 +48,7 @@ CPPFLAGS += -MD -MP
 
 sources = Network.cpp FullBoard.cpp KoState.cpp Training.cpp \
 	  TimeControl.cpp UCTSearch.cpp GameState.cpp Leela.cpp \
-	  SGFParser.cpp Timing.cpp Utils.cpp FastBoard.cpp \
+	  SGFParser.cpp Timing.cpp Utils.cpp FastBoard.cpp SHA256.cpp \
 	  SGFTree.cpp Zobrist.cpp FastState.cpp GTP.cpp Random.cpp \
 	  SMP.cpp UCTNode.cpp UCTNodePointer.cpp UCTNodeRoot.cpp \
 	  OpenCL.cpp OpenCLScheduler.cpp NNCache.cpp Tuner.cpp CPUPipe.cpp

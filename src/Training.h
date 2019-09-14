@@ -55,7 +55,9 @@ public:
     float child_uct_winrate;
     int bestmove_visits;
     float komi;
+    size_t movenum;
     bool is_blunder;
+    UCTStats uct_stats;
 };
 
 std::ostream& operator<< (std::ostream& stream, const TimeStep& timestep);
@@ -83,7 +85,8 @@ class Training {
 public:
     static void clear_training();
     static void dump_training(int winner_color,
-                              const std::string& out_filename);
+                              const std::string& out_filename,
+                              const std::string& hash);
     static void dump_debug(const std::string& out_filename);
     static void record(Network & network, GameState& state, UCTNode& node);
 
@@ -98,7 +101,8 @@ private:
                              const std::vector<int>& tree_moves,
                              OutputChunker& outchunker);
     static void dump_training(int winner_color,
-                              OutputChunker& outchunker);
+                              OutputChunker& outchunker,
+                              const std::string& hash = "");
     static void dump_debug(OutputChunker& outchunker);
     static void save_training(std::ofstream& out);
     static void load_training(std::ifstream& in);

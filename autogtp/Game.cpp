@@ -420,6 +420,9 @@ void Game::fixSgfPlayer(QString& sgfData, const Engine& whiteEngine) {
 
 void Game::fixSgfComment(QString& sgfData, const Engine& whiteEngine,
     const bool isSelfPlay) {
+    // If this function is modified, a corresponding update is
+    // required to SGFTree::state_to_string() in order to get the same
+    // sgfhash as the server
     QRegularExpression oldComment("(C\\[Leela Zero)( options:.*)\\]");
     QString comment("\\1");
     if (!isSelfPlay) {

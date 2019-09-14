@@ -43,7 +43,6 @@
 #include <random>
 #include <string>
 #include <vector>
-#include <boost/algorithm/string.hpp>
 
 #include "GTP.h"
 #include "FastBoard.h"
@@ -51,6 +50,7 @@
 #include "GameState.h"
 #include "Network.h"
 #include "SGFTree.h"
+#include "SHA256.h"
 #include "SMP.h"
 #include "Training.h"
 #include "UCTSearch.h"
@@ -1217,10 +1217,6 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         cmdstream >> filename;
 
         auto sgf_text = SGFTree::state_to_string(game, 0);
-        // GTP says consecutive newlines terminate the output,
-        // so we must filter those.
-        boost::replace_all(sgf_text, "\n\n", "\n");
-
         if (cmdstream.fail()) {
             gtp_printf(id, "%s\n", sgf_text.c_str());
         } else {
@@ -1287,7 +1283,18 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             return;
         }
 
-        Training::dump_training(who_won, filename);
+        // Since this must be a self-play, ask for a sgf string
+        // modified in the same way as autogtp does. In this way the
+        // computed sgfhash is the same as the one on the server.
+        // This key is inserted into the training data, on every
+        // position and can be used to track back the corresponding
+        // game on the server, or to directly see the game on a
+        // browser, through http://server/view/sgfhash?viewer=wgo
+        const auto sgfstring =
+            SGFTree::state_to_string(game, 0, true);
+        const auto sgfhash =
+            SHA256::sha256(sgfstring);
+        Training::dump_training(who_won, filename, sgfhash);
 
         if (!cmdstream.fail()) {
             gtp_printf(id, "");

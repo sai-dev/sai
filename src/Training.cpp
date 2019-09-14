@@ -183,6 +183,11 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     auto step = TimeStep{};
     step.to_move = state.board.get_to_move();
     step.planes = get_planes(&state);
+    const auto komi = state.get_komi();
+    step.komi = komi;
+    step.movenum = state.get_movenum();
+    step.is_blunder = state.is_blunder();
+    step.uct_stats = root.get_uct_stats();
 
     const auto result =
         network.get_output(&state,
@@ -190,9 +195,6 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
                            Network::IDENTITY_SYMMETRY,
                            cfg_use_nncache,
                            cfg_use_nncache);
-    const auto komi = state.get_komi();
-    step.komi = komi;
-    step.is_blunder = state.is_blunder();
     step.net_winrate =
         sigmoid(result.alpha, result.beta,
                 state.board.black_to_move() ? -komi : komi).first;
@@ -212,7 +214,7 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     }
 
     const auto success = root.get_children_visits(state, root,
-                                                      step.probabilities, standardize);
+                                                  step.probabilities, standardize);
 
     if (!success) {
         // In a terminal position (with 2 passes), we can have children, but we
@@ -225,9 +227,10 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     m_data.emplace_back(step);
 }
 
-void Training::dump_training(int winner_color, const std::string& filename) {
+void Training::dump_training(int winner_color, const std::string& filename,
+                             const std::string& hash) {
     auto chunker = OutputChunker{filename, true};
-    dump_training(winner_color, chunker);
+    dump_training(winner_color, chunker, hash);
 }
 
 void Training::save_training(const std::string& filename) {
@@ -258,7 +261,9 @@ void Training::load_training(std::ifstream& in) {
     }
 }
 
-void Training::dump_training(int winner_color, OutputChunker& outchunk) {
+void Training::dump_training(int winner_color,
+                             OutputChunker& outchunk,
+                             const std::string& sgfhash) {
     auto training_str = std::string{};
 
     if (m_data.size()==0) {
@@ -301,6 +306,8 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         // bit, 0 = black to move.
         out << (it->to_move == FastBoard::BLACK ? "0" : "1")
             << " " << it->komi
+            << " " << sgfhash
+            << " " << it->movenum
             << std::endl;
         // Then a POTENTIAL_MOVES long array of float probabilities
         for (auto its = begin(it->probabilities);
@@ -323,7 +330,10 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         } else if (winner_color == FastBoard::EMPTY) {
             out << "0";
         }
-        out << std::endl;
+        out << " " << it->uct_stats.alpkt_online_median
+            << " " << it->uct_stats.beta_median
+            << " " << it->uct_stats.azwinrate_avg
+            << std::endl;
         training_str.append(out.str());
     }
     outchunk.append(training_str);

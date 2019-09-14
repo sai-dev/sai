@@ -432,7 +432,8 @@ std::vector<int> SGFTree::get_mainline() const {
     return moves;
 }
 
-std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
+std::string SGFTree::state_to_string(GameState& pstate, int compcolor,
+                                     bool selfplay) {
     auto state = std::make_unique<GameState>();
 
     // make a working copy
@@ -466,12 +467,13 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         leela_name.append(" " + cfg_weightsfile.substr(pos, 8));
     }
 
+    const auto opponent = selfplay ? leela_name : "Human";
     if (compcolor == FastBoard::WHITE) {
         header.append("PW[" + leela_name + "]");
-        header.append("PB[Human]");
+        header.append("PB[" + opponent + "]");
     } else {
         header.append("PB[" + leela_name + "]");
-        header.append("PW[Human]");
+        header.append("PW[" + opponent + "]");
     }
 
     state->rewind();
@@ -544,12 +546,18 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor) {
         header.append(", blunders played: " +
                       std::to_string(allowed_blunders - remaining_blunders));
     }
-    header.append(", " + state->eval_comment(true) + ", is_bluder]");
+    const auto fixcomment = selfplay ?
+        " Starting GTP commands: time_settings 0 1 0]" : "]";
+    header.append(", " + state->eval_comment(true) +
+                  ", is_bluder" + fixcomment);
 
     std::string result(header);
     result.append("\n");
     result.append(moves);
     result.append(")\n");
 
+    // GTP says consecutive newlines terminate the output,
+    // so we must filter those.
+    boost::replace_all(result, "\n\n", "\n");
     return result;
 }

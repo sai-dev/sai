@@ -776,6 +776,51 @@ float UCTNode::estimate_alpkt(int passes,
     return Utils::median(subtree_alpkts);
 }
 
+void UCTNode::get_subtree_betas(std::vector<float> & vector) const {
+    vector.emplace_back(get_net_beta());
+    for (auto& child : m_children) {
+        if (child.get_visits() > 0) {
+            child->get_subtree_betas(vector);
+        }
+    }
+}
+
+float UCTNode::get_beta_median() const {
+    std::vector<float> subtree_betas;
+
+    get_subtree_betas(subtree_betas);
+
+    return Utils::median(subtree_betas);
+}
+
+void UCTNode::az_sum_recursion(float& sum, size_t& n) const {
+    sum += get_net_eval();
+    n++;
+    for (auto& child : m_children) {
+        if (child.get_visits() > 0) {
+            child->az_sum_recursion(sum, n);
+        }
+    }
+}
+
+float UCTNode::get_azwinrate_avg() const {
+    auto sum = 0.0f;
+    auto n = size_t{0};
+
+    az_sum_recursion(sum, n);
+
+    return static_cast<float>(sum / double(n));
+}
+
+UCTStats UCTNode::get_uct_stats() const {
+    UCTStats stats;
+
+    stats.alpkt_online_median = m_alpkt_median;
+    stats.beta_median = get_beta_median();
+    stats.azwinrate_avg = get_azwinrate_avg();
+    return stats;
+}
+
 bool UCTNode::acquire_expanding() {
     auto expected = ExpandState::INITIAL;
     auto newval = ExpandState::EXPANDING;
