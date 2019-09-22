@@ -46,7 +46,7 @@
  * BOARD_SIZE: Define size of the board to compile Leela with, must be an odd
    number due to winograd tiles
  */
-static constexpr auto BOARD_SIZE = 9;
+static constexpr auto BOARD_SIZE = 19;
 static_assert(BOARD_SIZE % 2 == 1,
               "Code assumes odd board size, remove at your own risk!");
 
