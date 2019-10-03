@@ -85,12 +85,16 @@ bool UCTNode::create_children(Network & network,
         return false;
     }
 
-    const auto raw_netlist =
-        network.get_output(&state,
-                           Network::Ensemble::RANDOM_SYMMETRY,
-                           -1,
-                           cfg_use_nncache,
-                           cfg_use_nncache);
+    NNCache::Netresult raw_netlist;
+    try {
+        raw_netlist = network.get_output(
+            &state, Network::Ensemble::RANDOM_SYMMETRY,
+            -1, cfg_use_nncache, cfg_use_nncache);
+    } catch (NetworkHaltException & e) {
+        expand_cancel();
+
+        throw;
+    }
 
     // DCNN returns value as side to move
     auto stm_eval = raw_netlist.value; // = m_net_value
