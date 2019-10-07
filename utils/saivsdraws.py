@@ -1,7 +1,12 @@
+#!/usr/bin/env python3
+
 import tensorflow as tf
 import numpy as np
 import csv
-#from matplotlib import pyplot as plt
+import sys
+import os
+
+GORFACTOR = 400.0/np.log(10.0)
 
 def load_table_file(csv_table_file):
     """Load and returns the table of match results between sai29 nets"""
@@ -19,17 +24,49 @@ def load_table_file(csv_table_file):
 
     return x
 
+def load_old_ratings(csv_ratings_file, csv_nets_file, default_ratings):
+    rats_di = dict()
+    
+    with open(csv_ratings_file, newline='') as ratingsfile:
+        rats_csv_it = csv.reader(ratingsfile)
+        for row in rats_csv_it:
+            hash = row[0]
+            rat = float(row[-1])
+            rats_di[hash] = rat
+
+    updated_ratings = default_ratings
+    with open(csv_nets_file, newline='') as netsfile:
+        nets_csv_it = csv.reader(netsfile)
+        for i, row in enumerate(nets_csv_it):
+            hash = row[0]
+            old_rat = rats_di.get(hash)
+            if old_rat is not None:
+                updated_ratings[i,0] = old_rat / GORFACTOR
+
+    return updated_ratings
+
+def write_ratings_file(csv_nets_file, csv_output_file, ratings):
+    with open(csv_nets_file, newline='') as netsfile:
+        with open(csv_output_file, "w", newline='') as outfile:
+            inrd = csv.reader(netsfile)
+            outwr = csv.writer(outfile)
+
+            for score in ratings:
+                inrow = next(inrd)
+                gor = max (0.0, float(score) * GORFACTOR)
+                inrow.append(f'{gor:.1f}')
+                outwr.writerow(inrow)
+
 def build_process():
     """Builds TF process"""
 
 
-    wins = load_table_file('sai30-vs.csv')
-    nums = load_table_file('sai30-num.csv')
+    global wins
+    global nums
+    global n
+    global initial_ratings
 
-
-    n = np.shape(wins)[1] # number of nets and dimension of all vectors/matrices
-
-    s_vbl = tf.Variable(tf.truncated_normal([n-1, 1], mean=0.0, stddev=1.0, dtype=tf.float32))
+    s_vbl = tf.Variable(initial_ratings[1:], dtype=tf.float32)
     # variable part of s vector, with ratings of all nets apart from the first one
 
     s0 = tf.constant(0.0, shape=[1,1], dtype=tf.float32)
@@ -114,15 +151,52 @@ def build_process():
             if i % 100 == 0:
                 print(sess.run(loglike))
 
-        save=sess.run(s)
-                
-    outfile='sai30-ratings'
-    with open(outfile, "w") as file:
-        for x in list(save):
-            file.write(str(float(x)*400.0/np.log(10)))
-            file.write("\n")
-            
+        return sess.run(s)
+
 
 if __name__ == '__main__':
-    build_process()
+    argc = len(sys.argv)
+    if not(argc == 2 or argc == 5):
+        print('''Syntax:\n'''
+              '''saivwdraws.py <saiXX-vs.csv> <saiXX-num.csv> '''
+              '''<saiXX-nets.csv> <saiXX-ratings.csv>\n'''
+              '''saivsdraws.py <saiXX>''')
+        exit(1)
+
+    if argc == 2:
+        vsfile = sys.argv[1] + '-vs.csv'
+        numfile = sys.argv[1] + '-num.csv'
+        netsfile = sys.argv[1] + '-nets.csv'
+        outfile = sys.argv[1] + '-ratings.csv'
+    else:
+        vsfile = sys.argv[1]
+        numfile = sys.argv[2]
+        netsfile = sys.argv[3]
+        outfile = sys.argv[4]
+
+    vs_e, num_e, nets_e, out_e = os.path.exists(vsfile), os.path.exists(numfile), \
+                                 os.path.exists(netsfile), os.path.exists(outfile)
+    if not vs_e:
+        print(f"File {vsfile} does not exists.")
+    if not num_e:
+        print(f"File {numfile} does not exists.")
+    if not nets_e:
+        print(f"File {netsfile} does not exists.")
+    if not(vs_e and num_e and nets_e):
+        exit(1)
+
+    wins = load_table_file(vsfile)
+    n = np.shape(wins)[1] # number of nets and dimension of all vectors/matrices
+    nums = load_table_file(numfile)
+    m = np.shape(nums)[1]
+    if n != m:
+        print(f"File {vsfile} has {n} networks, while file {numfile} has {m} networks.")
+        exit(1)
+
+    initial_ratings = np.random.normal(size=(n,1))
+    if out_e:
+        initial_ratings = load_old_ratings(outfile, netsfile, initial_ratings)
+
+    final_ratings = build_process()
     
+    write_ratings_file(netsfile, outfile, final_ratings)
