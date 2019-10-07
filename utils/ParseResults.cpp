@@ -2,6 +2,7 @@
 #include<cmath>
 #include<fstream>
 #include<iostream>
+#include<map>
 #include<random>
 #include<string>
 #include<vector>
@@ -36,6 +37,28 @@ struct wincount {
     int wins;
     int num;
 };
+
+enum tags {
+    NA = 0,  // Zero is 'na': if a new tag is found, accessing the map
+             // inserts a new pair whose value is initialized to 0
+    HASH,
+    BLOCKS,
+    DESCRIPTION,
+    FILTERS,
+    TRAINING_COUNT,
+    TRAINING_STEPS,
+    GAME_COUNT };
+
+static std::map<std::string, tags> tag_v =
+    {
+        { "\"hash\"", HASH },
+        { "\"blocks\"", BLOCKS },
+        { "\"description\"", DESCRIPTION },
+        { "\"filters\"", FILTERS },
+        { "\"training_count\"", TRAINING_COUNT },
+        { "\"training_steps\"", TRAINING_STEPS },
+        { "\"game_count\"", GAME_COUNT }
+    };
 
 typedef vector< vector<int> > tab_t;
 
@@ -90,16 +113,48 @@ void load_netsdata(string filename, string hook) {
 
     string s;
     get_first_line(netsdata, s, 4); // Four header lines are expected
+    netsdata >> s;
 
-    auto i = 0;
     bool hookfound = false;
+    auto i = 0;
+    string tag;
     sainet tmp;
     while (netsdata >> s) {
+        //        cout << i << " : " << s << endl;
 	if (quote_opened(s)) {
 	    complete_quote(netsdata, s);
 	}
+        if (i%3 == 0) {
+            if (s == "{") {
+                continue;
+            }
+            if (s == "}") {
+                // cout << tmp.index << ". "
+                //           << tmp.hash << ", "
+                //           << tmp.cumul << ", "
+                //           << tmp.steps << ", "
+                //           << tmp.games << endl;
+                nets.emplace_back(tmp);
+                tmp.index++;
+                i = 0;
+                continue;
+            }
+            tag = s;
+            i++;
+            continue;
+        } else if (i%3 == 1) {
+            if (s != ":") {
+                cerr << "Nets data file " << filename
+                     << " has unexpected format. Fields should be assigned with ':'. Quitting." << endl;
+                exit (1);
+            }
+            i++;
+            continue;
+        }
         //        cout << s << endl;
-        switch (i) {
+        i++;
+        //        cout << "tag: " << tag << ", val: " << tag_v[tag] << endl;
+        switch (tag_v[tag]) {
             // i counts the words of the current line
             // string format is              i
             // { "_id" : ObjectId("..."),    0  1  2  3
@@ -110,7 +165,9 @@ void load_netsdata(string filename, string hook) {
             // "ip" : "192.167.12.14",      16 17 18
             // "training_count" : ...,      19 20 21
             // "training_steps" : ... }     22 23 24 25
-        case 6:
+        case NA:
+            break;
+        case HASH:
             // hash
             tmp.hash = s.substr(1, 64);
             tmp.cumul = 0;
@@ -127,14 +184,14 @@ void load_netsdata(string filename, string hook) {
                 tmp.hookdist = -1;
             }
             break;
-        case 9:
+        case BLOCKS:
             // blocks
             if (s.back() == ',') {
                 s.pop_back();
             }
             tmp.blocks = stoi(s);
             break;
-        case 12:
+        case DESCRIPTION:
             // description
             if (s.back() == ',') {
                 s.pop_back();
@@ -157,21 +214,21 @@ void load_netsdata(string filename, string hook) {
             }
         
             break;
-        case 15:
+        case FILTERS:
             // filters
             if (s.back() == ',') {
                 s.pop_back();
             }
             tmp.filters = stoi(s);
             break;
-        case 21:
+        case TRAINING_COUNT:
             // training_count
             if (s.back() == ',') {
                 s.pop_back();
             }
             tmp.cumul = stoi(s);
             break;
-        case 24:
+        case TRAINING_STEPS:
             // training_steps
             if (s.back() == ',') {
                 s.pop_back();
@@ -182,7 +239,7 @@ void load_netsdata(string filename, string hook) {
                 tmp.steps = stoi(s);
             }
             break;
-        case 27:
+        case GAME_COUNT:
             // game_count
             if (s.back() == ',') {
                 s.pop_back();
@@ -193,17 +250,6 @@ void load_netsdata(string filename, string hook) {
                 tmp.games = stoi(s);
             }
             break;
-        }
-        i++;
-        if (s == "}") {
-            // cout << tmp.index << ". "
-            //           << tmp.hash << ", "
-            //           << tmp.cumul << ", "
-            //           << tmp.steps << ", "
-            //           << tmp.games << endl;
-            nets.emplace_back(tmp);
-            tmp.index++;
-            i = 0;
         }
     } 
 
