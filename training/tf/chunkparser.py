@@ -210,6 +210,7 @@ class ChunkParser:
         stm = float(tomove_and_global_info[0])
         if not(stm == 0.0 or stm == 1.0):
             return False, None
+        stm = int(stm)
 
         # If there is no other field, then the format is for LZ training;
         # default to some komi value and go on
