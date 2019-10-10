@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>    
+    <hta:application id="SAI" />
+    <meta charset="utf-8" />
+    <title>Insert Parameters for SAI</title>
+    <script type="text/javascript">
+            
+        formload = function (event) {
+            if (document.readyState === "complete") {
+                oFSO = new ActiveXObject("Scripting.FileSystemObject");
+                if (oFSO.FileExists("sai.cfg")) {
+                    oFile = oFSO.OpenTextFile("sai.cfg",1);
+                    if (!oFile.AtEndOfStream)
+                        document.getElementById("username").value = oFile.ReadLine();
+                    if (!oFile.AtEndOfStream)
+                        document.getElementById("password").value = oFile.ReadLine();
+                    if (!oFile.AtEndOfStream)
+                        document.getElementById("params").value = oFile.ReadLine();
+                    oFile.Close();
+                }
+            }
+        }
+
+        sai = function () {
+            username = document.form.username.value;
+            password = document.form.password.value;
+            params = document.form.params.value;
+
+            oFSO = new ActiveXObject("Scripting.FileSystemObject");
+            oFile = oFSO.CreateTextFile("sai.cfg", true);
+            oFile.WriteLine(username);
+            oFile.WriteLine(password);
+            oFile.WriteLine(params);
+            oFile.Close();
+
+            objShell = new ActiveXObject("WScript.Shell");
+            cmdline = "autogtp --url http://sai.unich.it/ --username " + username + " --password " + password + params;
+            objShell.Run(cmdline);
+            window.close();
+            return true;
+        }
+
+        window.onLoad = window.resizeTo(600, 300);
+
+        document.onreadystatechange = formload;
+
+    </script>
+</head>
+<body>
+    <h1>Insert Parameters for Launching SAI</h1>
+    <form name="form">
+        <p>Username:&nbsp;<input type="text" name="username" id="username"/></p>
+        <p>Password:&nbsp;<input type="password" name="password" id="password" /></p>
+        <p>Optional Parameters:&nbsp;<input type="text" name="params" id="params" /></p>
+
+        <p><input type="button" value="Launch SAI" onclick="sai()" /></p>
+    </form>
+</body>
+</html>
