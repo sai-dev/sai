@@ -1,12 +1,12 @@
 ﻿<!DOCTYPE html>
 
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
-<head>    
+<head>
     <hta:application id="SAI" />
     <meta charset="utf-8" />
     <title>Insert Parameters for SAI</title>
     <script type="text/javascript">
-            
+
         formload = function (event) {
             if (document.readyState === "complete") {
                 oFSO = new ActiveXObject("Scripting.FileSystemObject");
@@ -36,7 +36,7 @@
             oFile.Close();
 
             objShell = new ActiveXObject("WScript.Shell");
-            cmdline = "autogtp --url http://sai.unich.it/ --username " + username + " --password " + password + params;
+            cmdline = "autogtp --url http://sai.unich.it/ --username " + username + " --password " + password + " " + params;
             objShell.Run(cmdline);
             window.close();
             return true;
