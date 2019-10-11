@@ -610,7 +610,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         cmdstream >> tmp;
 
         if (!cmdstream.fail()) {
-            if (tmp != NUM_INTERSECTIONS) {
+            if (tmp != BOARD_SIZE) {
                 gtp_fail_printf(id, "unacceptable size");
             } else {
                 float old_komi = game.get_komi();
