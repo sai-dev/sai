@@ -362,17 +362,24 @@ Order Management::getWorkInternal(bool tuning) {
 #ifdef WIN32
     prog_cmdline.append(".exe");
 #endif
-    prog_cmdline.append(" -s -J");
-    prog_cmdline.append(" "+m_serverUrl+"get-task/");
+    QString url;
+    url.append(m_serverUrl+"get-task/");
     if (tuning) {
-        prog_cmdline.append("0");
+        url.append("0");
     } else {
-        prog_cmdline.append(QString::number(AUTOGTP_VERSION));
+        url.append(QString::number(AUTOGTP_VERSION));
         if (!m_leelaversion.isEmpty())
-            prog_cmdline.append("/"+m_leelaversion);
+            url.append("/"+m_leelaversion);
     }
+    QStringList arguments;
+    arguments << "-s" << "-J";
+    if (!m_username.isEmpty() && !m_password.isEmpty())
+        arguments << "-F" << "username=" + m_username << "-F" << "password=" + m_hashedPassword;
+    else
+        arguments << "-F" << "key=" + m_publicAuthKey;
+    arguments << url;
     QProcess curl;
-    curl.start(prog_cmdline);
+    curl.start(prog_cmdline, arguments);
     curl.waitForFinished(-1);
 
     if (curl.exitCode()) {
@@ -382,8 +389,10 @@ Order Management::getWorkInternal(bool tuning) {
     }
     QJsonDocument doc;
     QJsonParseError parseError;
-    doc = QJsonDocument::fromJson(curl.readAllStandardOutput(), &parseError);
+    QByteArray curlOutput = curl.readAllStandardOutput();
+    doc = QJsonDocument::fromJson(curlOutput, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
+        QTextStream(stdout) << "Getting task returned: " << curlOutput << endl;
         std::string errorString = parseError.errorString().toUtf8().constData();
         throw NetworkException("JSON parse error: " + errorString);
     }
