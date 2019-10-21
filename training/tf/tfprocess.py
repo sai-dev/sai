@@ -478,7 +478,7 @@ class TFProcess:
                 print("Model saved in file: {}".format(save_path))
                 leela_path = path + "-" + str(steps) + ".txt"
                 self.save_leelaz_weights(leela_path)
-                print("Leela weights saved to {}".format(leela_path))
+                print("SAI weights saved to {}".format(leela_path))
                 # Things have likely changed enough
                 # that stats are no longer valid.
 

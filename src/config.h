@@ -119,7 +119,7 @@ static constexpr auto KOMI = 7.5f;
  */
 #define USE_EVALCMD
 
-static constexpr auto PROGRAM_NAME = "Leela Zero";
+static constexpr auto PROGRAM_NAME = "SAI";
 static constexpr auto PROGRAM_VERSION = "0.17";
 
 /*

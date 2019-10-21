@@ -55,7 +55,9 @@ using namespace Utils;
 
 static void license_blurb() {
     printf(
-        "Leela Zero %s  Copyright (C) 2017-2019  Gian-Carlo Pascutto and contributors\n"
+        "SAI %s is a fork of Leela Zero.\n"
+        "Leela Zero Copyright (C) 2017-2019  Gian-Carlo Pascutto and contributors.\n"
+        "SAI Copyright (C) 2018-2019 SAI Team.\n"
         "This program comes with ABSOLUTELY NO WARRANTY.\n"
         "This is free software, and you are welcome to redistribute it\n"
         "under certain conditions; see the COPYING file for details.\n\n",
@@ -139,7 +141,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("gtp,g", "Enable GTP mode.")
         ("japanese,j", "Enable Japanese scoring mode.")
         ("threads,t", po::value<unsigned int>()->default_value(0),
-                      "Number of threads to use. Select 0 to let leela-zero pick a reasonable default.")
+                      "Number of threads to use. Select 0 to let SAI pick a reasonable default.")
         ("playouts,p", po::value<int>(),
                        "Weaken engine by limiting the number of playouts. "
                        "Requires --noponder.")
@@ -187,7 +189,7 @@ static void parse_commandline(int argc, char *argv[]) {
                 "ID of the OpenCL device(s) to use (disables autodetection).")
         ("full-tuner", "Try harder to find an optimal OpenCL tuning.")
         ("tune-only", "Tune OpenCL only and then exit.")
-        ("batchsize", po::value<unsigned int>()->default_value(0), "Max batch size.  Select 0 to let leela-zero pick a reasonable default.")
+        ("batchsize", po::value<unsigned int>()->default_value(0), "Max batch size.  Select 0 to let SAI pick a reasonable default.")
 #ifdef USE_HALF
         ("precision", po::value<std::string>(),
             "Floating-point precision (single/half/auto).\n"
@@ -360,7 +362,7 @@ static void parse_commandline(int argc, char *argv[]) {
     cfg_weightsfile = vm["weights"].as<std::string>();
     if (vm["weights"].defaulted() && !boost::filesystem::exists(cfg_weightsfile)) {
         printf("A network weights file is required to use the program.\n");
-        printf("By default, Leela Zero looks for it in %s.\n", cfg_weightsfile.c_str());
+        printf("By default, SAI looks for it in %s.\n", cfg_weightsfile.c_str());
         exit(EXIT_FAILURE);
     }
 
@@ -654,7 +656,7 @@ int main(int argc, char *argv[]) {
     for (;;) {
         if (!cfg_gtp_mode) {
             maingame->display_state();
-            std::cout << "Leela: ";
+            std::cout << "SAI: ";
         }
 
         auto input = std::string{};

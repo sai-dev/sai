@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
                 "key", "");
 
     QCommandLineOption serverUrlOption(
-        "url", "Set the URL of leela-zero/SAI server",
+        "url", "Set the URL of Leela Zero/SAI server",
                 "server url", "http://localhost:8080/");
 
     QCommandLineOption usernameOption(

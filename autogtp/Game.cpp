@@ -136,7 +136,7 @@ void Game::checkVersion(const VersionTuple &min_version) {
     QStringList version_list = version_buff.split(".");
     if (version_list.size() < 2) {
         QTextStream(stdout)
-            << "Unexpected Leela Zero version: " << version_buff << endl;
+            << "Unexpected SAI version: " << version_buff << endl;
         exit(EXIT_FAILURE);
     }
     if (version_list.size() < 3) {
@@ -147,13 +147,13 @@ void Game::checkVersion(const VersionTuple &min_version) {
     versionCount += version_list[2].toInt() - std::get<2>(min_version);
     if (versionCount < 0) {
         QTextStream(stdout)
-            << "Leela version is too old, saw " << version_buff
+            << "SAI version is too old, saw " << version_buff
             << " but expected "
             << std::get<0>(min_version) << "."
             << std::get<1>(min_version) << "."
             << std::get<2>(min_version)  << endl;
         QTextStream(stdout)
-            << "Check https://github.com/gcp/leela-zero for updates." << endl;
+            << "Check https://github.com/sai-dev/sai for updates." << endl;
         exit(EXIT_FAILURE);
     }
     if (!eatNewLine()) {

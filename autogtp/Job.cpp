@@ -1,7 +1,7 @@
 /*
     This file is part of SAI, which is a fork of Leela Zero.
     Copyright (C) 2017-2018 Marco Calignano
-    Coptright (C) 2018 SAI Team
+    Coptright (C) 2018-2019 SAI Team
 
     SAI is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ void Job::init(const Order &o) {
     QStringList version_list = o.parameters()["leelazVer"].split(".");
     if (version_list.size() < 2) {
         QTextStream(stdout)
-                << "Unexpected Leela Zero version: " << o.parameters()["leelazVer"] << endl;
+                << "Unexpected SAI version: " << o.parameters()["leelazVer"] << endl;
         exit(EXIT_FAILURE);
     }
     if (version_list.size() < 3) {

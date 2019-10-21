@@ -307,7 +307,7 @@ const std::string Utils::leelaz_file(std::string file) {
         homedir = pwd->pw_dir;
     }
     boost::filesystem::path dir(homedir);
-    dir /= ".local/share/leela-zero";
+    dir /= ".local/share/sai";
 #endif
     boost::filesystem::create_directories(dir);
     dir /= file;

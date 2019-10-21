@@ -84,7 +84,7 @@ void Management::runTuningProcess(const QString &tuneCmdLine) {
     while (tuneProcess.state() == QProcess::Running) {
         tuneProcess.waitForReadyRead(1000);
         QByteArray text = tuneProcess.readAllStandardOutput();
-        int version_start = text.indexOf("Leela Zero ") + 11;
+        int version_start = text.indexOf("SAI ") + 11;
         if (version_start > 10) {
             int version_end = text.indexOf(" ", version_start);
             m_leelaversion = QString(text.mid(version_start, version_end - version_start));
@@ -416,7 +416,7 @@ Order Management::getWorkInternal(bool tuning) {
             << "Server requires client version " << required_version
             << " but we are version " << m_version << endl;
         QTextStream(stdout)
-            << "Check https://github.com/gcp/leela-zero for updates." << endl;
+            << "Check https://github.com/sai-dev/sai for updates." << endl;
         exit(EXIT_FAILURE);
     }
     //passing leela version
