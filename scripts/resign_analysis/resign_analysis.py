@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 #
-#    This file is part of Leela Zero.
+#    This file is part of SAI, which is a fork of Leela Zero.
 #    Copyright (C) 2017 Andy Olsen
 #
-#    Leela Zero is free software: you can redistribute it and/or modify
+#    SAI is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
-#    Leela Zero is distributed in the hope that it will be useful,
+#    SAI is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public License
-#    along with Leela Zero.  If not, see <http://www.gnu.org/licenses/>.
+#    along with SAI.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import math
@@ -244,6 +244,6 @@ files hash.txt.0 to be in the same directory."""
                     R = resignthr
             else:
                 L = (math.floor(resignthr * 100) + 1) / 100
-        if (L == R):      
+        if (L == R):
             print(("The highest the resign threshold should be set to: %0.2f")
                   % (R - 0.01))

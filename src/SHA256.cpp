@@ -1,3 +1,33 @@
+/*
+    This file is part of SAI, which is a fork of Leela Zero.
+    Copyright (C) 2005, 2007 Olivier Gay <olivier.gay@a3.epfl.ch>
+    Copyright (C) 2018-2019 SAI Team
+
+    SAI is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    SAI is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with SAI.  If not, see <http://www.gnu.org/licenses/>.
+
+    Additional permission under GNU GPL version 3 section 7
+
+    If you modify this Program, or any covered work, by linking or
+    combining it with NVIDIA Corporation's libraries from the
+    NVIDIA CUDA Toolkit and/or the NVIDIA CUDA Deep Neural
+    Network library and/or the NVIDIA TensorRT inference library
+    (or a modified version of those libraries), containing parts covered
+    by the terms of the respective license agreement, the licensors of
+    this Program grant you additional permission to convey the resulting
+    work.
+*/
+
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -5,7 +35,7 @@
 #include <cstring>
 #include <fstream>
 #include "SHA256.h"
- 
+
 const unsigned int SHA256::sha256_k[64] = //UL = uint32
             {0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
              0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -23,7 +53,7 @@ const unsigned int SHA256::sha256_k[64] = //UL = uint32
              0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
              0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
              0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
- 
+
 void SHA256::transform(const unsigned char *message, unsigned int block_nb)
 {
     uint32 w[64];
@@ -61,7 +91,7 @@ void SHA256::transform(const unsigned char *message, unsigned int block_nb)
         }
     }
 }
- 
+
 void SHA256::init()
 {
     m_h[0] = 0x6a09e667;
@@ -75,7 +105,7 @@ void SHA256::init()
     m_len = 0;
     m_tot_len = 0;
 }
- 
+
 void SHA256::update(const unsigned char *message, unsigned int len)
 {
     unsigned int block_nb;
@@ -98,7 +128,7 @@ void SHA256::update(const unsigned char *message, unsigned int len)
     m_len = rem_len;
     m_tot_len += (block_nb + 1) << 6;
 }
- 
+
 void SHA256::final(unsigned char *digest)
 {
     unsigned int block_nb;
@@ -117,17 +147,17 @@ void SHA256::final(unsigned char *digest)
         SHA2_UNPACK32(m_h[i], &digest[i << 2]);
     }
 }
- 
+
 std::string SHA256::sha256(const std::string & input)
 {
     unsigned char digest[SHA256::DIGEST_SIZE];
     memset(digest,0,SHA256::DIGEST_SIZE);
- 
+
     SHA256 ctx = SHA256();
     ctx.init();
     ctx.update( (unsigned char*)input.c_str(), input.length());
     ctx.final(digest);
- 
+
     char buf[2*SHA256::DIGEST_SIZE+1];
     buf[2*SHA256::DIGEST_SIZE] = 0;
     for (unsigned int i = 0; i < SHA256::DIGEST_SIZE; i++)
