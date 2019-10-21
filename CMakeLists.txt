@@ -112,7 +112,7 @@ add_library(objs OBJECT ${leelaz_SRC})
 add_executable(sai $<TARGET_OBJECTS:objs> ${leelaz_MAIN})
 
 # For compatibility with Leela Zero scripts
-add_custom_target(leelaz ADEPENDS sai)
+add_custom_target(leelaz DEPENDS sai)
 
 target_link_libraries(sai ${Boost_LIBRARIES})
 target_link_libraries(sai ${BLAS_LIBRARIES})
