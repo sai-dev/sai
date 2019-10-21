@@ -69,7 +69,7 @@ WEIGHTS_FILE_VER = "209"  # 'advanced features' + 'komi policy'
                          # bit 6,  64: chain liberties features (+4 planes)
                          # bit 7, 128: chain size features (+4 planes)
 KOMI_POLICY_CHANS = 14 # only used for komi policy net format
-              
+
 # Network structure -- Sai value head
 # Value head type can be:
 SINGLE = 1 # (Leela Zero)

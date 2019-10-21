@@ -77,8 +77,8 @@ class ShuffleBuffer:
             self.used += 1
             return None
         return item
-        
- 
+
+
 class ShuffleBufferTest(unittest.TestCase):
     def test_extract(self):
         sb = ShuffleBuffer(3, 1)

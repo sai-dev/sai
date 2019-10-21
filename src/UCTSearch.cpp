@@ -312,7 +312,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             restrict_return = (cfg_restrict_tt &&
                                currstate.get_passes() == 1 &&
                                move == FastBoard::PASS);
-            
+
             currstate.play_move(move);
             if (move != FastBoard::PASS && currstate.superko()) {
                 next->invalidate();
@@ -416,7 +416,7 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         auto tmpstate = FastState{state};
         tmpstate.play_move(node->get_move());
         auto pv = move + " " + get_pv(tmpstate, *node);
-        
+
 #ifdef NDEBUG
         myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (A: %4.1f) PV: %s\n",
                  move.c_str(),
@@ -1100,7 +1100,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
                                chosen_child->estimate_alpkt(0, true),
                                chosen_child->get_alpkt_online_median());
             m_rootstate.set_eval(ev);
-            
+
 #ifndef NDEBUG
             myprintf("visits=%d, alpkt=%.2f, beta=%.3f, pi=%.3f, agent=%.3f, "
                      "avg=%.3f, alpkt_med=%.3f, alpkt_online=%.3f, "
