@@ -55,13 +55,13 @@ using namespace Utils;
 
 static void license_blurb() {
     printf(
-        "SAI %s is a fork of Leela Zero.\n"
+        "SAI %s %dx%d is a fork of Leela Zero.\n"
         "Leela Zero Copyright (C) 2017-2019  Gian-Carlo Pascutto and contributors.\n"
         "SAI Copyright (C) 2018-2019 SAI Team.\n"
         "This program comes with ABSOLUTELY NO WARRANTY.\n"
         "This is free software, and you are welcome to redistribute it\n"
         "under certain conditions; see the COPYING file for details.\n\n",
-        PROGRAM_VERSION);
+        PROGRAM_VERSION, BOARD_SIZE, BOARD_SIZE);
 }
 
 static void calculate_thread_count_cpu(boost::program_options::variables_map & vm) {
@@ -361,7 +361,7 @@ static void parse_commandline(int argc, char *argv[]) {
 
     cfg_weightsfile = vm["weights"].as<std::string>();
     if (vm["weights"].defaulted() && !boost::filesystem::exists(cfg_weightsfile)) {
-        printf("A network weights file is required to use the program.\n");
+        printf("A network weights file %dx%d is required to use the program.\n", BOARD_SIZE, BOARD_SIZE);
         printf("By default, SAI looks for it in %s.\n", cfg_weightsfile.c_str());
         exit(EXIT_FAILURE);
     }
