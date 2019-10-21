@@ -30,10 +30,10 @@ directly.
 
 # Running
 
-Copy the compiled leelaz binary into the autogtp directory, and run
+Copy the compiled sai binary into the autogtp directory, and run
 autogtp.
 
-    cp ../build/leelaz .
+    cp ../build/sai .
     ./autogtp
 
 While autogtp is running, typing q+Enter will save the processed data and exit. When autogtp runs next, autogtp will continue the game.

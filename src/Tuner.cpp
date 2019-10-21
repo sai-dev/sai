@@ -49,7 +49,7 @@
 #include "Utils.h"
 #include "Random.h"
 
-const auto TUNER_FILE_LOCAL = std::string("leelaz_opencl_tuning");
+const auto TUNER_FILE_LOCAL = std::string("sai_opencl_tuning");
 
 template <typename net_t>
 std::vector<std::string> Tuner<net_t>::tuned_devices;

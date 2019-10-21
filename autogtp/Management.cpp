@@ -114,7 +114,7 @@ void Management::giveAssignments() {
     QTextStream(stdout) << "Starting tuning process, please wait..." << endl;
 
     Order tuneOrder = getWork(true);
-    QString tuneCmdLine("./leelaz --batchsize=5 --tune-only -w networks/");
+    QString tuneCmdLine("./sai --batchsize=5 --tune-only -w networks/");
     tuneCmdLine.append(tuneOrder.parameters()["network"] + ".gz");
     if (m_gpusList.isEmpty()) {
         runTuningProcess(tuneCmdLine);

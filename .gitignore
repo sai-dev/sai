@@ -1,4 +1,4 @@
-leelaz
+sai
 *.o
 *.d
 *.gz
@@ -8,7 +8,7 @@ training/tf/checkpoint
 training/tf/venv
 leelaz-model*
 *.orig
-leelaz_opencl_tuning
+sai_opencl_tuning
 /build-autogtp-*
 /build-validation-*
 .vs/

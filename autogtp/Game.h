@@ -33,14 +33,14 @@ public:
     Engine(const QString& network,
            const QString& options,
            const QStringList& commands = QStringList("time_settings 0 1 0"),
-           const QString& binary = QString("./leelaz")) :
+           const QString& binary = QString("./sai")) :
         m_binary(binary), m_options(options),
         m_network(network), m_commands(commands) {
 #ifdef WIN32
         m_binary.append(".exe");
 #endif
         if (!QFileInfo::exists(m_binary)) {
-            m_binary.remove(0, 2); // ./leelaz -> leelaz
+            m_binary.remove(0, 2); // ./sai -> sai
         }
     }
     Engine() = default;

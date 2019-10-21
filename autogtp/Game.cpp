@@ -48,11 +48,11 @@ void Game::error(int errnum) {
     switch (errnum) {
         case Game::NO_LEELAZ:
             QTextStream(stdout)
-                << "No 'leelaz' binary found." << endl;
+                << "No 'sai' binary found." << endl;
             break;
         case Game::PROCESS_DIED:
             QTextStream(stdout)
-                << "The 'leelaz' process died unexpected." << endl;
+                << "The 'sai' process died unexpected." << endl;
             break;
         case Game::WRONG_GTP:
             QTextStream(stdout)

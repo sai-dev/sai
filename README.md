@@ -33,17 +33,17 @@ Head to the Github releases page at
 https://github.com/sai-dev/sai/releases, download the latest release
 and unzip. (There is also a cpu-only version if you need it.)
 
-Then you can use the main program SAI (actually, the filename is still
-leelaz.exe). You have to open a Windows command prompt in the directory with
+Then you can use the main program SAI.
+You have to open a Windows command prompt in the directory with
 the program to run it. It will need a network to work and networks can
 be found on the [server](http://sai.unich.it/). But you can immediately launch
 ```
-leelaz.exe --help
+sai.exe --help
 ```
 to see the options.
 
 If you'd rather play with a strong SAI 9x9 network, we provide a
-compiled 9x9 executable leelaz9x9.exe but you can also simply run
+compiled 9x9 executable sai9x9.exe but you can also simply run
 sai9x9.bat and you will play agains the
 [S1](http://sai.unich.it/networks/94619dea457de054503cec030269ce842c47055ba51e96db8fee841dfbaf05f9.gz)
 network from the 9x9 paper, which is included inside the zip file.
@@ -79,15 +79,15 @@ just close the autogtp window to stop it.
 
 Follow the instructions given on leela-zero
 [github](https://github.com/leela-zero/leela-zero) to compile the
-leelaz and autogtp binaries in the build subdirectory.
+sai and autogtp binaries in the build subdirectory.
 
-Then you can use the main program SAI (actually, the filename is still
-leelaz). You have to open a shell and to the directory with the
+Then you can use the main program SAI.
+You have to open a shell and to the directory with the
 program to run it. It will need a network to work and networks can be
 found on the [server](http://sai.unich.it/). But you can immediately
 launch
 ```
-leelaz --help
+sai --help
 ```
 to see the options.
 
@@ -105,7 +105,7 @@ wrong data. (This happened sometimes for leela-zero project.)
 Choose a password of no importance and that you don't use elsewhere,
 since it will be sent unencrypted.
 
-Then, be sure that leelaz and autogtp executables are in the $PATH and simply launch
+Then, be sure that sai and autogtp executables are in the $PATH and simply launch
 ```
 autogtp --url http://sai.unich.it/ --username <your_username> --password <your_password> -g <n>
 ```

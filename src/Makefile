@@ -5,21 +5,21 @@ default:
 	$(MAKE) CC=gcc CXX=g++ \
 		CXXFLAGS='$(CXXFLAGS) -Wall -Wextra -Wno-ignored-attributes -pipe -O3 -g -ffast-math -flto -march=native -std=c++14 -DNDEBUG'  \
 		LDFLAGS='$(LDFLAGS) -flto -g' \
-		leelaz
+		sai
 
 debug:
 	@echo "Detected OS: ${THE_OS}"
 	$(MAKE) CC=gcc CXX=g++ \
 		CXXFLAGS='$(CXXFLAGS) -Wall -Wextra -Wno-ignored-attributes -pipe -Og -g -std=c++14' \
 		LDFLAGS='$(LDFLAGS) -g' \
-		leelaz
+		sai
 
 clang:
 	@echo "Detected OS: ${THE_OS}"
 	$(MAKE) CC=clang CXX=clang++ \
 		CXXFLAGS='$(CXXFLAGS) -Wall -Wextra -Wno-missing-braces -Wno-mismatched-tags -O3 -ffast-math -flto -march=native -std=c++14 -DNDEBUG' \
 		LDFLAGS='$(LDFLAGS) -flto -fuse-linker-plugin' \
-		leelaz
+		sai
 
 DYNAMIC_LIBS = -lboost_system -lboost_filesystem -lboost_program_options -lpthread -lz
 LIBS =
@@ -61,10 +61,13 @@ deps = $(sources:%.cpp=%.d)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
 
-leelaz: $(objects)
+# For compatibility with Leela Zero
+leelaz: sai
+
+sai: $(objects)
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS) $(DYNAMIC_LIBS)
 
 clean:
-	-$(RM) leelaz $(objects) $(deps)
+	-$(RM) sai $(objects) $(deps)
 
 .PHONY: clean default debug clang
