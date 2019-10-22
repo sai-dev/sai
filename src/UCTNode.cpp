@@ -385,11 +385,11 @@ void UCTNode::set_policy(float policy) {
 
 #ifdef USE_EVALCMD
 void UCTNode::set_progid(int id) {
-    assert(m_progid == -1 && id >= 0);
-    m_progid = id;
+    assert(id >= 0);
+    m_progid.push_back(id);
 }
 
-int UCTNode::get_progid() const {
+std::vector<int>& UCTNode::get_progid() {
     return m_progid;
 }
 #endif
@@ -402,7 +402,7 @@ bool UCTNode::low_visits_child(UCTNode* const child) const {
     // father  4-6  child up to 3 low
     // father  7-12 child up to 4 low
     // father 13-20 child up to 5 low
-    // father 14-30 child up to 6 low ...
+    // father 21-30 child up to 6 low ...
     // If the child visits are high, then the child node is surely
     // good and reliable, otherwise it may be a wrong move that is
     // going to get dropped from tree search.

@@ -110,7 +110,7 @@ public:
     bool low_visits_child(UCTNode* const child) const;
 #ifdef USE_EVALCMD
     void set_progid(int id);
-    int get_progid() const;
+    std::vector<int>& get_progid();
 #endif
 #ifndef NDEBUG
     void set_urgency(float urgency, float psa, float q,
@@ -187,7 +187,11 @@ private:
     float m_eval_base_father{0.0f}; // x base of father node
     float m_eval_bonus_father{0.0f}; // x bar of father node
 #ifdef USE_EVALCMD
-    int m_progid{-1}; // progressive unique identifier
+    std::vector<int> m_progid; // progressive unique identifier,
+                               // typically it is just one integer,
+                               // but a second pass can be visited
+                               // more than once and in that case the
+                               // vector is used
 #endif
 #ifndef NDEBUG
     std::array<float, 5> m_last_urgency;

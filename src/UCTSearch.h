@@ -114,6 +114,10 @@ public:
     void reset();
     int think(int color, passflag_t passflag = NORMAL);
 #ifdef USE_EVALCMD
+    void set_firstmove(int move);
+    int get_firstmove(int id) const;
+    void set_firstmove_blackeval(float eval);
+    float get_firstmove_blackeval(int id) const;
     Network::Netresult dump_evals(int req_playouts, std::string & dump_str,
                                   std::string & sgf_str);
     void dump_evals_recursion(std::string & dump_str, UCTNode* const node,
@@ -168,7 +172,24 @@ private:
     int m_maxvisits;
     std::string m_think_output;
 
+#ifdef USE_EVALCMD
     int m_nodecounter=0;
+    bool m_evaluating=false;
+    std::vector<int> m_1st_move;
+    std::vector<float> m_1st_move_blackeval;
+#endif
+#ifndef NDEBUG
+    struct sim_node_info {
+        std::string movestr = "na";
+        std::string leafstr = "na";
+        int visits = -1;
+        float score = 1000.0f;
+        float eval = -1.0f;
+        float avg = -1.0f;
+    };
+
+    std::vector<sim_node_info> m_info;
+#endif
 
     // Advanced search parameters
     bool m_chn_scoring = true;
