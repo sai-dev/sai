@@ -406,8 +406,8 @@ bool Game::komi(float komi) {
 
 void Game::fixSgfPlayer(QString& sgfData, const Engine& whiteEngine) {
     QRegularExpression oldPlayer("PW\\[Human\\]");
-    QString playerName("PB[Leela Zero ");
-    QRegularExpression le("PB\\[Leela Zero \\S+ ");
+    QString playerName("PB[SAI ");
+    QRegularExpression le("PB\\[SAI \\S+ ");
     QRegularExpressionMatch match = le.match(sgfData);
     if (match.hasMatch()) {
         playerName = match.captured(0);
@@ -423,7 +423,7 @@ void Game::fixSgfComment(QString& sgfData, const Engine& whiteEngine,
     // If this function is modified, a corresponding update is
     // required to SGFTree::state_to_string() in order to get the same
     // sgfhash as the server
-    QRegularExpression oldComment("(C\\[Leela Zero)( options:.*)\\]");
+    QRegularExpression oldComment("(C\\[SAI)( options:.*)\\]");
     QString comment("\\1");
     if (!isSelfPlay) {
         comment += " Black";
