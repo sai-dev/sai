@@ -68,6 +68,9 @@ static void calculate_thread_count_cpu(boost::program_options::variables_map & v
     // If we are CPU-based, there is no point using more than the number of CPUs/
     auto cfg_max_threads = std::min(SMP::get_num_cpus(), size_t{MAX_CPUS});
 
+#ifndef NDEBUG
+    cfg_max_threads = 1;
+#endif
     if (vm["threads"].as<unsigned int>() > 0) {
         auto num_threads = vm["threads"].as<unsigned int>();
         if (num_threads > cfg_max_threads) {
@@ -123,6 +126,10 @@ static void calculate_thread_count_gpu(boost::program_options::variables_map & v
         cfg_num_threads = std::min(cfg_max_threads, cfg_batch_size * gpu_count * 2);
     }
 
+#ifndef NDEBUG
+    cfg_num_threads = 1;
+    cfg_batch_size = 1;
+#endif
     if (cfg_num_threads < cfg_batch_size) {
         printf("Number of threads = %d must be no smaller than batch size = %d\n", cfg_num_threads, cfg_batch_size);
         exit(EXIT_FAILURE);
