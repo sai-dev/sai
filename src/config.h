@@ -124,6 +124,7 @@ static constexpr auto KOMI = 7.5f;
 
 static constexpr auto PROGRAM_NAME = "SAI";
 static constexpr auto PROGRAM_VERSION = "0.17";
+static constexpr auto PROGRAM_VERSION_RELEASE = "4-SNAPSHOT";
 
 /*
  * OpenBLAS limitation: the default configuration on some Linuxes
