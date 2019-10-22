@@ -84,8 +84,8 @@ void Management::runTuningProcess(const QString &tuneCmdLine) {
     while (tuneProcess.state() == QProcess::Running) {
         tuneProcess.waitForReadyRead(1000);
         QByteArray text = tuneProcess.readAllStandardOutput();
-        int version_start = text.indexOf("SAI ") + 11;
-        if (version_start > 10) {
+        int version_start = text.indexOf("SAI ") + 4;
+        if (version_start > 3) {
             int version_end = text.indexOf(" ", version_start);
             m_leelaversion = QString(text.mid(version_start, version_end - version_start));
         }
