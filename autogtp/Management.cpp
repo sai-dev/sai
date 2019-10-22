@@ -92,7 +92,7 @@ void Management::runTuningProcess(const QString &tuneCmdLine) {
         QTextStream(stdout) << text;
         QTextStream(stdout) << tuneProcess.readAllStandardError();
     }
-    QTextStream(stdout) << "Found Leela Version : " << m_leelaversion << endl;
+    QTextStream(stdout) << "Found SAI Version : " << m_leelaversion << endl;
     tuneProcess.waitForFinished(-1);
 }
 
