@@ -102,6 +102,7 @@
     <CustomBuild Include="..\..\autogtp\Console.h">
       <Filter>Generated Files</Filter>
     </CustomBuild>
+    <CustomBuild Include="..\sai.hta" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\autogtp\autogtp.pro" />
