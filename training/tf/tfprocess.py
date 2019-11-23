@@ -113,7 +113,9 @@ class Timer:
         return e
 
 class TFProcess:
-    def __init__(self, residual_blocks, residual_filters):
+    def __init__(self, residual_blocks, residual_filters,
+                 s_rate, s_steps, s_maxsteps, s_maxkeep,
+                 s_policyloss, s_mseloss, s_regloss):
         # Network structure
         self.residual_blocks = residual_blocks
         self.residual_filters = residual_filters
@@ -132,6 +134,14 @@ class TFProcess:
 
         # For exporting
         self.weights = []
+
+        self.train_rate = s_rate
+        self.train_steps = s_steps
+        self.max_steps = s_maxsteps
+        self.max_keep = s_maxkeep
+        self.policy_loss_wt = s_policyloss
+        self.mse_loss_wt = s_mseloss
+        self.reg_loss_wt = s_regloss
 
         # Output weight file with averaged weights
         self.swa_enabled = False
@@ -195,7 +205,7 @@ class TFProcess:
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt = tf.train.MomentumOptimizer(
-            learning_rate=0.05, momentum=0.9, use_nesterov=True)
+            learning_rate=self.train_rate, momentum=0.9, use_nesterov=True)
 
         opt = LossScalingOptimizer(opt, scale=self.loss_scale)
 
@@ -306,7 +316,7 @@ class TFProcess:
                          self.logbase + "/train"), self.session.graph)
 
         # Build checkpoint saver
-        self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(max_to_keep = self.max_keep)
 
         # Initialize all variables
         self.session.run(tf.global_variables_initializer())
@@ -353,7 +363,7 @@ class TFProcess:
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
-        loss = POLICY_LOSS_WT * policy_loss + MSE_LOSS_WT * mse_loss + REG_LOSS_WT * reg_term
+        loss = self.policy_loss_wt * policy_loss + self.mse_loss_wt * mse_loss + self.reg_loss_wt * reg_term
 
         return loss, policy_loss, mse_loss, reg_term, y_conv
 
@@ -430,7 +440,7 @@ class TFProcess:
         stats = Stats()
         timer = Timer()
         n = 0
-        while n < MAX_TRAINING_STEPS or MAX_TRAINING_STEPS == 0:
+        while n < self.max_steps or self.max_steps == 0:
             n += 1
             batch = next(train_data)
             # Measure losses and compute gradients for this batch.
@@ -455,7 +465,7 @@ class TFProcess:
                     tf.Summary(value=summaries), steps)
                 stats.clear()
 
-            if steps % TRAINING_STEPS == 0:
+            if steps % self.train_steps == 0:
                 test_stats = Stats()
                 test_batches = 800 # reduce sample mean variance by ~28x
                 for _ in range(0, test_batches):

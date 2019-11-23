@@ -100,3 +100,6 @@ INFO_STEPS = 100
 
 # Maximum number of training steps (0 continue forever)
 MAX_TRAINING_STEPS = 10000
+
+# Maximum number of networks of which to keep meta files
+MAX_SAVER_TO_KEEP = 12

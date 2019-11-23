@@ -116,6 +116,22 @@ def main():
         help="Log file prefix (for tensorboard) (default: %(default)s)")
     parser.add_argument("--sample", default=DOWN_SAMPLE, type=int,
         help="Rate of data down-sampling to use (default: %(default)d)")
+    parser.add_argument("--bufferbits", default=TRAIN_SHUFFLE_BITS, type=int,
+        help="Train shuffle-buffer size in bits (default: %(default)d)")
+    parser.add_argument("--rate", default=LEARN_RATE, type=float,
+                        help="Learning rate (default: %(default)f)")
+    parser.add_argument("--steps", default=TRAINING_STEPS, type=int,
+        help="Training step before writing a network (default: %(default)d)")
+    parser.add_argument("--maxsteps", default=MAX_TRAINING_STEPS, type=int,
+        help="Terminates after this many steps (default: %(default)d)")
+    parser.add_argument("--maxkeep", default=MAX_SAVER_TO_KEEP, type=int,
+        help="Keeps meta files for at most this many networks (default: %(default)d)")
+    parser.add_argument("--policyloss", default=POLICY_LOSS_WT, type=float,
+        help="Coefficient for policy term in loss function (default: %(default)f)")
+    parser.add_argument("--mseloss", default=MSE_LOSS_WT, type=float,
+        help="Coefficient for mse term in loss function (default: %(default)f)")
+    parser.add_argument("--regloss", default=REG_LOSS_WT, type=float,
+        help="Coefficient for regularizing term in loss function (default: %(default)f)")
     args = parser.parse_args()
 
     blocks = args.blocks or args.blockspref
@@ -143,16 +159,18 @@ def main():
         len(training), len(test)))
 
     train_parser = ChunkParser(FileDataSrc(training),
-                               shuffle_size=1<<TRAIN_SHUFFLE_BITS, # was 20 -- 2.2GB of RAM.
+                               shuffle_size=1<<args.bufferbits, # was 20 -- 2.2GB of RAM.
                                sample=args.sample,
                                batch_size=RAM_BATCH_SIZE).parse()
 
     test_parser = ChunkParser(FileDataSrc(test),
-                              shuffle_size=1<<TEST_SHUFFLE_BITS,  # was 19
+                              shuffle_size=1<<(args.bufferbits-3),  # was 19
                               sample=args.sample,
                               batch_size=RAM_BATCH_SIZE).parse()
 
-    tfprocess = TFProcess(blocks, filters)
+    tfprocess = TFProcess(blocks, filters,
+                          args.rate, args.steps, args.maxsteps, args.maxkeep,
+                          args.policyloss, args.mseloss, args.regloss)
     tfprocess.init(RAM_BATCH_SIZE,
                    logbase=args.logbase,
                    macrobatch=BATCH_SIZE // RAM_BATCH_SIZE)
