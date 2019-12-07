@@ -103,6 +103,7 @@ extern bool cfg_chainlibs_features;
 extern bool cfg_chainsize_features;
 extern bool cfg_exploit_symmetries;
 extern bool cfg_symm_nonrandom;
+extern bool cfg_laddercode;
 extern float cfg_noise_value;
 extern float cfg_noise_weight;
 extern float cfg_komi;

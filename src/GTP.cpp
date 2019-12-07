@@ -85,6 +85,7 @@ bool cfg_chainlibs_features;
 bool cfg_chainsize_features;
 bool cfg_exploit_symmetries;
 bool cfg_symm_nonrandom;
+bool cfg_laddercode;
 float cfg_noise_value;
 float cfg_noise_weight;
 float cfg_lambda;
@@ -377,6 +378,7 @@ void GTP::setup_default_parameters() {
     cfg_chainsize_features = false;
     cfg_exploit_symmetries = false;
     cfg_symm_nonrandom = false;
+    cfg_laddercode = true;
     cfg_fpuzero = false;
     cfg_uselcb = true;
     cfg_noise_value = 0.03;

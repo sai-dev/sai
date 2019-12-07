@@ -166,6 +166,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("nrsymm", "Same as --symm, but the move is chosen to be "
          "in the general direction of the 'polite' eightth of the board, "
          "instead of randomly.")
+        ("noladdercode", "Don't use heuristics for deeper ladders exploration.")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
@@ -542,6 +543,9 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("nrsymm")) {
         cfg_exploit_symmetries = true;
         cfg_symm_nonrandom = true;
+    }
+    if (vm.count("noladdercode")) {
+        cfg_laddercode = false;
     }
     if (vm.count("timemanage")) {
         auto tm = vm["timemanage"].as<std::string>();
