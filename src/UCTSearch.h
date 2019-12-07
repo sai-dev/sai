@@ -54,6 +54,8 @@ public:
     float eval() const { return m_value;  }
     float get_alpkt() const { return m_alpkt; }
     float eval_with_bonus(float bonus, float base) const;
+    bool is_forced() const { return m_forced; }
+    void set_forced() { m_forced = true; }
     static SearchResult from_eval(float value, float alpkt, float beta) {
         return SearchResult(value, alpkt, beta);
     }
@@ -67,6 +69,7 @@ private:
     float m_value{0.5f};
     float m_alpkt{0.0f};
     float m_beta{1.0f};
+    bool m_forced{false};
 };
 
 namespace TimeManagement {

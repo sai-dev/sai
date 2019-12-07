@@ -272,6 +272,7 @@ void UCTNode::virtual_loss_undo() {
 
 void UCTNode::clear_visits() {
     m_visits = 0;
+    m_forced = 0;
     m_blackevals = 0;
     m_alpkt_median = 0;
 }
@@ -284,7 +285,7 @@ void UCTNode::clear_children_visits() {
     }
 }
 
-void UCTNode::update(float eval) {
+void UCTNode::update(float eval, bool forced) {
     // Cache values to avoid race conditions.
     auto old_eval = static_cast<float>(m_blackevals);
     auto old_visits = static_cast<int>(m_visits);
@@ -295,6 +296,9 @@ void UCTNode::update(float eval) {
     // Welford's online algorithm for calculating variance.
     auto delta = old_delta * new_delta;
     atomic_add(m_squared_eval_diff, delta);
+    if (forced) {
+        m_forced++;
+    }
 }
 
 void UCTNode::update_alpkt_median(float new_value) {
@@ -415,6 +419,10 @@ float UCTNode::get_eval_variance(float default_var) const {
 
 int UCTNode::get_visits() const {
     return m_visits;
+}
+
+int UCTNode::get_denom() const {
+    return 1 + m_visits - m_forced;
 }
 
 #ifndef NDEBUG
@@ -572,7 +580,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             psa += 0.2;
         }
 
-        const auto denom = 1.0 + visits;
+        const auto denom = child.get_denom();
         const auto puct = cfg_puct * psa * (numerator / denom);
 
         auto value = winrate + puct;

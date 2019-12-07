@@ -89,6 +89,7 @@ public:
     double get_blackevals() const;
     int get_move() const;
     int get_visits() const;
+    int get_denom() const;
     float get_policy() const;
     void set_policy(float policy);
     float get_eval_variance(float default_var = 0.0f) const;
@@ -121,7 +122,7 @@ public:
     void virtual_loss_undo();
     void clear_visits();
     void clear_children_visits();
-    void update(float eval);
+    void update(float eval, bool forced=false);
     float get_eval_lcb(int color) const;
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
@@ -175,6 +176,9 @@ private:
     // UCT
     std::atomic<std::int16_t> m_virtual_loss{0};
     std::atomic<int> m_visits{0};
+    // number of forced moves visited after this node, to be
+    // subtracted from visits in the denominator of psa
+    std::atomic<int> m_forced{0};
     // UCT eval
     float m_policy;
     // Original net eval for this node (not children).

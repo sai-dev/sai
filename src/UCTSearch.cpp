@@ -339,6 +339,9 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                     currstate.set_passes(0);
                 }
                 result = play_simulation(currstate, next);
+                if (currstate.board.last_forced()) {
+                    result.set_forced();
+                }
 
                 m_allowed_root_children = allowed;
                 if (m_stopping_flag && node == m_root.get()) {
@@ -382,7 +385,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             result_for_updating.eval_with_bonus(node->get_eval_bonus_father(),
                                                 node->get_eval_base_father()) :
             result_for_updating.eval();
-        node->update(eval);
+        node->update(eval, result.is_forced());
         // should check whether it is sai or lz before updating alpkt_median
         node->update_alpkt_median(result_for_updating.get_alpkt());
 
