@@ -295,6 +295,9 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                     node->set_progid(m_nodecounter++);
                 }
 #endif
+                if (currstate.board.last_forced()) {
+                    beta /= 10.0;
+                }
                 result = SearchResult::from_eval(value, alpkt, beta);
 #ifndef NDEBUG
                 sminfo.leafstr = "new";
@@ -1240,6 +1243,7 @@ Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_st
     m_root->set_progid(m_nodecounter++);
     set_firstmove(FastBoard::PASS);
     set_firstmove_blackeval(0.0f);
+    auto m=0;
     for (auto n=0 ; n < req_playouts ; n++) {
         // todo: check rootnode visits instead of playouts
         auto currstate = std::make_unique<GameState>(m_rootstate);
@@ -1249,6 +1253,7 @@ Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_st
             myprintf("Invalid result at n=%d.\n",n);
         } else {
         increment_playouts();
+        if (m++ % 10 == 0) myprintf(".");
         }
     }
     m_evaluating = false;
