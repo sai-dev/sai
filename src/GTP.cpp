@@ -961,23 +961,33 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         cmdstream >> filename;
         if (cmdstream.fail()) {
             char num[8], komi[16], lambda[16], mu[16];
+            const auto slash = cfg_weightsfile.find_last_of("/");
+            const auto stpos = (slash == std::string::npos ? 0 : slash + 1);
             std::sprintf(num, "%03zu", game.get_movenum());
             std::sprintf(komi, "%.1f", game.get_komi());
             std::sprintf(lambda, "%.2f", cfg_lambda);
             std::sprintf(mu, "%.2f", cfg_mu);
-            filename = std::string("sde-") + num + "-" + cfg_weightsfile.substr(0,4)
+            filename = std::string("sde-") + num + "-" + cfg_weightsfile.substr(stpos,4)
                 + "-" + komi + "-" + lambda + "-" + mu;
             // todo code the position
             //            gtp_printf(id, "%s\n", eval_string.c_str());
         }
 
         std::ofstream out(filename + ".csv");
-        out << eval_string;
-        out.close();
+        if (out) {
+            out << eval_string;
+            out.close();
+        } else {
+            myprintf("Error opening %s.csv\n", filename.c_str());
+        }
 
         std::ofstream outsgf(filename + ".sgf");
-        outsgf << eval_sgf_string;
-        outsgf.close();
+        if (outsgf) {
+            outsgf << eval_sgf_string;
+            outsgf.close();
+        } else {
+            myprintf("Error opening %s.sgf\n", filename.c_str());
+        }
 
         gtp_printf(id, "");
 
