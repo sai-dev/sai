@@ -79,6 +79,7 @@ int cfg_resignpct;
 float cfg_resign_threshold;
 int cfg_noise;
 bool cfg_fpuzero;
+bool cfg_uselcb;
 bool cfg_adv_features;
 bool cfg_chainlibs_features;
 bool cfg_chainsize_features;
@@ -377,6 +378,7 @@ void GTP::setup_default_parameters() {
     cfg_exploit_symmetries = false;
     cfg_symm_nonrandom = false;
     cfg_fpuzero = false;
+    cfg_uselcb = true;
     cfg_noise_value = 0.03;
     cfg_noise_weight = 0.25;
     cfg_recordvisits = false;

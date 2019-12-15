@@ -171,7 +171,8 @@ static void parse_commandline(int argc, char *argv[]) {
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
                         "Resign when winrate is less than x%.\n"
                         "-1 uses 10% but scales for handicap.")
-        ("weights,w", po::value<std::string>()->default_value(cfg_weightsfile), "File with network weights.")
+        ("weights,w", po::value<std::string>()->default_value(cfg_weightsfile),
+         "File with network weights.")
         ("logfile,l", po::value<std::string>(), "File to log input/output to.")
         ("quiet,q", "Disable all diagnostic output.")
         ("timemanage", po::value<std::string>()->default_value("auto"),
@@ -196,7 +197,8 @@ static void parse_commandline(int argc, char *argv[]) {
                 "ID of the OpenCL device(s) to use (disables autodetection).")
         ("full-tuner", "Try harder to find an optimal OpenCL tuning.")
         ("tune-only", "Tune OpenCL only and then exit.")
-        ("batchsize", po::value<unsigned int>()->default_value(0), "Max batch size.  Select 0 to let SAI pick a reasonable default.")
+        ("batchsize", po::value<unsigned int>()->default_value(0),
+         "Max batch size.  Select 0 to let SAI pick a reasonable default.")
 #ifdef USE_HALF
         ("precision", po::value<std::string>(),
             "Floating-point precision (single/half/auto).\n"
@@ -207,12 +209,15 @@ static void parse_commandline(int argc, char *argv[]) {
     po::options_description selfplay_desc("Self-play options");
     selfplay_desc.add_options()
         ("noise,n", "Enable policy network randomization.")
-        ("noise-value", po::value<float>()->default_value(cfg_noise_value, (boost::format("%g") % cfg_noise_value).str()),
-                     "Dirichilet noise for network randomization.")
+        ("noise-value",
+         po::value<float>()->default_value(cfg_noise_value,
+                                           (boost::format("%g") % cfg_noise_value).str()),
+         "Dirichilet noise for network randomization.")
         ("seed,s", po::value<std::uint64_t>(),
                    "Random number generation seed.")
         ("dumbpass,d", "Don't use heuristics for smarter passing.")
-        ("restrict_tt", "Restrict use of Tromp-Taylor score in search.")
+        ("restrict_tt", "Restrict use of Tromp-Taylor score in search "
+         "to avoid desperate attempt to win by passing because of TT.")
         ("randomcnt,m", po::value<int>()->default_value(cfg_random_cnt),
                         "Play more randomly the first x moves.")
         ("randomvisits",
@@ -230,6 +235,13 @@ static void parse_commandline(int argc, char *argv[]) {
             "Blunders number is bounded by a Poisson r.v. with this mean.")
         ("recordvisits", "Don't normalize visits to probabilities "
          "when writing training info.")
+        ("adv_features", "Include advanced features (legal moves, "
+         "last liberty intersections) when saving training data. Shorten "
+         "history from 8 past moves to last 4.")
+        ("chainlibs_feat", "Include 4 chain liberties feature plane "
+         "when saving training data. Shorten history to 1 move.")
+        ("chainsize_feat", "Include 4 chain size feature plane "
+         "when saving training data. Shorten history to 1 move.")
         ;
 #ifdef USE_TUNER
     po::options_description tuner_desc("Tuning options");
@@ -240,16 +252,10 @@ static void parse_commandline(int argc, char *argv[]) {
         ("logconst", po::value<float>())
         ("softmax_temp", po::value<float>())
         ("fpu_reduction", po::value<float>())
+        ("ci_alpha", po::value<float>())
         ("fpu_zero", "Use constant fpu=0.0 (AlphaGoZero). "
          "The default is reduced parent's value (LeelaZero).")
-        ("adv_features", "Include advanced features (legal moves, "
-         "last liberty intersections) when saving training data. Shorten "
-         "history from 8 past moves to last 4.")
-        ("chainlibs_feat", "Include 4 chain liberties feature plane "
-         "when saving training data. Shorten history to 1 move.")
-        ("chainsize_feat", "Include 4 chain size feature plane "
-         "when saving training data. Shorten history to 1 move.")
-        ("ci_alpha", po::value<float>())
+        ("nolcb", "Choose move based on visits instead of LCB.")
         ;
 #endif
     // These won't be shown, we use them to catch incorrect usage of the
@@ -339,14 +345,8 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("fpu_zero")) {
         cfg_fpuzero = true;
     }
-    if (vm.count("adv_features")) {
-        cfg_adv_features  = true;
-    }
-    if (vm.count("chainlibs_feat")) {
-        cfg_chainlibs_features  = true;
-    }
-    if (vm.count("chainsize_feat")) {
-        cfg_chainsize_features  = true;
+    if (vm.count("nolcb")) {
+        cfg_uselcb = false;
     }
     if (vm.count("ci_alpha")) {
         cfg_ci_alpha = vm["ci_alpha"].as<float>();
@@ -471,6 +471,18 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("recordvisits")) {
         cfg_recordvisits = true;
+    }
+
+    if (vm.count("adv_features")) {
+        cfg_adv_features  = true;
+    }
+
+    if (vm.count("chainlibs_feat")) {
+        cfg_chainlibs_features  = true;
+    }
+
+    if (vm.count("chainsize_feat")) {
+        cfg_chainsize_features  = true;
     }
 
     if (vm.count("playouts")) {

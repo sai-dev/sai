@@ -630,7 +630,8 @@ public:
         }
 
         // Calculate the lower confidence bound for each node.
-        if ((a_visit > m_lcb_min_visits) && (b_visit > m_lcb_min_visits)) {
+        if ((a_visit > m_lcb_min_visits) && (b_visit > m_lcb_min_visits)
+            && cfg_uselcb) {
             auto a_lcb = a.get_eval_lcb(m_color);
             auto b_lcb = b.get_eval_lcb(m_color);
 
