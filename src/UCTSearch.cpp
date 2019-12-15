@@ -765,7 +765,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 bestmove = FastBoard::PASS;
             } else {
                 myprintf("Passing draws, make it depend on evaluation.\n");
-                if (besteval < 0.5f) {
+                if (besteval < 0.45f) {
                     bestmove = FastBoard::PASS;
                 }
             }
