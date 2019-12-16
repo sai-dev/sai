@@ -57,11 +57,11 @@ void FastState::init_game(int size, float komi) {
     m_handicap = 0;
     m_passes = 0;
 
+    m_randcount = 0;
     m_non_blunders = {};
     if (cfg_blunder_thr < 1.0f) {
         init_allowed_blunders();
     }
-    return;
 }
 
 void FastState::set_non_blunders(const std::vector<int> & non_blunders) {
@@ -84,6 +84,12 @@ void FastState::reset_game() {
     m_handicap = 0;
     m_komove = FastBoard::NO_VERTEX;
     m_lastmove = FastBoard::NO_VERTEX;
+
+    m_randcount = 0;
+    m_non_blunders = {};
+    if (cfg_blunder_thr < 1.0f) {
+        init_allowed_blunders();
+    }
 }
 
 void FastState::reset_board() {
@@ -116,7 +122,11 @@ void FastState::play_move(int color, int vertex) {
     m_lastmove = vertex;
     m_movenum++;
 
-    m_blunder_chosen = std::find( begin(m_non_blunders), end(m_non_blunders), vertex ) == end(m_non_blunders);
+    if (!m_non_blunders.empty()) {
+        m_blunder_chosen = end(m_non_blunders) ==
+            std::find( begin(m_non_blunders), end(m_non_blunders), vertex );
+        m_random_chosen = m_non_blunders[0] != vertex;
+    }
 
     if (m_blunder_chosen && m_allowed_blunders > 0) {
         m_allowed_blunders--;
@@ -175,7 +185,7 @@ void FastState::display_state() {
     }
     myprintf("    White (O) Prisoners: %d\n",
              board.get_prisoners(FastBoard::WHITE));
-    myprintf("                     Komi: %.1f\n", get_komi());
+    myprintf("Move %3d             Komi: %.1f\n", get_movenum(), get_komi());
 
     board.display_board(get_last_move());
 }
@@ -253,10 +263,6 @@ std::uint64_t FastState::get_symmetry_hash(int symmetry) const {
 // void FastState::set_blunder_state(bool state) {
 //     m_blunder_chosen = state;
 // }
-
-bool FastState::is_blunder() const {
-    return m_blunder_chosen;
-}
 
 void FastState::init_allowed_blunders() {
     auto distribution = std::poisson_distribution<>{cfg_blunder_rndmax_avg};

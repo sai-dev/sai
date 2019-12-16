@@ -61,6 +61,7 @@
 #include "OpenCLScheduler.h"
 #endif
 #include "Network.h"
+#include "Random.h"
 
 using namespace Utils;
 
@@ -643,26 +644,52 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 
     // Check whether to randomize the best move proportional
     // to the playout counts, early game only.
-    const auto movenum = m_rootstate.get_movenum();
+    const auto randmove_count = m_rootstate.get_randcount();
+    if (randmove_count < static_cast<size_t>(cfg_random_cnt)) {
+        myprintf("Random moves chosen previously %d/%d. ", randmove_count, cfg_random_cnt);
+        const auto rand_num =
+            Random::get_Rng().randuint64(static_cast<std::uint64_t>(cfg_random_cnt));
 
-    // following code requires that there are children!
-    assert(!m_root->get_children().empty());
+        // following code requires that there are children!
+        assert(!m_root->get_children().empty());
 
-    if (movenum < static_cast<size_t>(cfg_random_cnt)) {
-
-        auto is_blunder = false;
-        auto non_blunders = std::vector<int>{};
-        tie(is_blunder,non_blunders) =
-            m_root->randomize_first_proportionally(color,
-                m_rootstate.is_blunder_allowed());
-        m_rootstate.set_non_blunders(non_blunders);
-
-        if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
-            myprintf("Random move would lead to immediate resignation... \n"
-                     "Reverting to best move.\n");
-            m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
-        } else if (is_blunder) {
-            myprintf("Random move is a blunder.\n");
+        // For each move, extract a card from a N cards deck, with
+        // N=cfg_random_cnt; the move is chosen randomly if that card was
+        // never extracted before; this way we get a maximum of N random
+        // moves, distributed along all game, but more often in the first
+        // moves; on average, N ln(N) is the number of the last random
+        // move.
+        if (rand_num >= randmove_count) {
+            myprintf("I fancy a random move here ");
+            m_rootstate.inc_randcount();
+            const auto allowed_blunders = m_rootstate.get_allowed_blunders();
+            if (allowed_blunders <= 0) {
+                myprintf("(blunders not allowed). ");
+            } else if (allowed_blunders == 1) {
+                myprintf("(1 blunder still allowed). ");
+            } else {
+                myprintf("(%d blunders still allowed). ", allowed_blunders);
+            }
+            auto is_blunder = false;
+            auto non_blunders = std::vector<int>{};
+            tie(is_blunder,non_blunders) =
+                m_root->randomize_first_proportionally(color,
+                    m_rootstate.is_blunder_allowed());
+            m_rootstate.set_non_blunders(non_blunders);
+ 
+            if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
+                myprintf("Chosen move would lead to immediate resignation... \n"
+                         "Reverting to best move.\n");
+                m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
+            } else if (is_blunder) {
+                myprintf("Chosen move is a blunder.\n");
+            } else {
+                myprintf("\n");
+            }
+        } else {
+            myprintf("Better go with the best move here.\n");
+            const auto non_blunders = std::vector<int>{m_root->get_first_child()->get_move()};
+            m_rootstate.set_non_blunders(non_blunders);
         }
     } else {
         const auto non_blunders = std::vector<int>{m_root->get_first_child()->get_move()};
@@ -961,7 +988,6 @@ void UCTSearch::print_move_choices_by_policy(KoState & state, UCTNode & parent, 
 
 
 int UCTSearch::think(int color, passflag_t passflag) {
-    myprintf("Debug...\n");
     // Start counting time for us
     m_rootstate.start_clock(color);
 

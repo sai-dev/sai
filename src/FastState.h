@@ -69,12 +69,15 @@ public:
 
     void set_non_blunders(const std::vector<int> & non_blunders);
     //    void set_blunder_state(bool state);
-    bool is_blunder() const;
+    bool is_blunder() const { return m_blunder_chosen; };
+    bool is_random() const { return m_random_chosen; };
     void init_allowed_blunders();
     //    void dec_allowed_blunders();
     bool is_blunder_allowed() const;
     int get_allowed_blunders() const;
     bool is_symmetry_invariant(const int symmetry) const;
+    size_t get_randcount() const { return m_randcount; }
+    void inc_randcount() { ++m_randcount; }
 
     FullBoard board;
 
@@ -84,6 +87,10 @@ public:
     int m_komove;
     size_t m_movenum;
     int m_lastmove;
+
+    // number of moves chosen randomly until now
+    size_t m_randcount;
+    bool m_random_chosen = false;
 
     // is last (randomly chosen) move a blunder?
     // we don't save training info before that point
