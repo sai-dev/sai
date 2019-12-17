@@ -21,7 +21,7 @@ INPUT_PLANES = 12
 DATA_ITEM_LINES = 15
 
 # Board size and number of squares in a board. Board size must be an odd number!
-BOARD_SIZE = 9
+BOARD_SIZE = 19
 BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 
 # Sane values are from 4096 to 64 or so.
@@ -35,7 +35,7 @@ BATCH_SIZE = 512
 RAM_BATCH_SIZE = 128
 
 # Memory allocation
-GPU_MEM_FRACTION = 0.6
+GPU_MEM_FRACTION = 0.8
 
 # 20 bit should be about 2.2GB of RAM on 19x19 and 0.5GB on 9x9
 # Formula is M*S*(16/8+4) with M the shuffle buffer size, S the board
@@ -48,12 +48,12 @@ GPU_MEM_FRACTION = 0.6
 # In the case of "moving window" training set it is also reasonable to
 # reduce more and up to a factor equal to the number of times each chunk
 # enters a training.
-TRAIN_SHUFFLE_BITS=18
-TEST_SHUFFLE_BITS=15
+TRAIN_SHUFFLE_BITS=21
+TEST_SHUFFLE_BITS=17
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 # This should be between 2 and 4 times the ratio of N to M.
-DOWN_SAMPLE = 5
+DOWN_SAMPLE = 16
 
 # Network structure -- common part
 
@@ -99,7 +99,8 @@ TRAINING_STEPS = 1000
 INFO_STEPS = 100
 
 # Maximum number of training steps (0 continue forever)
-MAX_TRAINING_STEPS = 10000
+MAX_TRAINING_STEPS = 8000
+FIRST_NETWORK_STEPS = 4000
 
 # Maximum number of networks of which to keep meta files
 MAX_SAVER_TO_KEEP = 12

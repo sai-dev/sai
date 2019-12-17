@@ -114,7 +114,7 @@ class Timer:
 
 class TFProcess:
     def __init__(self, residual_blocks, residual_filters,
-                 s_rate, s_steps, s_maxsteps, s_maxkeep,
+                 s_rate, s_minsteps, s_steps, s_maxsteps, s_maxkeep,
                  s_policyloss, s_mseloss, s_regloss):
         # Network structure
         self.residual_blocks = residual_blocks
@@ -136,6 +136,7 @@ class TFProcess:
         self.weights = []
 
         self.train_rate = s_rate
+        self.min_steps = s_minsteps
         self.train_steps = s_steps
         self.max_steps = s_maxsteps
         self.max_keep = s_maxkeep
@@ -448,13 +449,13 @@ class TFProcess:
             stats.add(losses)
             # fetch the current global step.
             steps = tf.train.global_step(self.session, self.global_step)
-            if steps % self.macrobatch == (self.macrobatch-1):
+            if n % self.macrobatch == (self.macrobatch-1):
                 # Apply the accumulated gradients to the weights.
                 self.session.run([self.train_op])
                 # Clear the accumulated gradient.
                 self.session.run([self.clear_op])
 
-            if steps % info_steps == 0:
+            if n % info_steps == 0:
                 speed = info_steps * self.batch_size / timer.elapsed()
                 print("step {}, policy={:g} mse={:g} reg={:g} total={:g} ({:g} pos/s)".format(
                     steps, stats.mean('policy'), stats.mean('mse'), stats.mean('reg'),
@@ -465,7 +466,7 @@ class TFProcess:
                     tf.Summary(value=summaries), steps)
                 stats.clear()
 
-            if steps % self.train_steps == 0:
+            if n >= self.min_steps and n % self.train_steps == 0:
                 test_stats = Stats()
                 test_batches = 800 # reduce sample mean variance by ~28x
                 for _ in range(0, test_batches):
@@ -495,9 +496,9 @@ class TFProcess:
                 if self.swa_enabled:
                     self.save_swa_network(steps, path, leela_path, train_data)
 
-                save_path = self.saver.save(self.session, path,
-                                            global_step=steps)
-                print("Model saved in file: {}".format(save_path))
+                    save_path = self.saver.save(self.session, path,
+                                                global_step=steps)
+                    print("Model saved in file: {}".format(save_path))
         print("Finished.")
         os._exit(0)
 

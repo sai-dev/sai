@@ -119,7 +119,9 @@ def main():
     parser.add_argument("--bufferbits", default=TRAIN_SHUFFLE_BITS, type=int,
         help="Train shuffle-buffer size in bits (default: %(default)d)")
     parser.add_argument("--rate", default=LEARN_RATE, type=float,
-                        help="Learning rate (default: %(default)f)")
+        help="Learning rate (default: %(default)f)")
+    parser.add_argument("--minsteps", default=FIRST_NETWORK_STEPS , type=int,
+        help="First network after this many steps (default: %(default)d)")
     parser.add_argument("--steps", default=TRAINING_STEPS, type=int,
         help="Training step before writing a network (default: %(default)d)")
     parser.add_argument("--maxsteps", default=MAX_TRAINING_STEPS, type=int,
@@ -169,7 +171,7 @@ def main():
                               batch_size=RAM_BATCH_SIZE).parse()
 
     tfprocess = TFProcess(blocks, filters,
-                          args.rate, args.steps, args.maxsteps, args.maxkeep,
+                          args.rate, args.minsteps, args.steps, args.maxsteps, args.maxkeep,
                           args.policyloss, args.mseloss, args.regloss)
     tfprocess.init(RAM_BATCH_SIZE,
                    logbase=args.logbase,
