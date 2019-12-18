@@ -101,9 +101,11 @@ GameState SGFTree::follow_mainline_state(unsigned int movenum) const {
                     return result;
                 }
                 result.play_move(colored_move.first, colored_move.second);
-                if (Random::get_Rng().randuint64(static_cast<std::uint64_t>(cfg_random_cnt))
-                    >= result.get_randcount()) {
-                    result.inc_randcount();
+                if (cfg_random_cnt > 0) {
+                    if (Random::get_Rng().randuint64(static_cast<std::uint64_t>(cfg_random_cnt))
+                        >= result.get_randcount()) {
+                        result.inc_randcount();
+                    }
                 }
             }
         }
