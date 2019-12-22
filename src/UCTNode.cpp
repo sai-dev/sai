@@ -514,13 +514,13 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     // largest of the children which have already been visited,
     // whichever is larger.
     const auto color = currstate.get_to_move();
-    auto max_eval = get_agent_eval(color);
+    auto max_eval = 0.0f;
 
     for (const auto& child : m_children) {
         if (child.valid()) {
             parentvisits += child.get_visits();
             if (child.get_visits() > 0) {
-                const auto child_eval = child.get_eval(color);
+                const auto child_eval = child.get_raw_eval(color);
                 max_eval = std::max (max_eval, child_eval);
                 total_visited_policy += child.get_policy();
             }
@@ -530,8 +530,9 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     const auto numerator = std::sqrt(double(parentvisits) *
             std::log(cfg_logpuct * double(parentvisits) + cfg_logconst));
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
-    // Estimated eval for unknown nodes = original parent NN eval - reduction
-    const auto fpu_eval = cfg_fpuzero ? 0.0f : std::max(0.0f, max_eval - fpu_reduction);
+    // Estimated eval for unknown nodes = parent (not NN) eval - reduction
+    const auto fpu_eval = cfg_fpuzero ? 0.0f : (max_eval - fpu_reduction);
+
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
