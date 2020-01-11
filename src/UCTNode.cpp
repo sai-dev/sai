@@ -90,9 +90,8 @@ bool UCTNode::create_children(Network & network,
         raw_netlist = network.get_output(
             &state, Network::Ensemble::RANDOM_SYMMETRY,
             -1, cfg_use_nncache, cfg_use_nncache);
-    } catch (NetworkHaltException & e) {
+    } catch (NetworkHaltException&) {
         expand_cancel();
-
         throw;
     }
 

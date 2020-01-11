@@ -32,6 +32,7 @@
 #include "UCTSearch.h"
 
 #include <boost/format.hpp>
+#include <boost/scope_exit.hpp>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -249,30 +250,23 @@ float UCTSearch::get_min_psa_ratio() const {
     return 0.0f;
 }
 
-class VirtualLossScopeGuard {
-private:
-    UCTNode & m_node;
-public:
-    VirtualLossScopeGuard(UCTNode & n) : m_node(n) {
-        m_node.virtual_loss();
-    }
-    ~VirtualLossScopeGuard() {
-        m_node.virtual_loss_undo();
-    }
-};
-
 SearchResult UCTSearch::play_simulation(GameState & currstate,
                                         UCTNode* const node) {
     auto result = SearchResult{};
 
+<<<<<< HEAD
 #ifndef NDEBUG
     sim_node_info sminfo;
     sminfo.movestr = currstate.move_to_text(node->get_move());
     sminfo.visits = node->get_visits();
 #endif
 
-    // This will undo virtual loss even if something throws an exception
-    VirtualLossScopeGuard scope_guard(*node);
+    node->virtual_loss();
+
+    // This will undo virtual loss even if something throws an exception.
+    BOOST_SCOPE_EXIT(node) {
+        node->virtual_loss_undo();
+    } BOOST_SCOPE_EXIT_END
 
     if (node->expandable()) {
         if (currstate.get_passes() >= 2) {
@@ -302,7 +296,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             float value, alpkt, beta;
             const auto had_children = node->has_children();
 
-            // Careful : create_children() can throw an NetworkHaltException when
+            // Careful: create_children() can throw a NetworkHaltException when
             // another thread requests draining the search.
             const auto success =
                 node->create_children(m_network, m_nodes, currstate, value, alpkt, beta,
@@ -982,7 +976,7 @@ void UCTWorker::operator()() {
                 m_search->increment_playouts();
             }
         } while (m_search->is_running());
-    } catch (NetworkHaltException & e) {
+    } catch (NetworkHaltException&) {
         // intentionally empty
     }
 }

@@ -69,7 +69,7 @@ std::pair<float, float> sigmoid(float alpha, float beta, float bonus);
 extern std::array<std::array<int, NUM_INTERSECTIONS>, 8>
     symmetry_nn_idx_table;
 
-// See drain_evals() / resume_evals() for details
+// See drain_evals() / resume_evals() for details.
 class NetworkHaltException : public std::exception {};
 
 class Network {
@@ -163,12 +163,12 @@ class Network {
     int load_v1_network(std::istream &wtfile, int format_version);
     int load_network_file(const std::string &filename);
 
-    // 'drain' evaluations.  Threads with an evaluation will throw a NetworkHaltException
+    // 'Drain' evaluations.  Threads with an evaluation will throw a NetworkHaltException
     // if possible, or will just proceed and drain ASAP.  New evaluation requests will
     // also result in a NetworkHaltException.
     virtual void drain_evals();
 
-    // flag the network to be open for business
+    // Flag the network to be open for business.
     virtual void resume_evals();
     
   private:
