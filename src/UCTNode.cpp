@@ -214,6 +214,13 @@ bool UCTNode::create_children(Network & network,
     }
 
     link_nodelist(nodecount, nodelist, min_psa_ratio);
+    // Increment visit and assign eval.
+    const auto result = SearchResult::from_eval(value, alpkt, beta);
+    const auto eval = network.m_value_head_sai ?
+        result.eval_with_bonus(get_eval_bonus_father(),
+				    get_eval_base_father()) :
+        result.eval();
+    update(eval);
     expand_done();
     return true;
 }
@@ -523,7 +530,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
         if (child.valid()) {
             parentvisits += child.get_visits();
             if (child.get_visits() > 0) {
-                const auto child_eval = child.get_raw_eval(color);
+	      const auto child_eval = child.get()->get_raw_eval(color);
                 max_eval = std::max (max_eval, child_eval);
                 total_visited_policy += child.get_policy();
             }

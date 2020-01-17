@@ -160,9 +160,6 @@ class Network {
     size_t m_vbe_chans = size_t{0};
     size_t m_value_head_rets = size_t{1};
 
-    int load_v1_network(std::istream &wtfile, int format_version);
-    int load_network_file(const std::string &filename);
-
     // 'Drain' evaluations.  Threads with an evaluation will throw a NetworkHaltException
     // if possible, or will just proceed and drain ASAP.  New evaluation requests will
     // also result in a NetworkHaltException.
@@ -172,8 +169,8 @@ class Network {
     virtual void resume_evals();
     
   private:
-    std::pair<int, int> load_v1_network(std::istream& wtfile);
-    std::pair<int, int> load_network_file(const std::string& filename);
+    int load_v1_network(std::istream &wtfile, int format_version);
+    int load_network_file(const std::string &filename);
 
     static std::vector<float> winograd_transform_f(const std::vector<float> &f,
                                                    const int outputs, const int channels);

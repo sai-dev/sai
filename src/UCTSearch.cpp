@@ -253,8 +253,8 @@ float UCTSearch::get_min_psa_ratio() const {
 SearchResult UCTSearch::play_simulation(GameState & currstate,
                                         UCTNode* const node) {
     auto result = SearchResult{};
+    auto new_node = false;
 
-<<<<<< HEAD
 #ifndef NDEBUG
     sim_node_info sminfo;
     sminfo.movestr = currstate.move_to_text(node->get_move());
@@ -308,6 +308,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                 }
 #endif
                 result = SearchResult::from_eval(value, alpkt, beta);
+                new_node = true;
 #ifndef NDEBUG
                 sminfo.leafstr = "new";
                 sminfo.score = alpkt;
@@ -374,7 +375,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                                                        node->get_net_alpkt(),
                                                        node->get_net_beta());
 
-    if (result.valid()) {
+    // New node was updated in create_children.
+    if (result.valid() && !new_node) {
         // If we are restricting Tromp-Taylor, this is a first pass
         // the selected child is second pass, then in some cases we
         // update this node with result (which would be TT score), and
