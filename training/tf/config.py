@@ -104,3 +104,13 @@ FIRST_NETWORK_STEPS = 4000
 
 # Maximum number of networks of which to keep meta files
 MAX_SAVER_TO_KEEP = 12
+
+# Beta value amplification coefficient
+# (bugfix with backward compatibility concerns)
+
+# If the factor is 1, then the nets will correctly estimate
+# beta. Since current versions of SAI do not allow to apply a
+# correction factor inside the main program, we allow the networks to
+# be trained with an inherent factor. This factor was 2.0 from the
+# beginning because of a bug.
+BETA_SCALE_FACTOR = 2.0

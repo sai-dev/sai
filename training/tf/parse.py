@@ -134,6 +134,8 @@ def main():
         help="Coefficient for mse term in loss function (default: %(default)f)")
     parser.add_argument("--regloss", default=REG_LOSS_WT, type=float,
         help="Coefficient for regularizing term in loss function (default: %(default)f)")
+    parser.add_argument("--betascale", default=BETA_SCALE_FACTOR, type=float,
+        help="Coefficient for beta value amplification (default: %(default)f)")
     args = parser.parse_args()
 
     blocks = args.blocks or args.blockspref
@@ -172,7 +174,7 @@ def main():
 
     tfprocess = TFProcess(blocks, filters,
                           args.rate, args.minsteps, args.steps, args.maxsteps, args.maxkeep,
-                          args.policyloss, args.mseloss, args.regloss)
+                          args.policyloss, args.mseloss, args.regloss, args.betascale)
     tfprocess.init(RAM_BATCH_SIZE,
                    logbase=args.logbase,
                    macrobatch=BATCH_SIZE // RAM_BATCH_SIZE)

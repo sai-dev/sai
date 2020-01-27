@@ -115,7 +115,7 @@ class Timer:
 class TFProcess:
     def __init__(self, residual_blocks, residual_filters,
                  s_rate, s_minsteps, s_steps, s_maxsteps, s_maxkeep,
-                 s_policyloss, s_mseloss, s_regloss):
+                 s_policyloss, s_mseloss, s_regloss, s_beta_scale):
         # Network structure
         self.residual_blocks = residual_blocks
         self.residual_filters = residual_filters
@@ -143,6 +143,7 @@ class TFProcess:
         self.policy_loss_wt = s_policyloss
         self.mse_loss_wt = s_mseloss
         self.reg_loss_wt = s_regloss
+        self.beta_scale = s_beta_scale
 
         # Output weight file with averaged weights
         self.swa_enabled = False
@@ -690,7 +691,7 @@ class TFProcess:
         self.add_weights(b_fc3)
         h_fc3 = tf.add(tf.matmul(h_fc2, W_fc3), b_fc3)
 
-        scale_factor = tf.constant(10.0 / BOARD_SQUARES / 2)
+        scale_factor = tf.constant(10.0 / BOARD_SQUARES / self.beta_scale)
 
         if VALUE_HEAD_TYPE == SINGLE:
             h_fc6 = tf.nn.tanh(h_fc3)
