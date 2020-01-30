@@ -6,9 +6,6 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sai", "VS2019\leela-zero.vcxproj", "{7B887BFE-8D2C-46CD-B139-5213434BF218}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "autogtp", "VS2019\autogtp.vcxproj", "{B12702AD-ABFB-343A-A199-8E24837244A3}"
-	ProjectSection(ProjectDependencies) = postProject
-		{7B887BFE-8D2C-46CD-B139-5213434BF218} = {7B887BFE-8D2C-46CD-B139-5213434BF218}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sai9x9", "VS2019\leela-zero-9x9.vcxproj", "{AC6DA47C-25BD-4FFC-9202-053F48373D1C}"
 EndProject
@@ -42,7 +39,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		Qt5Version = $(DefaultQtVersion)
 		SolutionGuid = {D4C31DFC-30DA-4030-9A6D-70F1E6851A81}
+		Qt5Version = $(DefaultQtVersion)
 	EndGlobalSection
 EndGlobal
