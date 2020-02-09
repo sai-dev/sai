@@ -35,16 +35,23 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <bitset>
 
 #include "FullBoard.h"
 
 class FastState {
 public:
+    enum : char {
+        RANDOM, BLUNDER, INTERESTING,
+        NUM_FLAGS // must be last
+    };
+
+    typedef std::bitset<NUM_FLAGS>  move_flags_t;
+  
     void init_game(int size, float komi);
     void reset_game();
     void reset_board();
 
-    void play_move(int vertex);
     bool is_move_legal(int color, int vertex) const;
 
     void set_komi(float komi);
@@ -67,20 +74,27 @@ public:
     void display_legal(int color);
     std::string move_to_text(int move);
 
-    void set_non_blunders(const std::vector<int> & non_blunders);
-    //    void set_blunder_state(bool state);
-    bool is_blunder() const { return m_blunder_chosen; };
-    bool is_random() const { return m_random_chosen; };
-    void init_allowed_blunders();
-    //    void dec_allowed_blunders();
-    bool is_blunder_allowed() const;
-    int get_allowed_blunders() const;
-    bool is_symmetry_invariant(const int symmetry) const;
+    void set_last_move_flags(const move_flags_t & flags);
+    bool is_blunder() const { return m_last_move_flags[BLUNDER]; };
+    bool is_random() const { return m_last_move_flags[RANDOM]; };
+    bool is_interesting() const { return m_last_move_flags[INTERESTING]; };
+    std::string flags_to_text() const { return m_last_move_flags.to_string(); } 
+
     size_t get_randcount() const { return m_randcount; }
     void inc_randcount() { ++m_randcount; }
 
+    void init_allowed_blunders();
+    bool is_blunder_allowed() const;
+    int get_allowed_blunders() const;
+
+    bool is_symmetry_invariant(const int symmetry) const;
+
+    void play_move(int vertex);
+    void play_move(int color, int vertex);
+
     FullBoard board;
 
+private:
     float m_komi;
     int m_handicap;
     int m_passes;
@@ -88,21 +102,18 @@ public:
     size_t m_movenum;
     int m_lastmove;
 
+    // the flags attached to the last chosen move
+    move_flags_t m_last_move_flags;
+
     // number of moves chosen randomly until now
     size_t m_randcount;
-    bool m_random_chosen = false;
-
-    // is last (randomly chosen) move a blunder?
-    // we don't save training info before that point
-    bool m_blunder_chosen = false;
-    std::vector<int> m_non_blunders;
 
     // keeps count of the number of blunders we are
     // still allowed to play; -1 means no limit
     int m_allowed_blunders = -1;
 
 protected:
-    void play_move(int color, int vertex);
+    void set_movenum(size_t movenum);
 };
 
 #endif

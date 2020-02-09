@@ -57,15 +57,12 @@ void FastState::init_game(int size, float komi) {
     m_handicap = 0;
     m_passes = 0;
 
+    m_last_move_flags.reset();
+
     m_randcount = 0;
-    m_non_blunders = {};
     if (cfg_blunder_thr < 1.0f) {
         init_allowed_blunders();
     }
-}
-
-void FastState::set_non_blunders(const std::vector<int> & non_blunders) {
-    m_non_blunders = non_blunders;
 }
 
 void FastState::set_komi(float komi) {
@@ -85,8 +82,9 @@ void FastState::reset_game() {
     m_komove = FastBoard::NO_VERTEX;
     m_lastmove = FastBoard::NO_VERTEX;
 
+    m_last_move_flags.reset();
+
     m_randcount = 0;
-    m_non_blunders = {};
     if (cfg_blunder_thr < 1.0f) {
         init_allowed_blunders();
     }
@@ -106,7 +104,7 @@ bool FastState::is_move_legal(int color, int vertex) const {
 }
 
 void FastState::play_move(int vertex) {
-    play_move(board.m_tomove, vertex);
+    play_move(get_to_move(), vertex);
 }
 
 void FastState::play_move(int color, int vertex) {
@@ -121,16 +119,6 @@ void FastState::play_move(int color, int vertex) {
 
     m_lastmove = vertex;
     m_movenum++;
-
-    if (!m_non_blunders.empty()) {
-        m_blunder_chosen = end(m_non_blunders) ==
-            std::find( begin(m_non_blunders), end(m_non_blunders), vertex );
-        m_random_chosen = m_non_blunders[0] != vertex;
-    }
-
-    if (m_blunder_chosen && m_allowed_blunders > 0) {
-        m_allowed_blunders--;
-    }
 
     if (board.m_tomove == color) {
         board.m_hash ^= Zobrist::zobrist_blacktomove;
@@ -148,6 +136,10 @@ void FastState::play_move(int color, int vertex) {
 
 size_t FastState::get_movenum() const {
     return m_movenum;
+}
+
+void FastState::set_movenum(size_t movenum) {
+    m_movenum = movenum;
 }
 
 int FastState::get_last_move() const {
@@ -252,17 +244,13 @@ std::uint64_t FastState::get_symmetry_hash(int symmetry) const {
     return board.calc_symmetry_hash(m_komove, symmetry);
 }
 
-// void FastState::set_last_rnd_move_num(size_t num) {
-//     m_lastrndmovenum = num;
-// }
+void FastState::set_last_move_flags(const move_flags_t & flags){
+    m_last_move_flags = flags;
 
-// size_t FastState::get_last_rnd_move_num() {
-//     return m_lastrndmovenum;
-// }
-
-// void FastState::set_blunder_state(bool state) {
-//     m_blunder_chosen = state;
-// }
+    if (flags[BLUNDER] && m_allowed_blunders > 0) {
+        m_allowed_blunders--;
+    }
+}
 
 void FastState::init_allowed_blunders() {
     auto distribution = std::poisson_distribution<>{cfg_blunder_rndmax_avg};

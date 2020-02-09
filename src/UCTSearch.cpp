@@ -666,6 +666,8 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     // Make sure best is first
     m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
 
+    FastState::move_flags_t move_flags = {};//m_root->get_first_child()->move_flags();
+    
     // Check whether to randomize the best move proportional
     // to the playout counts, early game only.
     const auto randmove_count = m_rootstate.get_randcount();
@@ -694,30 +696,22 @@ int UCTSearch::get_best_move(passflag_t passflag) {
             } else {
                 myprintf("(%d blunders still allowed). ", allowed_blunders);
             }
-            auto is_blunder = false;
-            auto non_blunders = std::vector<int>{};
-            tie(is_blunder,non_blunders) =
-                m_root->randomize_first_proportionally(color,
-                    m_rootstate.is_blunder_allowed());
-            m_rootstate.set_non_blunders(non_blunders);
- 
+
+            move_flags = m_root->randomize_first_proportionally(
+                             color, m_rootstate.is_blunder_allowed());
+
             if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
                 myprintf("Chosen move would lead to immediate resignation... \n"
                          "Reverting to best move.\n");
                 m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
-            } else if (is_blunder) {
+            } else if (move_flags[FastState::BLUNDER]) {
                 myprintf("Chosen move is a blunder.\n");
             } else {
                 myprintf("\n");
             }
         } else {
             myprintf("Better go with the best move here.\n");
-            const auto non_blunders = std::vector<int>{m_root->get_first_child()->get_move()};
-            m_rootstate.set_non_blunders(non_blunders);
         }
-    } else {
-        const auto non_blunders = std::vector<int>{m_root->get_first_child()->get_move()};
-        m_rootstate.set_non_blunders(non_blunders);
     }
 
     auto first_child = m_root->get_first_child();
@@ -834,6 +828,13 @@ int UCTSearch::get_best_move(passflag_t passflag) {
         }
     }
 
+    // if chosen move has been changes then mark it interesting!
+    if (bestmove != first_child->get_move()){
+        move_flags.reset();
+        move_flags.set(FastState::INTERESTING);
+    }
+    
+    m_rootstate.set_last_move_flags(move_flags);
     return bestmove;
 }
 

@@ -83,9 +83,15 @@ void GameState::reset_game() {
 }
 
 bool GameState::forward_move() {
-    if (game_history.size() > m_movenum + 1) {
-        m_movenum++;
-        *(static_cast<KoState*>(this)) = *game_history[m_movenum];
+    auto movenum = get_movenum();
+    if (game_history.size() > movenum + 1) {
+        ++movenum;
+        set_movenum(movenum);
+
+        // this is not so nice, but it should work
+        *(static_cast<KoState*>(this)) = *game_history[get_movenum()];
+
+        // This also restores hashes as they're part of state
         return true;
     } else {
         return false;
@@ -93,11 +99,13 @@ bool GameState::forward_move() {
 }
 
 bool GameState::undo_move() {
-    if (m_movenum > 0) {
-        m_movenum--;
+    auto movenum = get_movenum();
+    if (movenum > 0) {
+        --movenum;
+        set_movenum(movenum);
 
         // this is not so nice, but it should work
-        *(static_cast<KoState*>(this)) = *game_history[m_movenum];
+        *(static_cast<KoState*>(this)) = *game_history[movenum];
 
         // This also restores hashes as they're part of state
         return true;
@@ -108,7 +116,7 @@ bool GameState::undo_move() {
 
 void GameState::rewind() {
     *(static_cast<KoState*>(this)) = *game_history[0];
-    m_movenum = 0;
+    set_movenum(0);
 }
 
 void GameState::play_move(int vertex) {
@@ -119,11 +127,11 @@ void GameState::play_move(int color, int vertex) {
     if (vertex == FastBoard::RESIGN) {
         m_resigned = color;
     } else {
-        KoState::play_move(color, vertex);
+      KoState::play_move(color, vertex);
     }
 
     // cut off any leftover moves from navigating
-    game_history.resize(m_movenum);
+    game_history.resize(get_movenum());
     game_history.emplace_back(std::make_shared<KoState>(*this));
 
     // this is the place to reset state info on blunders
@@ -199,7 +207,7 @@ void GameState::adjust_time(int color, int time, int stones) {
 
 void GameState::anchor_game_history() {
     // handicap moves don't count in game history
-    m_movenum = 0;
+    set_movenum(0);
     game_history.clear();
     game_history.emplace_back(std::make_shared<KoState>(*this));
 }
@@ -210,10 +218,11 @@ bool GameState::set_fixed_handicap(int handicap) {
     }
 
     int board_size = board.get_boardsize();
+
     int high = board_size >= 13 ? 3 : 2;
     int mid = board_size / 2;
-
     int low = board_size - 1 - high;
+
     if (handicap >= 2) {
         play_move(FastBoard::BLACK, board.get_vertex(low, low));
         play_move(FastBoard::BLACK, board.get_vertex(high, high));
@@ -334,21 +343,10 @@ void GameState::place_free_handicap(int stones, Network & network) {
 }
 
 std::shared_ptr<const KoState> GameState::get_past_state(int moves_ago) const {
-    assert(moves_ago >= 0 && (unsigned)moves_ago <= m_movenum);
-    assert(m_movenum + 1 <= game_history.size());
-    return game_history[m_movenum - moves_ago];
+    assert(moves_ago >= 0 && (unsigned)moves_ago <= get_movenum());
+    assert(get_movenum() + 1 <= game_history.size());
+    return game_history[get_movenum() - moves_ago];
 }
-
-// const FullBoard& GameState::get_past_board(int moves_ago) const {
-//     assert(moves_ago >= 0 && (unsigned)moves_ago <= m_movenum);
-//     assert(m_movenum + 1 <= game_history.size());
-//     return game_history[m_movenum - moves_ago]->board;
-// }
-
-// void GameState::copy_last_rnd_move_num () {
-//     const auto num = game_history[m_movenum - 1]->m_lastrndmovenum;
-//     m_lastrndmovenum = num;
-// }
 
 std::string GameState::eval_comment(bool print_header) const {
     auto comstr = std::stringstream{};
@@ -359,7 +357,8 @@ std::string GameState::eval_comment(bool print_header) const {
                << "beta" << ", "
                << "pi" << ", "
                << "agent_eval_avg" << ", "
-               << "agent_x_lambda";
+               << "agent_x_lambda" << ", "
+               << "bitfield";
     } else {
         const auto ev = get_eval();
         comstr << std::setprecision(3)
@@ -368,7 +367,8 @@ std::string GameState::eval_comment(bool print_header) const {
                << ev.beta << ", "
                << ev.pi << ", "
                << ev.agent_eval_avg << ", "
-               << ev.agent_x_lambda;
+               << ev.agent_x_lambda << ", "
+               << flags_to_text();
     }
 
     return comstr.str();

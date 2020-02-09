@@ -68,7 +68,7 @@ void KoState::reset_game() {
 }
 
 void KoState::play_move(int vertex) {
-    play_move(board.get_to_move(), vertex);
+    play_move(get_to_move(), vertex);
 }
 
 void KoState::play_move(int color, int vertex) {

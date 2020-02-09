@@ -140,23 +140,23 @@ void UCTNode::dirichlet_noise(float epsilon, float alpha) {
     }
 }
 
-std::tuple<bool,std::vector<int>>
+FastState::move_flags_t
     UCTNode::randomize_first_proportionally(int color, bool is_blunder_allowed) {
 
     assert(!m_children.empty());
 
+    FastState::move_flags_t flags;
+    
     // if no choice is possible or when the number of visits is too low: nothing to do
     if (m_children.size() < 2 ||
         m_children.front()->get_visits() <= cfg_random_min_visits ){
-        return std::make_tuple(false,
-            std::vector<int>{m_children.front()->get_move()});
+        return flags;
     }
 
     auto accum = 0.0f;
     auto accum_vector = std::vector<double>{};
     auto accum_num = size_t{0};
     auto blunder_vector = std::vector<bool>{};
-    auto non_blunders = std::vector<int>{};
 
     double norm_factor = m_children.front()->get_visits();
     auto first_child_eval = m_children.front()->get_eval(color);
@@ -183,9 +183,6 @@ std::tuple<bool,std::vector<int>>
         }
         accum_vector.push_back(accum);
         blunder_vector.push_back(!child_is_not_blunder);
-        if (child_is_not_blunder) {
-            non_blunders.push_back(child->get_move());
-        }
 
 #ifndef NDEBUG
         // myprintf("--> %d. blunder? %s, drop=%f, "
@@ -202,7 +199,7 @@ std::tuple<bool,std::vector<int>>
         myprintf("Rnd_first: blunders still allowed. "
                  "Choice between %d moves with %d non-blunders.\n",
                  accum_num,
-                 non_blunders.size());
+                 std::count(begin(blunder_vector),end(blunder_vector),false));
     } else {
         myprintf("Rnd_first: blunders NOT allowed. "
                  "Choice between %d good of %d moves with enough visits.\n",
@@ -214,7 +211,7 @@ std::tuple<bool,std::vector<int>>
     // In the case that all moves are below threshold, or only the
     // best move has enough visits, revert to best move.
     if(accum == 0.0f || accum_vector.size() < 2) {
-        return std::make_tuple(false, non_blunders);
+        return flags;
     }
 
     auto distribution = std::uniform_real_distribution<double>{0.0, accum};
@@ -222,6 +219,11 @@ std::tuple<bool,std::vector<int>>
     const auto index = std::upper_bound( begin(accum_vector),
                                          end(accum_vector),
                                          pick ) - begin(accum_vector);
+
+    assert(m_children.size() > static_cast<size_t>(index));
+
+    flags[FastState::RANDOM] = index != 0;
+    flags[FastState::BLUNDER] = blunder_vector[index];
 
 #ifndef NDEBUG
     myprintf("Accum=%f, pick=%f, index=%d.\n", accum, pick, index);
@@ -231,15 +233,13 @@ std::tuple<bool,std::vector<int>>
              (blunder_vector[index] ? "blunder" : "ok") );
 #endif
 
-    assert(m_children.size() > static_cast<size_t>(index));
-
     // Take the early out
     if (index != 0) {
         // Now swap the child at index with the first child
         std::iter_swap(begin(m_children), begin(m_children) + index);
     }
 
-    return std::make_tuple(blunder_vector[index], non_blunders);
+    return flags;
 }
 
 UCTNode* UCTNode::get_nopass_child(FastState& state) const {

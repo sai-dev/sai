@@ -520,9 +520,7 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor,
         } else {
             moves.append(";B[" + movestr + "]");
         }
-        const auto move_tag = !state->is_random() ? "0" : 
-            (state->is_blunder() ? "3" : "1");
-        moves.append("C[" + state->eval_comment() + ", " + move_tag + "]");
+        moves.append("C[" + state->eval_comment() + "]");
         if (++counter % 3 == 0) {
             moves.append("\n");
         }
@@ -557,8 +555,7 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor,
     }
     const auto fixcomment = selfplay ?
         " Starting GTP commands: time_settings 0 1 0]" : "]";
-    header.append(", " + state->eval_comment(true) +
-                  ", bitfield" + fixcomment);
+    header.append(", " + state->eval_comment(true) + fixcomment);
 
     std::string result(header);
     result.append("\n");

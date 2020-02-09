@@ -65,8 +65,8 @@ public:
     const FullBoard& get_past_board(int moves_ago) const;
     const std::vector<std::shared_ptr<const KoState>>& get_game_history() const;
 
-    void play_move(int color, int vertex);
     void play_move(int vertex);
+    void play_move(int color, int vertex);
     bool play_textmove(std::string color, const std::string& vertex);
 
     void start_clock(int color);

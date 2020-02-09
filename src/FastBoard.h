@@ -80,7 +80,6 @@ public:
         W_TERR = 7, B_TERR = 8
     };
 
-
     int get_boardsize() const;
     vertex_t get_state(int x, int y) const;
     vertex_t get_state(int vertex) const ;
