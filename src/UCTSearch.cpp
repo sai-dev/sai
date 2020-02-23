@@ -71,9 +71,9 @@ class OutputAnalysisData {
 public:
     OutputAnalysisData(const std::string& move, int visits,
                        float winrate, float policy_prior, std::string pv,
-                       float lcb, bool lcb_ratio_exceeded)
+		float lcb, float areas, bool lcb_ratio_exceeded)
     : m_move(move), m_visits(visits), m_winrate(winrate),
-      m_policy_prior(policy_prior), m_pv(pv), m_lcb(lcb),
+      m_policy_prior(policy_prior), m_pv(pv), m_lcb(lcb), m_areas(areas),
       m_lcb_ratio_exceeded(lcb_ratio_exceeded) {};
 
     std::string get_info_string(int order) const {
@@ -83,8 +83,8 @@ public:
                  + std::to_string(static_cast<int>(m_winrate * 10000))
                  + " prior "
                  + std::to_string(static_cast<int>(m_policy_prior * 10000.0f))
-                 + " lcb "
-                 + std::to_string(static_cast<int>(std::max(0.0f, m_lcb) * 10000));
+                 + " lcb " + std::to_string(static_cast<int>(std::max(0.0f, m_lcb) * 10000))
+                 + " areas " + std::to_string(static_cast<int>(m_areas * 10000));               
         if (order >= 0) {
             tmp += " order " + std::to_string(order);
         }
@@ -112,6 +112,7 @@ private:
     float m_policy_prior;
     std::string m_pv;
     float m_lcb;
+	float m_areas;
     bool m_lcb_ratio_exceeded;
 };
 
@@ -509,12 +510,13 @@ void UCTSearch::output_analysis(FastState & state, UCTNode & parent) {
         auto policy = node->get_policy();
         auto lcb = node->get_eval_lcb(color);
         auto visits = node->get_visits();
+		auto areas = node->get_alpkt_online_median();
         // Need at least 2 visits for valid LCB.
         auto lcb_ratio_exceeded = visits > 2 &&
             visits > max_visits * cfg_lcb_min_visit_ratio;
         // Store data in array
         sortable_data.emplace_back(move, visits,
-                                   move_eval, policy, pv, lcb, lcb_ratio_exceeded);
+                                   move_eval, policy, pv, lcb, areas, lcb_ratio_exceeded);
     }
     // Sort array to decide order
     std::stable_sort(rbegin(sortable_data), rend(sortable_data));
