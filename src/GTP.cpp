@@ -376,14 +376,14 @@ void GTP::setup_default_parameters() {
     cfg_adv_features = false;
     cfg_chainlibs_features = false;
     cfg_chainsize_features = false;
-    cfg_exploit_symmetries = false;
-    cfg_symm_nonrandom = false;
+    cfg_exploit_symmetries = true;
+    cfg_symm_nonrandom = true;
     cfg_laddercode = true;
     cfg_fpuzero = false;
     cfg_uselcb = true;
     cfg_noise_value = 0.03;
     cfg_noise_weight = 0.25;
-    cfg_recordvisits = false;
+    cfg_recordvisits = true;
     cfg_blunder_thr = 1.0f;
     cfg_losing_thr = 0.05f;
     // nu = ln(4) => P(X=0) = 0.25

@@ -160,12 +160,8 @@ static void parse_commandline(int argc, char *argv[]) {
                      "Lambda value")
         ("mu",  po::value<float>()->default_value(cfg_mu),
                      "Mu value")
-        ("symm", "Exploit symmetries by collapsing policy values of "
-         "equivalent moves to a single one, chosen randomly. When writing "
-         "training data, split the visit count evenly among equivalent moves.")
-        ("nrsymm", "Same as --symm, but the move is chosen to be "
-         "in the general direction of the 'polite' eightth of the board, "
-         "instead of randomly.")
+        ("nosymm", "Do not exploit symmetries.")
+        ("symm", "Exploit symmetries, but choose move randomly.")
         ("noladdercode", "Don't use heuristics for deeper ladders exploration.")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
@@ -234,8 +230,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("blunder_maxavg",
             po::value<float>()->default_value(cfg_blunder_rndmax_avg),
             "Blunders number is bounded by a Poisson r.v. with this mean.")
-        ("recordvisits", "Don't normalize visits to probabilities "
-         "when writing training info.")
+        ("norecordvisits", "Normalize visits to probabilities when writing training info.")
         ("adv_features", "Include advanced features (legal moves, "
          "last liberty intersections) when saving training data. Shorten "
          "history from 8 past moves to last 4.")
@@ -268,6 +263,13 @@ static void parse_commandline(int argc, char *argv[]) {
 #endif
     po::options_description h_desc("Hidden options");
     h_desc.add_options()
+        // Same as --symm, but the move is chosen to be in the general
+        // direction of the 'polite' eightth of the board, instead of
+        // randomly. (Default choice, for backward compatibility)
+        ("nrsymm", "default")
+        // Don't normalize visits to probabilities when writing training info.
+        // (Default choice, for backward compatibility)
+        ("recordvisits", "default")
         ("arguments", po::value<std::vector<std::string>>());
     po::options_description visible;
     visible.add(gen_desc)
@@ -470,8 +472,8 @@ static void parse_commandline(int argc, char *argv[]) {
         cfg_restrict_tt = true;
     }
 
-    if (vm.count("recordvisits")) {
-        cfg_recordvisits = true;
+    if (vm.count("norecordvisits")) {
+        cfg_recordvisits = false;
     }
 
     if (vm.count("adv_features")) {
@@ -540,9 +542,9 @@ static void parse_commandline(int argc, char *argv[]) {
         cfg_exploit_symmetries = true;
         cfg_symm_nonrandom = false;
     }
-    if (vm.count("nrsymm")) {
-        cfg_exploit_symmetries = true;
-        cfg_symm_nonrandom = true;
+    if (vm.count("nosymm")) {
+        cfg_exploit_symmetries = false;
+        cfg_symm_nonrandom = false;
     }
     if (vm.count("noladdercode")) {
         cfg_laddercode = false;

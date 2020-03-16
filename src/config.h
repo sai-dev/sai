@@ -59,7 +59,7 @@ static constexpr auto POTENTIAL_MOVES = NUM_INTERSECTIONS + 1; // including pass
 /*
  * KOMI: Define the default komi to use when training.
  */
-static constexpr auto KOMI = 7.5f;
+static constexpr auto KOMI = 7.0f;
 
 /*
  * Features
