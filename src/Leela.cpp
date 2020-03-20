@@ -160,6 +160,8 @@ static void parse_commandline(int argc, char *argv[]) {
                      "Lambda value")
         ("mu",  po::value<float>()->default_value(cfg_mu),
                      "Mu value")
+        ("betatune",  po::value<float>()->default_value(cfg_betatune),
+                     "Beta adjustment in log2 scale.")
         ("nosymm", "Do not exploit symmetries.")
         ("symm", "Exploit symmetries, but choose move randomly.")
         ("noladdercode", "Don't use heuristics for deeper ladders exploration.")
@@ -514,6 +516,7 @@ static void parse_commandline(int argc, char *argv[]) {
 
     cfg_lambda = vm["lambda"].as<float>();
     cfg_mu = vm["mu"].as<float>();
+    cfg_betatune = vm["betatune"].as<float>();
     cfg_komi = vm["komi"].as<float>();
 
     if (vm.count("resignpct")) {

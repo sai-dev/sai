@@ -109,6 +109,7 @@ extern float cfg_noise_weight;
 extern float cfg_komi;
 extern float cfg_lambda;
 extern float cfg_mu;
+extern float cfg_betatune;
 extern int cfg_random_cnt;
 extern int cfg_random_min_visits;
 extern float cfg_random_temp;

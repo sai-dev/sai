@@ -1149,6 +1149,8 @@ Network::Netresult Network::get_output_internal(
         innerproduct<false>(val_channels, m_ip2_val_w, m_ip2_val_b);
 
     Netresult result;
+    // ln(x) = log2(x) * ln(2)
+    const auto beta_nat_tune = cfg_betatune * 0.69314718056;
 
     if (m_value_head_type==DOUBLE_V) {
         // If double head value, also get beta
@@ -1161,7 +1163,7 @@ Network::Netresult Network::get_output_internal(
 
         result.value = 0.5f;
         result.alpha = val_output[0];
-        result.beta = std::exp(vbe_output[0]) * 10.0f / NUM_INTERSECTIONS;
+        result.beta = std::exp(vbe_output[0] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
     } else if (m_value_head_type==DOUBLE_Y) {
         const auto vbe_channels =
@@ -1171,19 +1173,19 @@ Network::Netresult Network::get_output_internal(
 
         result.value = 0.5f;
         result.alpha = val_output[0];
-        result.beta = std::exp(vbe_output[0]) * 10.0f / NUM_INTERSECTIONS;
+        result.beta = std::exp(vbe_output[0] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
     } else if (m_value_head_type==DOUBLE_T) {
         const auto vbe_output =
             innerproduct<false>(val_channels, m_ip2_vbe_w, m_ip2_vbe_b);
         result.value = 0.5f;
         result.alpha = val_output[0];
-        result.beta = std::exp(vbe_output[0]) * 10.0f / NUM_INTERSECTIONS;
+        result.beta = std::exp(vbe_output[0] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
     } else if (m_value_head_type==DOUBLE_I) {
         result.value = 0.5f;
         result.alpha = val_output[0];
-        result.beta = std::exp(val_output[1]) * 10.0f / NUM_INTERSECTIONS;
+        result.beta = std::exp(val_output[1] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
     } else if (m_value_head_type==SINGLE) {
         result.value = (1.0f + std::tanh(val_output[0])) / 2.0f;

@@ -90,6 +90,7 @@ float cfg_noise_value;
 float cfg_noise_weight;
 float cfg_lambda;
 float cfg_mu;
+float cfg_betatune;
 float cfg_komi;
 int cfg_random_cnt;
 int cfg_random_min_visits;
@@ -357,6 +358,7 @@ void GTP::setup_default_parameters() {
     cfg_komi = KOMI;
     cfg_lambda = 0.5f;
     cfg_mu = 0.0f;
+    cfg_betatune = 0.0f;
     // This will be overwritten in initialize() after network size is known.
     cfg_max_tree_size = UCTSearch::DEFAULT_MAX_MEMORY;
     cfg_max_cache_ratio_percent = 10;
