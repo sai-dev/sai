@@ -124,6 +124,11 @@ void GameState::play_move(int color, int vertex) {
     // cut off any leftover moves from navigating
     game_history.resize(m_movenum);
     game_history.emplace_back(std::make_shared<KoState>(*this));
+
+    // this is the place to reset state info on blunders
+    m_non_blunders = {};
+    m_random_chosen = false;
+    m_blunder_chosen = false;
 }
 
 bool GameState::play_textmove(std::string color, const std::string& vertex) {
