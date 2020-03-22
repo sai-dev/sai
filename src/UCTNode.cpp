@@ -221,6 +221,7 @@ bool UCTNode::create_children(Network & network,
 				    get_eval_base_father()) :
         result.eval();
     update(eval);
+    update_alpkt_median(alpkt);
     expand_done();
     return true;
 }
@@ -315,7 +316,9 @@ void UCTNode::update_alpkt_median(float new_value) {
     // Cache values to avoid race conditions.
     const auto new_visits = static_cast<int>(m_visits);
     assert (new_visits > 0);
-    if (new_visits == 1) {
+    // Sometimes this function is not called when visits==1 so be
+    // flexible and set the first value also in those cases.
+    if (new_visits <= 5 && m_alpkt_median == 0) {
         m_alpkt_median = new_value;
     } else {
         const auto variation_cap = std::max(0.5f, 40.0f / new_visits);
