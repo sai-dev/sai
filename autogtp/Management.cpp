@@ -552,7 +552,7 @@ Order Management::getWork(bool tuning) {
         QString rs = "-s " + seed + " ";
         map["rndSeed"] = seed;
         QString opt = map["options"];
-        QRegularExpression re("-s .* ");
+        QRegularExpression re("-s \\d* ");
         opt.replace(re, rs);
         map["options"] = opt;
         m_fallBack.parameters(map);
