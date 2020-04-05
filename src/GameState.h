@@ -84,6 +84,10 @@ public:
     void set_eval(const StateEval& ev);
     //    void copy_last_rnd_move_num ();
     std::string eval_comment(bool print_header = false) const;
+    bool score_agreed() const;
+    std::pair<int, int> get_accepted_scores() const { return m_acceptedscore; }
+    float get_final_accepted_score() const;
+    void update_accepted_score(float alpkt, float beta, float black_eval);
 
 private:
     bool valid_handicap(int stones);
@@ -91,6 +95,7 @@ private:
     std::vector<std::shared_ptr<const KoState>> game_history;
     TimeControl m_timecontrol;
     int m_resigned{FastBoard::EMPTY};
+    std::pair<int, int> m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS};
 };
 
 #endif

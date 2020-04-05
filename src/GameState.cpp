@@ -65,6 +65,7 @@ void GameState::init_game(int size, float komi) {
     m_timecontrol.reset_clocks();
 
     m_resigned = FastBoard::EMPTY;
+    m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS };
 }
 
 void GameState::reset_game() {
@@ -76,6 +77,7 @@ void GameState::reset_game() {
     m_timecontrol.reset_clocks();
 
     m_resigned = FastBoard::EMPTY;
+    m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS };
 }
 
 bool GameState::forward_move() {
@@ -367,4 +369,46 @@ std::string GameState::eval_comment(bool print_header) const {
 
 const std::vector<std::shared_ptr<const KoState>>& GameState::get_game_history() const {
     return game_history;
+}
+
+
+bool GameState::score_agreed() const {
+    return m_acceptedscore.first == m_acceptedscore.second;
+}
+
+void GameState::update_accepted_score(float alpkt, float beta, float black_eval) {
+    const auto black_alpha = alpkt + get_komi();
+    const auto color = get_to_move();
+
+    const auto confidence = 0.90f;
+    const auto range = std::log(confidence / (1.0f - confidence)) / beta;
+    Utils::myprintf("Update accepted score: black_alpha %.2f, range %.2f, black_eval %.3f\n", black_alpha, range, black_eval);
+    if (color == FastBoard::WHITE) {
+        auto new_score = int(std::ceil(black_alpha - range));
+        // if the new score would make me lose but eval is still
+        // uncertain, update with minimum score for winning or tying
+        // instead
+        if (new_score - m_komi > 0 && black_eval < confidence) {
+            new_score = int(std::floor(m_komi));
+        }
+        m_acceptedscore.first = new_score;
+    } else if (color == FastBoard::BLACK) {
+        auto new_score = int(std::floor(black_alpha + range));
+        // if the new score would make me lose but eval is still
+        // uncertain, update with minimum score for winning or tying
+        // instead
+        if (new_score - m_komi < 0 && black_eval > 1 - confidence) {
+            new_score = int(std::ceil(m_komi));
+        }
+        m_acceptedscore.second = new_score;
+    }
+}
+
+float GameState::get_final_accepted_score() const {
+    if (score_agreed()) {
+        return m_acceptedscore.first - m_komi;
+    } else {
+        // return an impossible value
+        return 3.1415927f;
+    }
 }

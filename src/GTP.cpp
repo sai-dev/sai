@@ -86,6 +86,7 @@ bool cfg_chainsize_features;
 bool cfg_exploit_symmetries;
 bool cfg_symm_nonrandom;
 bool cfg_laddercode;
+bool cfg_pass_agree;
 float cfg_noise_value;
 float cfg_noise_weight;
 float cfg_lambda;
@@ -381,6 +382,7 @@ void GTP::setup_default_parameters() {
     cfg_exploit_symmetries = true;
     cfg_symm_nonrandom = true;
     cfg_laddercode = true;
+    cfg_pass_agree = false;
     cfg_fpuzero = false;
     cfg_uselcb = true;
     cfg_noise_value = 0.03;
@@ -820,15 +822,17 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         return;
     } else if (command.find("final_score") == 0) {
         float ftmp;
-        if (!cfg_japanese_mode) {
-            ftmp = game.final_score();
-        } else {
+        if (cfg_japanese_mode) {
             ftmp = search->final_japscore();
             if (ftmp > NUM_INTERSECTIONS * 10.0) {
                 gtp_fail_printf(id, "japanese scoring failed "
                                 "while trying to remove dead groups");
                 return;
             }
+        } else if (cfg_pass_agree && game.score_agreed()) {
+            ftmp = game.get_final_accepted_score();
+        } else {
+            ftmp = game.final_score();
         }
         /* white wins */
         if (ftmp < -0.0001f) {

@@ -1008,6 +1008,17 @@ void UCTSearch::print_move_choices_by_policy(KoState & state, UCTNode & parent, 
 
 
 int UCTSearch::think(int color, passflag_t passflag) {
+    // We agreed on the score previously and my opponent passed
+    // already. Its pass could be exploited, but we are gentlemen so
+    // avoid thinking and pass too.
+    if (cfg_pass_agree) {
+        if (m_rootstate.score_agreed() && m_rootstate.get_passes() == 1) {
+            myprintf("Agreeing on passing with score %f.\n",
+                     m_rootstate.get_final_accepted_score());
+            return FastBoard::PASS;
+        }
+    }
+
     // Start counting time for us
     m_rootstate.start_clock(color);
 
@@ -1175,7 +1186,14 @@ int UCTSearch::think(int color, passflag_t passflag) {
         }
     }
 
+    // Write KoState with previous thinking evaluation
     Training::record(m_network, m_rootstate, *m_root);
+
+    // Prepare alpkt and beta of root node for pass_agree in the case
+    // that the chosen move is not found
+    auto alpkt_for_score = m_root->get_alpkt_online_median();
+    auto beta_for_score = m_root->get_net_beta();
+    auto eval_for_score = m_root->get_eval(FastBoard::BLACK);
 
     // The function set_eval() updates the current KoState but not
     // GameState history; when the next move is played, the updated
@@ -1184,7 +1202,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // as we are going to store the statistics of the chosen
     // move. Exception: if the best move is RESIGN, play_move()
     // updates the last state and does not create a new one.
-    if(bestmove != FastBoard::RESIGN) {
+    if(bestmove != FastBoard::RESIGN || cfg_pass_agree) {
         auto chosen_child = m_root->get_first_child();
         if(chosen_child->get_move() != bestmove) {
             for(auto& child : m_root->get_children()) {
@@ -1209,6 +1227,11 @@ int UCTSearch::think(int color, passflag_t passflag) {
                                chosen_child->get_alpkt_online_median());
             m_rootstate.set_eval(ev);
 
+            // For pass_agree we really want the score of the best
+            // move, not of the root node
+            alpkt_for_score = alpkt;
+            beta_for_score = beta;
+            eval_for_score = chosen_child->get_eval(FastBoard::BLACK);
 #ifndef NDEBUG
             myprintf("visits=%d, alpkt=%.2f, beta=%.3f, pi=%.3f, agent=%.3f, "
                      "avg=%.3f, alpkt_med=%.3f, alpkt_online=%.3f, "
@@ -1217,6 +1240,23 @@ int UCTSearch::think(int color, passflag_t passflag) {
                      ev.agent_eval_avg, ev.alpkt_median, ev.alpkt_online_median,
                      ev.agent_x_mu, ev.agent_x_lambda);
 #endif
+        }
+    }
+
+    // Check if we have we an agreement with the opponent on the final
+    // score, so that we may pass and the program will take care of
+    // the game ending.
+    if (cfg_pass_agree) {
+        m_rootstate.update_accepted_score(alpkt_for_score, beta_for_score, eval_for_score);
+        if (m_rootstate.score_agreed()) {
+            myprintf("Agreeing on passing with score %f.\n",
+                     m_rootstate.get_final_accepted_score());
+            return FastBoard::PASS;
+        } else {
+            myprintf("Still no agreement on final score: "
+                     "Black wants %f and White wants %f. Playing on.\n",
+                     m_rootstate.get_accepted_scores().second - m_rootstate.get_komi(),
+                     m_rootstate.get_accepted_scores().first - m_rootstate.get_komi());
         }
     }
 

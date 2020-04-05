@@ -529,7 +529,8 @@ std::string SGFTree::state_to_string(GameState& pstate, int compcolor,
     }
 
     if (!state->has_resigned()) {
-        float score = state->final_score();
+        float score = cfg_pass_agree && state->score_agreed() ?
+            state->get_final_accepted_score() : state->final_score();
 
         if (score > 0.0001f) {
             header.append("RE[B+" + str(boost::format("%.1f") % score) + "]");
