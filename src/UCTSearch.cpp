@@ -1013,7 +1013,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // avoid thinking and pass too.
     if (cfg_pass_agree) {
         if (m_rootstate.score_agreed() && m_rootstate.get_passes() == 1) {
-            myprintf("Agreeing on passing with score %f.\n",
+            myprintf("Agreeing on passing with score %.1f.\n",
                      m_rootstate.get_final_accepted_score());
             return FastBoard::PASS;
         }
