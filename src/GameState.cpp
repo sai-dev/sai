@@ -391,10 +391,22 @@ void GameState::update_accepted_score(float alpkt, float beta, float black_eval)
     const auto range = std::log(confidence / (1.0f - confidence)) / beta;
     //    Utils::myprintf("Update accepted score: black_alpha %.2f, range %.2f, black_eval %.3f\n", black_alpha, range, black_eval);
     if (color == FastBoard::WHITE) {
-        const auto new_score = int(std::ceil(black_alpha - range));
+        auto new_score = int(std::ceil(black_alpha - range));
+        // if the new score would make me lose but eval is still
+        // uncertain, update with minimum score for winning or tying
+        // instead
+        if (new_score - m_komi > 0 && black_eval < 0.5f) {
+            new_score = int(std::floor(m_komi));
+        }
         m_acceptedscore.first = new_score;
     } else if (color == FastBoard::BLACK) {
-        const auto new_score = int(std::floor(black_alpha + range));
+        auto new_score = int(std::floor(black_alpha + range));
+        // if the new score would make me lose but eval is still
+        // uncertain, update with minimum score for winning or tying
+        // instead
+        if (new_score - m_komi < 0 && black_eval > 0.5f) {
+            new_score = int(std::ceil(m_komi));
+        }
         m_acceptedscore.second = new_score;
     }
 }
