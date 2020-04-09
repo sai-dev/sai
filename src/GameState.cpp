@@ -379,27 +379,22 @@ bool GameState::score_agreed() const {
 void GameState::update_accepted_score(float alpkt, float beta, float black_eval) {
     const auto black_alpha = alpkt + get_komi();
     const auto color = get_to_move();
+    const auto lead_eval = std::max(black_eval, 1.0f - black_eval);
+    constexpr auto highest_conf = 0.99f;
+    constexpr auto normal_conf = 0.90f;
+    constexpr auto a_over_b = std::log(1.0f - normal_conf) / std::log(1.0f - highest_conf);
+    constexpr auto normal_log_odds = std::log( normal_conf / (1.0f - normal_conf) );
+    const auto adj_log_odds = std::log( lead_eval / (1.0f - lead_eval) ) / normal_log_odds;
+    const auto exponent = std::pow(a_over_b, adj_log_odds);
+    const auto confidence = 1.0f - 0.5f * std::pow (1.0f - highest_conf, exponent);
 
-    const auto confidence = 0.90f;
     const auto range = std::log(confidence / (1.0f - confidence)) / beta;
-    Utils::myprintf("Update accepted score: black_alpha %.2f, range %.2f, black_eval %.3f\n", black_alpha, range, black_eval);
+    //    Utils::myprintf("Update accepted score: black_alpha %.2f, range %.2f, black_eval %.3f\n", black_alpha, range, black_eval);
     if (color == FastBoard::WHITE) {
-        auto new_score = int(std::ceil(black_alpha - range));
-        // if the new score would make me lose but eval is still
-        // uncertain, update with minimum score for winning or tying
-        // instead
-        if (new_score - m_komi > 0 && black_eval < confidence) {
-            new_score = int(std::floor(m_komi));
-        }
+        const auto new_score = int(std::ceil(black_alpha - range));
         m_acceptedscore.first = new_score;
     } else if (color == FastBoard::BLACK) {
-        auto new_score = int(std::floor(black_alpha + range));
-        // if the new score would make me lose but eval is still
-        // uncertain, update with minimum score for winning or tying
-        // instead
-        if (new_score - m_komi < 0 && black_eval > 1 - confidence) {
-            new_score = int(std::ceil(m_komi));
-        }
+        const auto new_score = int(std::floor(black_alpha + range));
         m_acceptedscore.second = new_score;
     }
 }

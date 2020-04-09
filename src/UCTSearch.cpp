@@ -467,7 +467,7 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  move.c_str(),
                  node->get_visits(),
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
-                 std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
+                 std::max(-5.0f, node->get_eval_lcb(color) * 100.0f),
                  node->get_policy() * 100.0f,
                  node->get_alpkt_online_median(),
                  pv.c_str());
@@ -1249,12 +1249,12 @@ int UCTSearch::think(int color, passflag_t passflag) {
     if (cfg_pass_agree) {
         m_rootstate.update_accepted_score(alpkt_for_score, beta_for_score, eval_for_score);
         if (m_rootstate.score_agreed()) {
-            myprintf("Agreeing on passing with score %f.\n",
+            myprintf("Agreeing on passing with score %.1f.\n",
                      m_rootstate.get_final_accepted_score());
             return FastBoard::PASS;
         } else {
             myprintf("Still no agreement on final score: "
-                     "Black wants %f and White wants %f. Playing on.\n",
+                     "Black wants %.1f and White wants %.1f. Playing on.\n",
                      m_rootstate.get_accepted_scores().second - m_rootstate.get_komi(),
                      m_rootstate.get_accepted_scores().first - m_rootstate.get_komi());
         }
