@@ -1229,7 +1229,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
             // For pass_agree we really want the score of the best
             // move, not of the root node
-            alpkt_for_score = alpkt;
+            alpkt_for_score = chosen_child->get_alpkt_online_median();
             beta_for_score = beta;
             eval_for_score = chosen_child->get_eval(FastBoard::BLACK);
 #ifndef NDEBUG
