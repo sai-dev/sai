@@ -1189,11 +1189,15 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // Write KoState with previous thinking evaluation
     Training::record(m_network, m_rootstate, *m_root);
 
-    // Prepare alpkt and beta of root node for pass_agree in the case
-    // that the chosen move is not found
-    auto alpkt_for_score = m_root->get_alpkt_online_median();
-    auto beta_for_score = m_root->get_net_beta();
-    auto eval_for_score = m_root->get_eval(FastBoard::BLACK);
+    // Just before the previous move, our opponent gave an estimate of
+    // its least-acceptable-score, using the visits of the subtree of
+    // the chosen move. Now we possess the final statistics of the
+    // whole tree and we can use them to improve its estimate.
+    if (cfg_pass_agree) {
+        m_rootstate.update_accepted_score(m_root->score_stats(), true);
+    }
+    // In the case that the chosen move is not found use root.
+    auto child_for_score = m_root.get();
 
     // The function set_eval() updates the current KoState but not
     // GameState history; when the next move is played, the updated
@@ -1229,9 +1233,8 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
             // For pass_agree we really want the score of the best
             // move, not of the root node
-            alpkt_for_score = chosen_child->get_alpkt_online_median();
-            beta_for_score = beta;
-            eval_for_score = chosen_child->get_eval(FastBoard::BLACK);
+            child_for_score = chosen_child;
+
 #ifndef NDEBUG
             myprintf("visits=%d, alpkt=%.2f, beta=%.3f, pi=%.3f, agent=%.3f, "
                      "avg=%.3f, alpkt_med=%.3f, alpkt_online=%.3f, "
@@ -1247,7 +1250,10 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // score, so that we may pass and the program will take care of
     // the game ending.
     if (cfg_pass_agree) {
-        m_rootstate.update_accepted_score(alpkt_for_score, beta_for_score, eval_for_score);
+        // Update least-acceptable-score for current player with score
+        // stats of the chesen move subtree.
+        m_rootstate.update_accepted_score(child_for_score->score_stats());
+
         if (m_rootstate.score_agreed()) {
             myprintf("Agreeing on passing with score %.1f.\n",
                      m_rootstate.get_final_accepted_score());

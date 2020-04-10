@@ -87,7 +87,7 @@ public:
     bool score_agreed() const;
     std::pair<int, int> get_accepted_scores() const { return m_acceptedscore; }
     float get_final_accepted_score() const;
-    void update_accepted_score(float alpkt, float beta, float black_eval);
+    void update_accepted_score(std::tuple<float, float, float> node_stats, bool switch_player = false);
 
 private:
     bool valid_handicap(int stones);

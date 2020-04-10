@@ -848,6 +848,14 @@ UCTStats UCTNode::get_uct_stats() const {
     return stats;
 }
 
+std::tuple<float, float, float> UCTNode::score_stats() const {
+    const auto alpkt_for_score = get_alpkt_online_median();
+    const auto beta_for_score = get_net_beta();
+    const auto eval_for_score = get_eval(FastBoard::BLACK);
+    return std::make_tuple(alpkt_for_score, beta_for_score, eval_for_score);
+}
+
+
 bool UCTNode::acquire_expanding() {
     auto expected = ExpandState::INITIAL;
     auto newval = ExpandState::EXPANDING;

@@ -148,6 +148,7 @@ public:
     float get_azwinrate_avg() const;
     UCTStats get_uct_stats() const;
     void update_alpkt_median(float new_alpkt_value);
+    std::tuple<float, float, float> score_stats() const;
 
     void clear_expand_state();
 private:

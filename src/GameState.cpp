@@ -383,10 +383,12 @@ bool GameState::score_agreed() const {
     return m_acceptedscore.first == m_acceptedscore.second;
 }
 
-void GameState::update_accepted_score(float alpkt, float beta, float black_eval) {
+void GameState::update_accepted_score(std::tuple<float, float, float> node_stats, bool switch_player) {
+    float alpkt, beta, black_eval;
+    std::tie(alpkt, beta, black_eval) = node_stats;
+
     const auto komi = get_komi();
     const auto black_alpha = alpkt + komi;
-    const auto color = get_to_move();
     const auto lead_eval = std::max(black_eval, 1.0f - black_eval);
     constexpr auto highest_conf = 0.99f;
     constexpr auto normal_conf = 0.90f;
@@ -396,11 +398,15 @@ void GameState::update_accepted_score(float alpkt, float beta, float black_eval)
     const auto exponent = std::pow(a_over_b, adj_log_odds);
     const auto confidence = 1.0f - 0.5f * std::pow (1.0f - highest_conf, exponent);
 
+    const auto color = get_to_move();
+    const auto is_white = ( color == FastBoard::WHITE && !switch_player )
+                          || ( color == FastBoard::BLACK && switch_player);
+
     const auto range = std::log(confidence / (1.0f - confidence)) / beta;
     // Utils::myprintf("Update accepted score: black_alpha %.2f, beta %.2f, "
     //                 "confidence %.1f\% range %.2f, black_eval %.3f\n",
     //                 black_alpha, beta, 100.0f*confidence, range, black_eval);
-    if (color == FastBoard::WHITE) {
+    if (is_white) {
         auto new_score = int(std::ceil(black_alpha - range));
         // if the new score would make me lose but eval is still
         // uncertain, update with minimum score for winning or tying
@@ -414,7 +420,7 @@ void GameState::update_accepted_score(float alpkt, float beta, float black_eval)
             new_score--;
         }
         m_acceptedscore.first = new_score;
-    } else if (color == FastBoard::BLACK) {
+    } else {
         auto new_score = int(std::floor(black_alpha + range));
         // if the new score would make me lose but eval is still
         // uncertain, update with minimum score for winning or tying
