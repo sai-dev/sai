@@ -36,6 +36,7 @@
 #include <cassert>
 #include <iomanip>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -373,11 +374,18 @@ const std::vector<std::shared_ptr<const KoState>>& GameState::get_game_history()
 
 
 bool GameState::score_agreed() const {
+    // Caution: there is no guarantee that first <= second, even if
+    // this is usually the case. The case first > second happens when
+    // the current player just understood that something bad happened
+    // for its side and its previous expectations were too
+    // optimistic. In this case, we wait the updated evaluation of the
+    // opponent before agreeing on the final score.
     return m_acceptedscore.first == m_acceptedscore.second;
 }
 
 void GameState::update_accepted_score(float alpkt, float beta, float black_eval) {
-    const auto black_alpha = alpkt + get_komi();
+    const auto komi = get_komi();
+    const auto black_alpha = alpkt + komi;
     const auto color = get_to_move();
     const auto lead_eval = std::max(black_eval, 1.0f - black_eval);
     constexpr auto highest_conf = 0.99f;
@@ -397,8 +405,13 @@ void GameState::update_accepted_score(float alpkt, float beta, float black_eval)
         // if the new score would make me lose but eval is still
         // uncertain, update with minimum score for winning or tying
         // instead
-        if (new_score - m_komi > 0 && black_eval < 0.5f) {
-            new_score = int(std::floor(m_komi));
+        if (new_score - komi > 0 && black_eval < 0.5f) {
+            new_score = int(std::floor(komi));
+        }
+        // if the new score would make me tie but eval says I should
+        // win, do not accept less than a 1 point win
+        if (new_score - komi == 0 && black_eval < 0.1f) {
+            new_score--;
         }
         m_acceptedscore.first = new_score;
     } else if (color == FastBoard::BLACK) {
@@ -406,8 +419,13 @@ void GameState::update_accepted_score(float alpkt, float beta, float black_eval)
         // if the new score would make me lose but eval is still
         // uncertain, update with minimum score for winning or tying
         // instead
-        if (new_score - m_komi < 0 && black_eval > 0.5f) {
-            new_score = int(std::ceil(m_komi));
+        if (new_score - komi < 0 && black_eval > 0.5f) {
+            new_score = int(std::ceil(komi));
+        }
+        // if the new score would make me tie but eval says I should
+        // win, do not accept less than a 1 point win
+        if (new_score - komi == 0 && black_eval > 0.9f) {
+            new_score++;
         }
         m_acceptedscore.second = new_score;
     }
@@ -415,9 +433,9 @@ void GameState::update_accepted_score(float alpkt, float beta, float black_eval)
 
 float GameState::get_final_accepted_score() const {
     if (score_agreed()) {
-        return m_acceptedscore.first - m_komi;
+        return m_acceptedscore.first - get_komi();
     } else {
         // return an impossible value
-        return 3.1415927f;
+        return std::numeric_limits<float>::infinity();
     }
 }
