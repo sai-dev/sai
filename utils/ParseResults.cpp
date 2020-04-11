@@ -464,6 +464,8 @@ float delta_rating(unsigned int wins, unsigned int num, unsigned int losses = 0)
              << " + " << losses << " > " << num << endl;
         exit(1);
     }
+    if (num == 0)
+        return 0.0f;
 
     const auto draws = num - wins - losses;
     const auto bound = pow(C, 1.0f/num);
