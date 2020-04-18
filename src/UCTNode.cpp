@@ -598,6 +598,13 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             psa += 0.2;
         }
 
+        if (cfg_stdevuct) {
+            const auto stdev = std::sqrt(child.get_eval_variance(0.25f));
+            // maximum stdev is 0.5 so double it to get something of
+            // order 1; still this term will increase the relative
+            // weight of winrate, so also consider increasing cfg_puct
+            psa *= 2.0f * stdev;
+        }
         const auto denom = child.get_denom();
         const auto puct = cfg_puct * psa * (numerator / denom);
 

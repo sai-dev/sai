@@ -140,6 +140,12 @@ int UCTNodePointer::get_denom() const {
     return 1;
 }
 
+float UCTNodePointer::get_eval_variance(float default_var) const {
+    auto v = m_data.load();
+    if (is_inflated(v)) return read_ptr(v)->get_eval_variance(default_var);
+    return 0.25f;
+}
+
 float UCTNodePointer::get_policy() const {
     auto v = m_data.load();
     if (is_inflated(v)) return read_ptr(v)->get_policy();

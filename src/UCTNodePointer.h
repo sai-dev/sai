@@ -129,6 +129,7 @@ public:
     bool valid() const;
     int get_visits() const;
     int get_denom() const;
+    float get_eval_variance(float default_var) const;
     float get_policy() const;
     bool active() const;
     int get_move() const;

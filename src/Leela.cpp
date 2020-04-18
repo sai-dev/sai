@@ -255,6 +255,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("fpu_zero", "Use constant fpu=0.0 (AlphaGoZero). "
          "The default is reduced parent's value (LeelaZero).")
         ("nolcb", "Choose move based on visits instead of LCB.")
+        ("stdev_uct", "Use sample variance in UCT formula.")
         ;
 #endif
     // These won't be shown, we use them to catch incorrect usage of the
@@ -350,6 +351,9 @@ static void parse_commandline(int argc, char *argv[]) {
     }
     if (vm.count("fpu_zero")) {
         cfg_fpuzero = true;
+    }
+    if (vm.count("stdev_uct")) {
+        cfg_stdevuct = true;
     }
     if (vm.count("nolcb")) {
         cfg_uselcb = false;
