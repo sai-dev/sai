@@ -397,8 +397,8 @@ void GameState::update_accepted_score(std::tuple<float, float, float> node_stats
     const auto lead_eval = std::max(black_eval, 1.0f - black_eval);
     constexpr auto highest_conf = 0.99f;
     constexpr auto normal_conf = 0.90f;
-    constexpr auto a_over_b = std::log(1.0f - normal_conf) / std::log(1.0f - highest_conf);
-    constexpr auto normal_log_odds = std::log( normal_conf / (1.0f - normal_conf) );
+    const auto a_over_b = std::log(1.0f - normal_conf) / std::log(1.0f - highest_conf);
+    const auto normal_log_odds = std::log( normal_conf / (1.0f - normal_conf) );
     const auto adj_log_odds = std::log( lead_eval / (1.0f - lead_eval) ) / normal_log_odds;
     const auto exponent = std::pow(a_over_b, adj_log_odds);
     const auto confidence = 1.0f - 0.5f * std::pow (1.0f - highest_conf, exponent);
