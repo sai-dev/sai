@@ -616,7 +616,13 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
     const auto color = m_rootstate.board.get_to_move();
 
     const auto is_default_cfg_resign = cfg_resignpct < 0;
-    const auto resign_threshold = cfg_resign_threshold;
+    // If lambda and mu are nonzero then the agent estimate of winrate
+    // is regressed towards 0.5, so transform resign threshold
+    // accordingly.
+
+    // ### TO DO ### improve by computing resign_threshold just once
+    // at program start and when lambda or mu change.
+    const auto resign_threshold = Utils::agent_winrate_transform(cfg_resign_threshold);
 
     if (besteval > resign_threshold) {
         // eval > cfg_resign
@@ -819,8 +825,9 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     if (bestmove != FastBoard::PASS) {
       //      myprintf("Eval (%.2f%%)\n", 100.0f * besteval);
         if (should_resign(passflag, besteval)) {
-            myprintf("Eval (%.2f%%) looks bad. Resigning.\n",
-                     100.0f * besteval);
+            myprintf("Eval (%.2f%%) looks bad. Resign threshold %.2f%%. Resigning.\n",
+                     100.0f * besteval,
+                     100.0f * Utils::agent_winrate_transform(cfg_resign_threshold));
             bestmove = FastBoard::RESIGN;
         }
     }

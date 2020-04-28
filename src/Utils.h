@@ -50,6 +50,7 @@ namespace Utils {
     void log_input(const std::string& input);
     bool input_pending();
     float sigmoid_interval_avg(float alpkt, float beta, float s, float t);
+    float agent_winrate_transform(float p);
     float log_sigmoid(float x);
     float median(std::vector<float> & sample);
     float winner (float score);

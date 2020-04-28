@@ -248,6 +248,12 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
     return main_term - bb + aa;
 }
 
+float Utils::agent_winrate_transform(float p) {
+    const auto p_mu = cfg_mu * 0.5f + (1.0f - cfg_mu) * p;
+    const auto p_lambda = cfg_lambda * 0.5f + (1.0f - cfg_lambda) * p;
+    return 1.0f / (1.0f + (std::log(p_lambda) - std::log(p_mu)) / (std::log(1-p_mu) - std::log(1-p_lambda)));
+}
+
 float Utils::log_sigmoid(float x) {
     // Returns log(1/(1+exp(-x))
     // When sigmoid is about 1, log(sigmoid) is about 0 but not very precise
