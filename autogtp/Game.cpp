@@ -418,8 +418,9 @@ void Game::fixSgfPlayer(QString& sgfData, const Engine& whiteEngine) {
     sgfData.replace(oldPlayer, playerName);
 }
 
-void Game::fixSgfComment(QString& sgfData, const Engine& whiteEngine,
-    const bool isSelfPlay) {
+void Game::fixSgfComment(QString& sgfData, Game& whiteGame,
+                         const bool isSelfPlay) {
+    const Engine& whiteEngine = whiteGame.getEngine();
     // If this function is modified, a corresponding update is
     // required to SGFTree::state_to_string() in order to get the same
     // sgfhash as the server
@@ -443,6 +444,54 @@ void Game::fixSgfComment(QString& sgfData, const Engine& whiteEngine,
     comment += "]";
     comment.replace(QRegularExpression("\\s\\s+"), " ");
     sgfData.replace(oldComment, comment);
+    if (!isSelfPlay) {
+        QString whiteSgf;
+        whiteGame.getSgf(whiteSgf);
+        mergeSgfComments(sgfData, whiteSgf);
+    }
+}
+
+void Game::mergeSgfComments(QString& blackSgf, const QString& whiteSgf) const {
+    QStringList blackMoves = blackSgf.split(";");
+    QStringList whiteMoves = whiteSgf.split(";");
+    for (int i = 3; i < blackMoves.size() ; i += 2) {
+        // i=0 '('
+        // i=1 header
+        // i=2 move 1 by black
+        blackMoves[i] = whiteMoves.at(i);
+    }
+    blackSgf = blackMoves.join(";");
+}
+
+bool Game::getSgf(QString& sgf) {
+    write("printsgf\n");
+    waitForBytesWritten(-1);
+    if (!waitReady()) {
+        error(Game::PROCESS_DIED);
+        return false;
+    }
+    char readBuffer[256];
+    int readCount = readLine(readBuffer, 256);
+    if (readCount <= 3 || readBuffer[0] != '=') {
+        error(Game::WRONG_GTP);
+        QTextStream(stdout) << "Error read " << readCount << " '";
+        QTextStream(stdout) << readBuffer << "'" << endl;
+        terminate();
+        return false;
+    }
+    // Skip "= "
+    sgf = readBuffer;
+    do {
+        readCount = readLine(readBuffer, 256);
+        sgf.append(readBuffer);
+    } while (readCount >= 5);
+    // if (!eatNewLine()) {
+    //     error(Game::PROCESS_DIED);
+    //     return false;
+    // }
+    sgf.remove(0, 2);
+    sgf = sgf.simplified();
+    return true;
 }
 
 void Game::fixSgfResult(QString& sgfData, const bool resignation) {
@@ -460,15 +509,16 @@ void Game::fixSgfResult(QString& sgfData, const bool resignation) {
     }
 }
 
-bool Game::fixSgf(const Engine& whiteEngine, const bool resignation,
-    const bool isSelfPlay) {
+bool Game::fixSgf(Game& whiteGame, const bool resignation,
+                  const bool isSelfPlay) {
+    const Engine& whiteEngine = whiteGame.getEngine();
     QFile sgfFile(m_fileName + ".sgf");
     if (!sgfFile.open(QIODevice::Text | QIODevice::ReadOnly)) {
         return false;
     }
     QString sgfData = sgfFile.readAll();
     fixSgfPlayer(sgfData, whiteEngine);
-    fixSgfComment(sgfData, whiteEngine, isSelfPlay);
+    fixSgfComment(sgfData, whiteGame, isSelfPlay);
     fixSgfResult(sgfData, resignation);
     sgfFile.close();
     if (sgfFile.open(QFile::WriteOnly | QFile::Truncate)) {

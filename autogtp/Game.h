@@ -74,8 +74,8 @@ public:
     bool komi(float komi);
     bool loadTraining(const QString &fileName);
     bool saveTraining();
-    bool fixSgf(const Engine& whiteEngine, const bool resignation,
-        const bool isSelfPlay);
+    bool fixSgf(Game& whiteGame, const bool resignation,
+                const bool isSelfPlay);
     bool dumpTraining();
     bool dumpDebug();
     void gameQuit();
@@ -89,6 +89,9 @@ public:
     void setMovesCount(int moves);
     int getToMove() const { return m_blackToMove ? BLACK : WHITE; }
     QString getResult() const { return m_result.trimmed(); }
+    const Engine & getEngine() const { return m_engine; }
+    bool getSgf(QString& sgf);
+    void mergeSgfComments(QString& blackSgf, const QString& whiteSgf) const;
     enum {
         BLACK = 0,
         WHITE = 1,
@@ -119,8 +122,8 @@ private:
     bool eatNewLine();
     void error(int errnum);
     void fixSgfPlayer(QString& sgfData, const Engine& whiteEngine);
-    void fixSgfComment(QString& sgfData, const Engine& whiteEngine,
-        const bool isSelfPlay);
+    void fixSgfComment(QString& sgfData, Game& whiteGame,
+                       const bool isSelfPlay);
     void fixSgfResult(QString& sgfData, const bool resignation);
 };
 
