@@ -659,8 +659,10 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     const int color = m_rootstate.board.get_to_move();
 
     auto max_visits = 0;
+    auto max_policy = 0.0f;
     for (const auto& node : m_root->get_children()) {
         max_visits = std::max(max_visits, node->get_visits());
+        max_policy = std::max(max_policy, node->get_policy());
     }
 
     // Make sure best is first
@@ -719,6 +721,11 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 
     auto bestmove = first_child->get_move();
     auto besteval = first_child->first_visit() ? 0.5f : first_child->get_raw_eval(color);
+
+    // check whether the move has the highest policy
+    if (first_child->get_policy() != max_policy){
+        move_flags.set(FastState::NOTPOL1ST);
+    }
 
     // do we want to fiddle with the best move because of the rule set?
     if (passflag & UCTSearch::NOPASS || cfg_japanese_mode) {
@@ -828,12 +835,11 @@ int UCTSearch::get_best_move(passflag_t passflag) {
         }
     }
 
-    // if chosen move has been changes then mark it interesting!
+    // if chosen move has been changed then reset the flags!
     if (bestmove != first_child->get_move()){
         move_flags.reset();
-        move_flags.set(FastState::INTERESTING);
     }
-    
+
     m_rootstate.set_last_move_flags(move_flags);
     return bestmove;
 }

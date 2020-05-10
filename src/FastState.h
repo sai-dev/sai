@@ -41,9 +41,14 @@
 
 class FastState {
 public:
-    enum : char {
-        RANDOM, BLUNDER, INTERESTING,
-        NUM_FLAGS // must be last
+    // Order of enum below is reflected in the bitset: do not change it!
+    enum : char
+    {
+        RANDOM,    // chosen move is not the one with the highest LCB
+        BLUNDER,   // chosen move is a blunder (win rate drop >= cfg_blunder_thr)
+        NOTPOL1ST, // chosen move is not the one with the highest policy
+
+        NUM_FLAGS  // must be last
     };
 
     typedef std::bitset<NUM_FLAGS>  move_flags_t;
@@ -77,8 +82,8 @@ public:
     void set_last_move_flags(const move_flags_t & flags);
     bool is_blunder() const { return m_last_move_flags[BLUNDER]; };
     bool is_random() const { return m_last_move_flags[RANDOM]; };
-    bool is_interesting() const { return m_last_move_flags[INTERESTING]; };
-    std::string flags_to_text() const { return m_last_move_flags.to_string(); } 
+    bool is_policy_1st() const { return !m_last_move_flags[NOTPOL1ST]; };
+    std::string flags_to_text() const { return m_last_move_flags.to_string(); }
 
     size_t get_randcount() const { return m_randcount; }
     void inc_randcount() { ++m_randcount; }

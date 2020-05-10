@@ -171,7 +171,7 @@ FastState::move_flags_t
         const auto eval = child->get_eval(color);
 
         // Choose randomly among the moves whose evaluation is greater
-        // than both resign threshold and cfg_losing_thr (which
+        // than both resign threshold and cfg_blunder_thr (which
         // defaults to 5%). In this way also '-r 0' games will avoid
         // choosing very bad moves.
         const auto child_is_not_blunder =
