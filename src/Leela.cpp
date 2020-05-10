@@ -167,7 +167,7 @@ static void parse_commandline(int argc, char *argv[]) {
         ("noladdercode", "Don't use heuristics for deeper ladders exploration.")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
-        ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
+        ("resignpct,r", po::value<float>()->default_value(cfg_resignpct),
                         "Resign when winrate is less than x%.\n"
                         "-1 uses 10% but scales for handicap.")
         ("weights,w", po::value<std::string>()->default_value(cfg_weightsfile),
@@ -534,7 +534,7 @@ static void parse_commandline(int argc, char *argv[]) {
     cfg_komi = vm["komi"].as<float>();
 
     if (vm.count("resignpct")) {
-        cfg_resignpct = vm["resignpct"].as<int>();
+        cfg_resignpct = vm["resignpct"].as<float>();
     }
 
     if (vm.count("randomcnt")) {

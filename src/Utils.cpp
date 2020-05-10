@@ -250,6 +250,10 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
 
 float Utils::agent_winrate_transform(float p) {
     const auto p_mu = cfg_mu * 0.5f + (1.0f - cfg_mu) * p;
+
+    // deal with 0/0 when lambda and mu are equal
+    if (std::abs(cfg_lambda-cfg_mu) < 0.001f)
+        return p_mu;
     const auto p_lambda = cfg_lambda * 0.5f + (1.0f - cfg_lambda) * p;
     return 1.0f / (1.0f + (std::log(p_lambda) - std::log(p_mu)) / (std::log(1-p_mu) - std::log(1-p_lambda)));
 }

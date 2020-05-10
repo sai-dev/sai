@@ -599,7 +599,7 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
         return false;
     }
 
-    if (cfg_resignpct == 0) {
+    if (cfg_resignpct < 0.0000001f) {
         // resign not allowed
         return false;
     }
@@ -615,7 +615,7 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
 
     const auto color = m_rootstate.board.get_to_move();
 
-    const auto is_default_cfg_resign = cfg_resignpct < 0;
+    const auto is_default_cfg_resign = cfg_resignpct < -0.5f;
     // If lambda and mu are nonzero then the agent estimate of winrate
     // is regressed towards 0.5, so transform resign threshold
     // accordingly.

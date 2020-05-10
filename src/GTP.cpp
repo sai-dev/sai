@@ -75,7 +75,7 @@ size_t cfg_max_tree_size;
 int cfg_max_cache_ratio_percent;
 TimeManagement::enabled_t cfg_timemanage;
 int cfg_lagbuffer_cs;
-int cfg_resignpct;
+float cfg_resignpct;
 float cfg_resign_threshold;
 int cfg_noise;
 bool cfg_fpuzero;
@@ -401,7 +401,7 @@ void GTP::setup_default_parameters() {
     cfg_softmax_temp = 1.0f;
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign
-    cfg_resignpct = -1;
+    cfg_resignpct = -1.0f;
     cfg_resign_threshold = 0.10f;
     cfg_noise = false;
     cfg_fpu_root_reduction = cfg_fpu_reduction;
@@ -522,7 +522,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
     // Maybe something changed resignpct, so recompute threshold
     cfg_resign_threshold =
-        0.01f * (cfg_resignpct < 0 ? 10 : cfg_resignpct);
+        0.01f * (cfg_resignpct < -0.5f ? 10.0f : cfg_resignpct);
 
     bool transform_lowercase = true;
 
@@ -1599,7 +1599,7 @@ void GTP::execute_setoption(UCTSearch & search,
         gtp_printf(id, "");
     } else if (name == "resign percentage") {
         std::istringstream valuestream(value);
-        int resignpct;
+        float resignpct;
         valuestream >> resignpct;
         cfg_resignpct = resignpct;
         gtp_printf(id, "");

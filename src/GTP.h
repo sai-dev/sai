@@ -93,7 +93,7 @@ extern size_t cfg_max_tree_size;
 extern int cfg_max_cache_ratio_percent;
 extern TimeManagement::enabled_t cfg_timemanage;
 extern int cfg_lagbuffer_cs;
-extern int cfg_resignpct;
+extern float cfg_resignpct;
 extern float cfg_resign_threshold;
 extern int cfg_noise;
 extern bool cfg_fpuzero;
