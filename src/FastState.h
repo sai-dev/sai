@@ -79,6 +79,7 @@ public:
     void display_legal(int color);
     std::string move_to_text(int move);
 
+    void reset_comment_data();
     void set_last_move_flags(const move_flags_t & flags);
     bool is_blunder() const { return m_last_move_flags[BLUNDER]; };
     bool is_random() const { return m_last_move_flags[RANDOM]; };

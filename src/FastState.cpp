@@ -244,6 +244,11 @@ std::uint64_t FastState::get_symmetry_hash(int symmetry) const {
     return board.calc_symmetry_hash(m_komove, symmetry);
 }
 
+
+void FastState::reset_comment_data(){
+  m_last_move_flags = {};
+}
+
 void FastState::set_last_move_flags(const move_flags_t & flags){
     m_last_move_flags = flags;
 
