@@ -463,13 +463,15 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         auto pv = move + " " + get_pv(tmpstate, *node);
 
 #ifdef NDEBUG
-        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (A: %4.1f) PV: %s\n",
+        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.*f%%) (N: %5.2f%%) (A: %5.1f) (B: %4.2f) PV: %s\n",
                  move.c_str(),
                  node->get_visits(),
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
-                 std::max(-5.0f, node->get_eval_lcb(color) * 100.0f),
+                 node->get_eval_lcb(color) < 0.0f ? 1 : 2,
+                 std::max(-99.9f, node->get_eval_lcb(color) * 100.0f),
                  node->get_policy() * 100.0f,
                  node->get_alpkt_online_median(),
+                 node->get_net_beta(),
                  pv.c_str());
 #else
         myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %5.2f, den: %4d) "
