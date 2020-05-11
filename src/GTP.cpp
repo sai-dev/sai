@@ -822,6 +822,14 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         gtp_printf(id, "");
         game.display_legal(game.get_to_move());
         return;
+    } else if (command.find("showchainlibs") == 0) {
+        gtp_printf(id, "");
+        game.board.display_chainlibs();
+        return;
+    } else if (command.find("showchainsize") == 0) {
+        gtp_printf(id, "");
+        game.board.display_chainsize();
+        return;
     } else if (command.find("final_score") == 0) {
         float ftmp;
         if (cfg_japanese_mode) {

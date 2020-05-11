@@ -124,6 +124,8 @@ public:
     void find_dame(std::vector<int>& all_dames);
     void reset_territory();
     bool is_dame(int vertex) const;
+    void display_chainlibs() const;
+    void display_chainsize() const;
 
 protected:
     /*
@@ -164,7 +166,7 @@ protected:
     void merge_strings(const int ip, const int aip);
     void add_neighbour(const int i, const int color);
     void remove_neighbour(const int i, const int color);
-    void print_columns() const;
+    void print_columns(unsigned int width = 2) const;
 };
 
 #endif

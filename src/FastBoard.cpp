@@ -375,12 +375,20 @@ void FastBoard::display_board(int lastmove) const {
     myprintf("\n");
 }
 
-void FastBoard::print_columns() const {
+void FastBoard::print_columns(unsigned int width) const {
+    // width is the number of characters for each columns
+    // the default is 2 characters
     for (int i = 0; i < get_boardsize(); i++) {
+        for (unsigned int w = 2; w < width; w += 2) {
+            myprintf(" ");
+        }
         if (i < 25) {
             myprintf("%c ", (('a' + i < 'i') ? 'a' + i : 'a' + i + 1));
         } else {
             myprintf("%c ", (('A' + (i - 25) < 'I') ? 'A' + (i - 25) : 'A' + (i - 25) + 1));
+        }
+        for (unsigned int w = 3; w < width; w += 2) {
+            myprintf(" ");
         }
     }
     myprintf("\n");
@@ -778,4 +786,47 @@ void FastBoard::reset_territory() {
 
 bool FastBoard::is_dame(int vertex) const {
     return m_territory[vertex] == DAME;
+}
+
+void FastBoard::display_chainlibs() const {
+    int boardsize = get_boardsize();
+
+    myprintf("\n   ");
+    print_columns();
+    for (int j = boardsize-1; j >= 0; j--) {
+        myprintf("%2d ", j+1);
+        for (int i = 0; i < boardsize; i++) {
+            if (get_state(i,j) == EMPTY) {
+                myprintf(". ");
+            } else {
+                myprintf("%d ", chain_liberties(get_vertex(i, j)));
+            }
+        }
+        myprintf("%2d\n", j+1);
+    }
+    myprintf("   ");
+    print_columns();
+    myprintf("\n");
+}
+
+
+void FastBoard::display_chainsize() const {
+    int boardsize = get_boardsize();
+
+    myprintf("\n   ");
+    print_columns(3);
+    for (int j = boardsize-1; j >= 0; j--) {
+        myprintf("%2d ", j+1);
+        for (int i = 0; i < boardsize; i++) {
+            if (get_state(i,j) == EMPTY) {
+                myprintf(" . ");
+            } else {
+                myprintf("%2d ", chain_stones(get_vertex(i, j)));
+            }
+        }
+        myprintf("%2d\n", j+1);
+    }
+    myprintf("   ");
+    print_columns(3);
+    myprintf("\n");
 }
