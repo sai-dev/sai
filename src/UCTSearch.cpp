@@ -599,7 +599,7 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
         return false;
     }
 
-    if (cfg_resignpct < 0.0000001f) {
+    if (cfg_resignpct == 0.0f) {
         // resign not allowed
         return false;
     }
