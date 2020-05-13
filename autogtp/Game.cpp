@@ -446,15 +446,16 @@ void Game::fixSgfComment(QString& sgfData, Game& whiteGame,
     sgfData.replace(oldComment, comment);
     if (!isSelfPlay) {
         QString whiteSgf;
-        whiteGame.getSgf(whiteSgf);
-        mergeSgfComments(sgfData, whiteSgf);
+        if (whiteGame.getSgf(whiteSgf)) {
+            mergeSgfComments(sgfData, whiteSgf);
+        }
     }
 }
 
 void Game::mergeSgfComments(QString& blackSgf, const QString& whiteSgf) const {
     QStringList blackMoves = blackSgf.split(";");
     QStringList whiteMoves = whiteSgf.split(";");
-    for (int i = 3; i < blackMoves.size() ; i += 2) {
+    for (int i = 3; i < blackMoves.size() && i < whiteMoves.size() ; i += 2) {
         // i=0 '('
         // i=1 header
         // i=2 move 1 by black
