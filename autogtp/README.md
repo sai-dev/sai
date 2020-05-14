@@ -4,36 +4,26 @@ This is a self-play tool for SAI. When launched, it will fetch the
 best network from the server so far, play a game against itself, and upload
 the SGF and training data at the end of the game.
 
-# Requirements
+## Requirements
 
 * Qt 5.3 or later with qmake
 * C++14 capable compiler
 * curl
 * gzip and gunzip
 
-## Example of compiling - Ubuntu
+## Matches information
 
-    sudo apt install qt5-default qt5-qmake curl
-    qmake -qt5
-    make
+Autogtp will automatically download better networks once found.
 
-## Compiling under Visual Studio - Windows
+While autogtp is running, typing q+Enter will save the processed data and exit.
+ When autogtp runs next, autogtp will continue the game.
 
-You have to download and install Qt and Qt VS Tools. You only need QtCore to
-run. Locate a copy of curl.exe and gzip.exe (a previous SAI release package
-will contain them) and put them into the msvc subdir.
+Not each trained network will be a strength improvement over the prior one.
+ Patience please. :)
 
-Loading leela-zero2015.sln or leela-zero2017.sln will then load this project
-and should compile. The two exes (curl.exe and gzip.exe) will also be copied to
-the output folder after the build, making it possible to run autogtp.exe
-directly.
+Match games are played at full strength.
 
-# Running
+Self-play games are played with some randomness in the first moves,
+ and noise all game long.
 
-Copy the compiled sai binary into the autogtp directory, and run
-autogtp.
-
-    cp ../build/sai .
-    ./autogtp
-
-While autogtp is running, typing q+Enter will save the processed data and exit. When autogtp runs next, autogtp will continue the game.
+Training data from self-play games are full strength even if plays appear weak.

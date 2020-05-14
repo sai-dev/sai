@@ -16,7 +16,7 @@ This means that:
 * Prefer default initializers for member variables.
 * Prefer emplace_back and making use of move assignment.
 * Aim for const-correctness. Prefer passing non-trivial parameters by const reference.
-* Use header include guards, not #pragma once (pragma once is non-standard, has issues with detecting identical files, and is slower https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58770)
+* Use header include guards, not #pragma once (pragma once is non-standard, has issues with detecting identical files, and is slower <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58770>)
 * config.h is always the first file included.
 * Feel free to use templates, but remember that debugging obscure template metaprogramming bugs is not something people enjoy doing in their spare time.
 * Using exceptions is allowed.
