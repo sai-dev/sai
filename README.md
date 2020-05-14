@@ -33,7 +33,8 @@ But you will need to compile the program with modified settings, for it
 
 With SAI you can:
 
-- run SAI locally on your machine to play with various boardsizes (9x9 is superhuman, 19x19 will be quite weak for many months)
+- run SAI locally on your machine to play with various boardsizes
+ (9x9 is superhuman, 19x19 will be quite weak for many months)
 - participate in the collective contributing effort to help training SAI.
 
 Among the main differences between SAI and Leela Zero:
@@ -42,7 +43,9 @@ Among the main differences between SAI and Leela Zero:
 - trained to support natively high handicap stones
 - hardcoded options to make play more reliable: ladder planes, etc.
 
-You can see a more detailed summary of the differences between SAI and Leela Zero [here](/docs/DIFFERENCES-SAI-LZ.md), or refer to [the papers](/README.md#what) for technical exhaustiveness.
+You can see a more detailed summary of the differences between SAI and Leela Zero
+ [in the wiki](https://github.com/sai-dev/sai/wiki), or refer to
+ [the papers](/README.md#what) for technical exhaustiveness.
 
 ## What you need
 
@@ -120,17 +123,17 @@ You can find commonly asked questions about SAI and their answers
 ## License
 
 The code is released under the GPLv3 or later, except for
-ThreadPool.h, cl2.hpp, half.hpp and the eigen and clblast_level3
-subdirs, which have specific licenses (compatible with GPLv3)
-mentioned in those files.
+ ThreadPool.h, cl2.hpp, half.hpp and the eigen and clblast_level3
+ subdirs, which have specific licenses (compatible with GPLv3)
+ mentioned in those files.
 
 Additional permission under GNU GPL version 3 section 7
 
 If you modify this Program, or any covered work, by linking or
-combining it with NVIDIA Corporation's libraries from the
-NVIDIA CUDA Toolkit and/or the NVIDIA CUDA Deep Neural
-Network library and/or the NVIDIA TensorRT inference library
-(or a modified version of those libraries), containing parts covered
-by the terms of the respective license agreement, the licensors of
-this Program grant you additional permission to convey the resulting
-work.
+ combining it with NVIDIA Corporation's libraries from the
+ NVIDIA CUDA Toolkit and/or the NVIDIA CUDA Deep Neural
+ Network library and/or the NVIDIA TensorRT inference library
+ (or a modified version of those libraries), containing parts covered
+ by the terms of the respective license agreement, the licensors of
+ this Program grant you additional permission to convey the resulting
+ work.
