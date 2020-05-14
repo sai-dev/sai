@@ -3,13 +3,11 @@
 SAI is a variable-komi fork of leela-zero, a Go program with no human
  provided knowledge.
 
-Among main differences between SAI and Leela Zero:
+Among [main differences](/docs/DIFFERENCES-SAI-LZ.md) between SAI and Leela Zero:
 
 - support for any komi
 - trained to support natively high handicap stones
 - hardcoded options to make play more reliable: ladder planes, etc.
-
-See [here](/docs/DIFFERENCES-SAI-LZ.md) for details.
 
 The relevant papers are:
 
@@ -34,17 +32,17 @@ But you will need to compile the program with modified settings, for it
 
 ## What you can do with SAI
 
+With SAI you can:
+
+- run SAI locally on your machine to play
+- participate in the collective contributing effort to help training SAI.
+
 After downloading SAI, you will be able to play with the superhuman SAI 9x9!
  This is a superhuman bot and can play with arbitrary komi – with 6 additional
  komi points a strong player may beat it.
 
 You will also be able to play with SAI 19x19, however on this board SAI will
  be quite weak for many months.
-
-Regardless, with SAI you can:
-
-- run SAI locally on your machine to play
-- participate in the collective contributing effort to help training SAI.
 
 ## What you need
 
