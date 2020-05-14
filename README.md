@@ -31,6 +31,8 @@ But you will need to compile the program with modified settings, for it
 
 ## Main differences between SAI and Leela Zero
 
+Among main differences:
+
 - support for any komi
 - trained to support natively high handicap stones
 - hardcoded options to make play more reliable: ladder planes, etc.
@@ -46,7 +48,7 @@ After downloading SAI, you will be able to play with the superhuman SAI 9x9!
 You will also be able to play with SAI 19x19, however on this board SAI will
  be quite weak for many months.
 
-Regardless of board size, with SAI you can:
+Regardless, with SAI you can:
 
 - run SAI locally on your machine to play
 - participate in the collective contributing effort to help training SAI.
