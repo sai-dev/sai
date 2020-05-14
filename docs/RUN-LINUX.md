@@ -42,7 +42,7 @@ Sai is installed in `~/sai`, and the sai binary is compiled and ready
 Optionally, you can test if your build works correctly with:
 
 ```Shell
-./tests
+~/sai/tests
 ```
 
 ### 9x9
@@ -53,7 +53,7 @@ SAI 9x9 executable by editing src/config.cpp.
 A pretty strong 9x9 network is
  [S1](http://sai.unich.it/networks/94619dea457de054503cec030269ce842c47055ba51e96db8fee841dfbaf05f9.gz) from the 9x9 paper, downloadable from the link.
 
-The steps to compile SAIare the same as above.
+The steps to compile SAI are the same as above.
 
 ### Run SAI
 
@@ -67,6 +67,5 @@ found on the [server](http://sai.unich.it/). But you can immediately
 launch, to see the options:
 
 ```Shell
-cd ~/sai/build/
-./sai --help
+~/sai/build/sai --help
 ```

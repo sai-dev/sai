@@ -28,7 +28,7 @@ cp ../build/sai .
 Then, you can run AutoGTP to start contributing:
 
 ```Shell
-./sai/autogtp/autogtp --username <yourUsername> --password <yourPassword> -g <n>
+~/sai/autogtp/autogtp --username <yourUsername> --password <yourPassword> -g <n>
 ```
 
 The `-g` argument is optional, you can use it to specify the number of games (n)
@@ -40,7 +40,7 @@ We suggest to use the option `-g2` (or `-g3`, `-g4` or larger) if your computer
 for example (default is one game at a time):
 
 ```Shell
-./sai/autogtp/autogtp --username testTutorial --password 123456
+~/sai/autogtp/autogtp --username testTutorial --password 123456
 ```
 
 The client autogtp will connect to the server automatically and do its
