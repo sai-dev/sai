@@ -3,10 +3,13 @@
 SAI is a variable-komi fork of leela-zero, a Go program with no human
  provided knowledge.
 
-SAI is derived from Leela Zero 0.17 + AutoGTP v18.
+Among main differences between SAI and Leela Zero:
 
-This means SAI and Leela Zero engines share many similarities, but SAI
- brings its own features and specific settings.
+- support for any komi
+- trained to support natively high handicap stones
+- hardcoded options to make play more reliable: ladder planes, etc.
+
+See [here](/docs/DIFFERENCES-SAI-LZ.md) for details.
 
 The relevant papers are:
 
@@ -28,16 +31,6 @@ We have pretty strong 9x9 networks such as
 
 But you will need to compile the program with modified settings, for it
  to be able to play on 9x9 goban.
-
-## Main differences between SAI and Leela Zero
-
-Among main differences:
-
-- support for any komi
-- trained to support natively high handicap stones
-- hardcoded options to make play more reliable: ladder planes, etc.
-
-See [here](/docs/DIFFERENCES-SAI-LZ.md) for details.
 
 ## What you can do with SAI
 
