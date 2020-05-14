@@ -93,8 +93,12 @@ To contribute, we don't run the sai executable but instead a specific
 - for Windows: [here](/docs/CONTRIBUTING-WINDOWS.md)
 - for Linux: [here](/docs/CONTRIBUTING-LINUX.md)
 
+The client autogtp will connect to the server automatically and do its
+work in the background, uploading results after each game. You can
+stop it with Ctrl-C.
+
 Note that specific autogtp documentation is also available
- [here](/docs/autogtp/README.md).
+ [here](/autogtp/README.md).
 
 ## How to contribute to SAI's github
 

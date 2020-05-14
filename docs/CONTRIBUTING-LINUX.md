@@ -25,7 +25,14 @@ cp ../build/sai .
 
 ## Run autogtp
 
-Then, you can run AutoGTP to start contributing:
+Then, you can run AutoGTP. The possible options can be found
+ calling from the command prompt:
+
+```Shell
+~/sai/autogtp/autogtp --help
+```
+
+To start contributing, run:
 
 ```Shell
 ~/sai/autogtp/autogtp --username <yourUsername> --password <yourPassword> -g <n>
@@ -42,7 +49,3 @@ for example (default is one game at a time):
 ```Shell
 ~/sai/autogtp/autogtp --username testTutorial --password 123456
 ```
-
-The client autogtp will connect to the server automatically and do its
-work in the background, uploading results after each game. You can
-stop it with Ctrl-C.

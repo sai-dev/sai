@@ -15,7 +15,18 @@ Authorization for this operation may be requested, if so please grant it.
 
 ## Run autogtp
 
-Then, you can run autogtp.exe to start contributing.
+The possible options can be found calling from the command prompt,
+ from your SAI's folder:
+
+```Shell
+autogtp.exe --help
+```
+
+To start contributing, run:
+
+```Shell
+autogtp.exe --username <yourUsername> --password <yourPassword> -g <n>
+```
 
 The `-g` argument is optional, you can use it to specify the number of games (n)
  you want to play at the same time (depending on your hardware).
