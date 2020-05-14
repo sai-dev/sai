@@ -2,20 +2,6 @@
 
 You will find below most common questions about SAI and their answer.
 
-## What are the main differences between SAI an Leela Zero
-
-explain SAI vs Leela Zero and advantages of SAI
-
-.
-.
-.
-.
-.
-.
-.
-
-So speaking of Leela zero or the SAI engine are used alternatively here in a similar way.
-
 ## Why doesn't the network get stronger every time
 
 AZ also had this behavior, besides we're testing our approach right now. Please be patient.

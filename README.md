@@ -29,6 +29,18 @@ We have pretty strong 9x9 networks such as
 But you will need to compile the program with modified settings, for it
  to be able to play on 9x9 goban.
 
+## Main differences between SAI and Leela Zero
+
+Even though SAI is based on Leela Zero, SAI brings its own additional
+ extra features, such as:
+
+- support for any komi
+- trained to support natively high handicap stones
+- trained with symetries
+- hardcoded options to make play more reliable: ladder planes, etc.
+
+See detailed differences between SAI and Leela Zero [here](/docs/DIFFERENCES-SAI-LZ.md)
+
 ## What you can do with SAI
 
 After downloading SAI, you will be able to play with the superhuman SAI 9x9!
