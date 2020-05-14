@@ -1,9 +1,13 @@
 # DIFFERENCES BETWEEN SAI AND LZ
 
+Even though SAI is based on Leela Zero,
+ here is a summary of the main differences between SAI and Leela Zero.
+
+For complete technical exhaustiveness, refer to [the papers](/README.md#what)
+
 ## Engine differences
 
-More exhaustively than in the readme, even though SAI is based on Leela Zero,
- this is how SAI engine differs from Leela Zero's engine:
+SAI's engine differs from Leela Zero's engine:
 
 ### support for any komi
 
@@ -32,11 +36,3 @@ Also, SAI uses a different training setup than Leela Zero:
 ### promotion strategy: no gating
 
 .
-
-## Website differences
-
-We use an authentification system for contributors.
-
-We display a leaderboard.
-
-etc.
