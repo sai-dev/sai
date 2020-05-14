@@ -3,6 +3,9 @@
 SAI is a variable-komi fork of leela-zero, a Go program with no human
  provided knowledge.
 
+This means even though SAI and Leela Zero share many similarities,
+ SAI brings its own specific features and things.
+
 Among [main differences](/docs/DIFFERENCES-SAI-LZ.md) between SAI and Leela Zero:
 
 - support for any komi
