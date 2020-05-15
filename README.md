@@ -72,9 +72,14 @@ These steps will allow you to be able to run SAI and play with SAI:
 
 ## How to help SAI get stronger
 
-After you downloaded and installed SAI as explained above, you can
- donate your own computing device's resources to help in the collective
- effort to make SAI stronger.
+If you want to help, you can use your computing device to help
+ in the collective effort to make SAI stronger.
+
+This will make SAI play against itself (selfplay games) and other versions
+ of itself (match games) on the [SAI server](http://sai.unich.it/),
+ to train and get stronger.
+
+Any help is greatly appreciated!
 
 ### username and password
 
@@ -92,7 +97,11 @@ Choose a password of no importance and that you don't use elsewhere,
 ### autogtp
 
 To contribute, we don't run the sai executable but instead a specific
- contributing executable called autogtp. See instructions:
+ contributing executable called autogtp.
+
+After you downloaded and installed SAI as explained
+ [previously](/README.md#how-to-download-install-and-run-sai),
+ see the autogtp instructions:
 
 - for Windows: [here](/docs/CONTRIBUTING-WINDOWS.md)
 - for Linux: [here](/docs/CONTRIBUTING-LINUX.md)
