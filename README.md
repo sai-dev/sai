@@ -72,8 +72,8 @@ These steps will allow you to be able to run SAI and play with SAI:
 
 ## How to help SAI get stronger
 
-If you want to help, you can use your computing device to help
- in the collective effort to make SAI stronger.
+If you want to help, you can use your computing device in the
+ collective effort to make SAI stronger.
 
 This will make SAI play against itself (selfplay games) and other versions
  of itself (match games) on the [SAI server](http://sai.unich.it/),
