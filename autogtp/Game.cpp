@@ -465,33 +465,14 @@ void Game::mergeSgfComments(QString& blackSgf, const QString& whiteSgf) const {
 }
 
 bool Game::getSgf(QString& sgf) {
-    write("printsgf\n");
-    waitForBytesWritten(-1);
-    if (!waitReady()) {
-        error(Game::PROCESS_DIED);
+    writeSgf();
+    QFile sgfFile(m_fileName + ".sgf");
+    if (!sgfFile.open(QIODevice::Text | QIODevice::ReadOnly)) {
         return false;
     }
-    char readBuffer[256];
-    int readCount = readLine(readBuffer, 256);
-    if (readCount <= 3 || readBuffer[0] != '=') {
-        error(Game::WRONG_GTP);
-        QTextStream(stdout) << "Error read " << readCount << " '";
-        QTextStream(stdout) << readBuffer << "'" << endl;
-        terminate();
-        return false;
-    }
-    // Skip "= "
-    sgf = readBuffer;
-    do {
-        readCount = readLine(readBuffer, 256);
-        sgf.append(readBuffer);
-    } while (readCount >= 5);
-    // if (!eatNewLine()) {
-    //     error(Game::PROCESS_DIED);
-    //     return false;
-    // }
-    sgf.remove(0, 2);
-    sgf = sgf.simplified();
+    sgf = sgfFile.readAll();
+    sgfFile.close();
+    QFile::remove(m_fileName + ".sgf");
     return true;
 }
 
