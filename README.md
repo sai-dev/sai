@@ -33,7 +33,8 @@ But you will need to compile the program with modified settings, for it
 
 With SAI you can:
 
-- run SAI locally on your machine to play with various boardsizes (9x9 is superhuman, 19x19 will be quite weak for many months)
+- run SAI locally on your machine to play with various boardsizes
+ (9x9 is superhuman, 19x19 will be quite weak for many months)
 - participate in the collective contributing effort to help training SAI.
 
 Among the main differences between SAI and Leela Zero:
@@ -42,7 +43,9 @@ Among the main differences between SAI and Leela Zero:
 - trained to support natively high handicap stones
 - hardcoded options to make play more reliable: ladder planes, etc.
 
-You can see a more detailed summary of the differences between SAI and Leela Zero [here](/docs/DIFFERENCES-SAI-LZ.md), or refer to [the papers](/README.md#what) for technical exhaustiveness.
+You can see a more detailed summary of the differences between SAI and Leela Zero
+ [in the wiki](https://github.com/sai-dev/sai/wiki), or refer to
+ [the papers](/README.md#what) for technical exhaustiveness.
 
 ## What you need
 
@@ -69,9 +72,14 @@ These steps will allow you to be able to run SAI and play with SAI:
 
 ## How to help SAI get stronger
 
-After you downloaded and installed SAI as explained above, you can
- donate your own computing device's resources to help in the collective
- effort to make SAI stronger.
+If you want to help, you can use your computing device in the
+ collective effort to make SAI stronger.
+
+This will make SAI play against itself (selfplay games) and other versions
+ of itself (match games) on the [SAI server](http://sai.unich.it/),
+ to train and get stronger.
+
+Any help is greatly appreciated!
 
 ### username and password
 
@@ -89,7 +97,11 @@ Choose a password of no importance and that you don't use elsewhere,
 ### autogtp
 
 To contribute, we don't run the sai executable but instead a specific
- contributing executable called autogtp. See instructions:
+ contributing executable called autogtp.
+
+After you downloaded and installed SAI as explained
+ [previously](/README.md#how-to-download-install-and-run-sai),
+ see the autogtp instructions:
 
 - for Windows: [here](/docs/CONTRIBUTING-WINDOWS.md)
 - for Linux: [here](/docs/CONTRIBUTING-LINUX.md)

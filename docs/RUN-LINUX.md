@@ -25,7 +25,7 @@ If all is good, your device is compatible with SAI, so you can run this all-in-o
 ```Shell
 # Clone github repo && \
 cd ~ && \
-git clone https://github.com//sai && cd sai && \
+git clone https://github.com/sai-dev/sai && cd sai && \
 git submodule update --init --recursive && \
 # Install build depedencies && \
 sudo apt install -y cmake g++ libboost-dev libboost-program-options-dev libboost-filesystem-dev opencl-headers ocl-icd-libopencl1 ocl-icd-opencl-dev zlib1g-dev && \
