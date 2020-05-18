@@ -18,8 +18,6 @@ The relevant papers are:
 The server is currently running [here](http://sai.unich.it/), on
  resources of Chieti-Pescara University.
 
-The 19x19 run started just recently and its play is still quite random.
-
 ## Previous Runs
 
 We have pretty strong 9x9 networks such as
