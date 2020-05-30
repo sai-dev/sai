@@ -461,6 +461,7 @@ const std::string GTP::s_commands[] = {
     "set_free_handicap",
     "loadsgf",
     "printsgf",
+    "all_legal",
     "kgs-genmove_cleanup",
     "kgs-time_settings",
     "kgs-game_over",
@@ -821,6 +822,10 @@ void GTP::execute(GameState & game, const std::string& xinput) {
     } else if (command.find("showlegal") == 0) {
         gtp_printf(id, "");
         game.display_legal(game.get_to_move());
+        return;
+    } else if (command.find("all_legal") == 0) {
+        gtp_printf(id, "");
+        game.display_legal(game.get_to_move(), true);
         return;
     } else if (command.find("showchainlibs") == 0) {
         gtp_printf(id, "");

@@ -76,7 +76,7 @@ public:
     size_t get_movenum() const;
     int get_last_move() const;
     void display_state();
-    void display_legal(int color);
+    void display_legal(int color, bool gtp_std = false);
     std::string move_to_text(int move);
 
     void reset_comment_data();

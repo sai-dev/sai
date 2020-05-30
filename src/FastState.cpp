@@ -182,7 +182,27 @@ void FastState::display_state() {
     board.display_board(get_last_move());
 }
 
-void FastState::display_legal(int color) {
+void FastState::display_legal(int color, bool gtp_std) {
+    int boardsize = board.get_boardsize();
+
+    if (gtp_std) {
+        auto first = true;
+        for (int j = 0; j < boardsize ; j++) {
+            for (int i = 0; i < boardsize; i++) {
+                if (is_move_legal(color, board.get_vertex(i,j))) {
+                    if (first) {
+                        first = false;
+                    } else {
+                        gtp_printf_raw(" ");
+                    }
+                    gtp_printf_raw("%s", move_to_text(board.get_vertex(i,j)).c_str());
+                }
+            }
+        }
+        gtp_printf_raw("\n");
+        return;
+    }
+
     myprintf("\nPasses: %d            Black (X) Prisoners: %d\n",
              m_passes, board.get_prisoners(FastBoard::BLACK));
     if (board.black_to_move()) {
@@ -192,8 +212,6 @@ void FastState::display_legal(int color) {
     }
     myprintf("    White (O) Prisoners: %d\n",
              board.get_prisoners(FastBoard::WHITE));
-
-    int boardsize = board.get_boardsize();
 
     myprintf("\n   ");
     board.print_columns();
