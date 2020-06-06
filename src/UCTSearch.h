@@ -53,6 +53,7 @@ public:
     bool valid() const { return m_valid;  }
     float eval() const { return m_value;  }
     float get_alpkt() const { return m_alpkt; }
+    float get_beta() const { return m_beta; }
     float eval_with_bonus(float bonus, float base) const;
     bool is_forced() const { return m_forced; }
     void set_forced() { m_forced = true; }

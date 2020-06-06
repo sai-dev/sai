@@ -401,7 +401,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             result_for_updating.eval();
         node->update(eval, result.is_forced());
         // should check whether it is sai or lz before updating alpkt_median
-        node->update_alpkt_median(result_for_updating.get_alpkt());
+        node->update_alpkt_median(result_for_updating.get_alpkt(), result_for_updating.get_beta());
 
 #ifdef USE_EVALCMD
         if (m_evaluating) {
@@ -489,15 +489,13 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  pv.c_str());
 #endif
     }
-    myprintf("\nRoot -> %7d (V: %5.2f%%) (LCB: %5.*f%%) (N: %5.2f%%) (A: %5.1f,%5.1f,%5.1f) (B: %4.2f)\n\n",
+    myprintf("\nRoot -> %7d (V: %5.2f%%) (LCB: %5.*f%%) (N: %5.2f%%) (A: %5.1f) (B: %4.2f)\n\n",
              parent.get_visits(),
              parent.get_raw_eval(color)*100.0f,
              parent.get_eval_lcb(color) < 0.0f ? 1 : 2,
              std::max(-99.9f, parent.get_eval_lcb(color) * 100.0f),
              parent.get_policy() * 100.0f,
-             parent.get_net_alpkt(),
              parent.get_alpkt_online_median(),
-             parent.estimate_alpkt(0, true),
              parent.get_net_beta());
     tree_stats(parent);
 }
