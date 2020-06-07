@@ -33,6 +33,7 @@
 
 #include <array>
 #include <memory>
+#include <string>
 
 #include "config.h"
 #include "Timing.h"
