@@ -455,9 +455,9 @@ void remove_unconnected_nets(bool prune) {
 
 
 float delta_rating(unsigned int wins, unsigned int num, unsigned int losses = 0) {
-    // e^-0.5 quantile corresponding asymptotically to 1 draw and n-1 losses
-    constexpr float C = exp(-0.5f);
     constexpr float ELO_FACTOR = 400.0f / log(10.0f);
+    constexpr float ELO_PRIOR_STD = 25.0f;
+    constexpr auto T = ELO_PRIOR_STD * ELO_PRIOR_STD / ELO_FACTOR / ELO_FACTOR;
 
     if (wins + losses > num) {
         cerr << "Something's wrong: wins + losses > num.   " << wins
@@ -467,14 +467,8 @@ float delta_rating(unsigned int wins, unsigned int num, unsigned int losses = 0)
     if (num == 0)
         return 0.0f;
 
-    const auto draws = num - wins - losses;
-    const auto bound = pow(C, 1.0f/num);
-    auto score = float((1.0f * wins + 0.5f * draws) / num);
-    if (score > bound)
-        score = bound;
-    else if (score < 1-bound)
-        score = 1-bound;
-    
+    const auto score = 0.5f + 0.5f * (int(wins) - int(losses)) / (num + 4.0f * (wins + losses) / float(num) / T );
+
     return ELO_FACTOR * (log(score) - log(1.0f-score));
 }
 
