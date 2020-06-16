@@ -68,6 +68,7 @@ typedef vector< vector<int> > tab_t;
 vector<sainet> nets;
 vector<match> mats;
 vector<wincount> wins;
+auto ELO_PRIOR_STD = 0.0f;
 
 
 void get_first_line(ifstream& data, string& s, const int header_lines = 4) {
@@ -96,9 +97,9 @@ void complete_quote (ifstream &netsdata, string &s) {
     string tmp;
 
     while (netsdata >> tmp) {
-	s.append(tmp);
-	if (!quote_opened(s))
-	    break;
+        s.append(tmp);
+        if (!quote_opened(s))
+            break;
     }
 }
 
@@ -111,7 +112,7 @@ void load_netsdata(string filename, string hook) {
              << "." << endl;
         exit (1);
     } else {
-	cerr << "File " + filename + " opened." << endl;
+        cerr << "File " + filename + " opened." << endl;
     }
 
     string s;
@@ -124,9 +125,9 @@ void load_netsdata(string filename, string hook) {
     sainet tmp;
     while (netsdata >> s) {
         //        cout << i << " : " << s << endl;
-	if (quote_opened(s)) {
-	    complete_quote(netsdata, s);
-	}
+        if (quote_opened(s)) {
+            complete_quote(netsdata, s);
+        }
         if (i%3 == 0) {
             if (s == "{") {
                 continue;
@@ -274,7 +275,7 @@ void load_matchdata(string filename) {
              << "." << endl;
         exit (1);
     } else {
-	cerr << "File " + filename + " opened." << endl;
+        cerr << "File " + filename + " opened." << endl;
     }
 
     string s;
@@ -456,8 +457,8 @@ void remove_unconnected_nets(bool prune) {
 
 float delta_rating(unsigned int wins, unsigned int num, unsigned int losses = 0) {
     constexpr float ELO_FACTOR = 400.0f / log(10.0f);
-    constexpr float ELO_PRIOR_STD = 25.0f;
-    constexpr auto T = ELO_PRIOR_STD * ELO_PRIOR_STD / ELO_FACTOR / ELO_FACTOR;
+    auto T = ELO_PRIOR_STD / ELO_FACTOR;
+    T *= T;
 
     if (wins + losses > num) {
         cerr << "Something's wrong: wins + losses > num.   " << wins
@@ -794,18 +795,21 @@ void write_netlist(string filename, bool rated=false) {
 
 
 int main(int argc, char* argv[]) {
-    if (argc <= 2) {
-        cerr << "Syntax: pseres <saiXX> <sha256hash> [-p]" << endl
+    if (argc <= 3) {
+        cerr << "Syntax: pseres <saiXX> <sha256hash> <stdev> [-p]" << endl
              << "net hash is hook/root with Elo fixed to 0" << endl
+             << "standard deviation [in Elo points] is for the prior rating difference"
              << "  -p        prune leaf nodes" << endl;
         exit (1);
     }
     string saiXX(argv[1]);
     string hook(argv[2]);
+    string stdev(argv[3]);
+    ELO_PRIOR_STD = stof(stdev);
 
     bool prune = false;
-    if (argc >= 4) {
-        string option(argv[3]);
+    if (argc >= 5) {
+        string option(argv[4]);
         if (option == "-p") {
             prune = true;
         }

@@ -72,7 +72,10 @@ def build_process():
     s0 = tf.constant(0.0, shape=[1,1], dtype=tf.float32)
     # the rating of the first network is set to 0 wlog
 
+    s_scale = tf.Variable(1.0, dtype=tf.float32)
+
     s = tf.concat([s0, s_vbl], 0) # n*1 (column) vector with ratings
+    s = tf.math.scalar_mul(s_scale, s)
     
     ones = tf.constant(1.0, shape=[1, n], dtype = tf.float32) # row vector with ones
     
@@ -123,8 +126,8 @@ def build_process():
 
     loglike = 2.0 * tf.reduce_sum(wins_loglike) + tf.reduce_sum(draw_loglike)
 
-    learning_rate = 0.004
-    epochs = 20000
+    learning_rate = 0.01
+    epochs = 50000
 
 #    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(-loglike)
     optimizer = tf.train.AdamOptimizer(learning_rate).minimize(-loglike)
@@ -141,17 +144,28 @@ def build_process():
         sess.run(init)
         print(sess.run([tf.reduce_sum(wins_loglike), tf.reduce_sum(draw_loglike)]))
     
+        stable = 0
+        max_ll = 1
         for i in list(range(epochs)):
             #            print(sess.run(s))
             #            print(sess.run(root))
             #            print(sess.run(tf.gradients(tf.reduce_sum(root), s)))
             sess.run(optimizer)
             #            print(sess.run(s))
+            this_ll = sess.run(loglike)
+            if max_ll > 0 or this_ll > max_ll:
+                max_ll = this_ll
+                stable = 0
+                best_s = sess.run(s)
+            else:
+                stable += 1
             
-            if i % 100 == 0:
-                print(sess.run(loglike))
+            if i % 20 == 0:
+                print(i, this_ll, stable)
+            if stable > 1000:
+                break
 
-        return sess.run(s)
+        return best_s
 
 
 if __name__ == '__main__':
