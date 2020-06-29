@@ -132,6 +132,10 @@ def main():
         help="Coefficient for policy term in loss function (default: %(default)f)")
     parser.add_argument("--mseloss", default=MSE_LOSS_WT, type=float,
         help="Coefficient for mse term in loss function (default: %(default)f)")
+    parser.add_argument("--kleloss", default=KLE_LOSS_WT, type=float,
+        help="Coefficient for winrate cross-entropy term in loss function (default: %(default)f)")
+    parser.add_argument("--axbloss", default=AXB_LOSS_WT, type=float,
+        help="Coefficient for alpha*beta term in loss function (default: %(default)f)")
     parser.add_argument("--regloss", default=REG_LOSS_WT, type=float,
         help="Coefficient for regularizing term in loss function (default: %(default)f)")
     parser.add_argument("--betascale", default=BETA_SCALE_FACTOR, type=float,
@@ -174,7 +178,7 @@ def main():
 
     tfprocess = TFProcess(blocks, filters,
                           args.rate, args.minsteps, args.steps, args.maxsteps, args.maxkeep,
-                          args.policyloss, args.mseloss, args.regloss, args.betascale)
+                          args.policyloss, args.mseloss, args.kleloss, args.axbloss, args.regloss, args.betascale)
     tfprocess.init(RAM_BATCH_SIZE,
                    logbase=args.logbase,
                    macrobatch=BATCH_SIZE // RAM_BATCH_SIZE)

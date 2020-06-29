@@ -115,7 +115,7 @@ class Timer:
 class TFProcess:
     def __init__(self, residual_blocks, residual_filters,
                  s_rate, s_minsteps, s_steps, s_maxsteps, s_maxkeep,
-                 s_policyloss, s_mseloss, s_regloss, s_beta_scale):
+                 s_policyloss, s_mseloss, s_kleloss, s_axbloss, s_regloss, s_beta_scale):
         # Network structure
         self.residual_blocks = residual_blocks
         self.residual_filters = residual_filters
@@ -125,6 +125,9 @@ class TFProcess:
 
         # Scale the loss to prevent gradient underflow
         self.loss_scale = 1 if self.model_dtype == tf.float32 else 128
+
+        # Scale for axb term
+        self.axb_scale = 1
 
         # L2 regularization parameter applied to weights.
         self.l2_scale = 1e-4
@@ -142,6 +145,8 @@ class TFProcess:
         self.max_keep = s_maxkeep
         self.policy_loss_wt = s_policyloss
         self.mse_loss_wt = s_mseloss
+        self.kle_loss_wt = s_kleloss
+        self.axb_loss_wt = s_axbloss
         self.reg_loss_wt = s_regloss
         self.beta_scale = s_beta_scale
 
@@ -176,6 +181,8 @@ class TFProcess:
         self.probs = tf.placeholder(tf.string, name='in_probs')
         self.komi = tf.placeholder(tf.string, name='in_komi')
         self.winner = tf.placeholder(tf.string, name='in_winner')
+        self.alpha = tf.placeholder(tf.string, name='in_alpha')
+        self.beta = tf.placeholder(tf.string, name='in_beta')
 
         # Mini-batches come as raw packed strings. Decode
         # into tensors to feed into network.
@@ -183,6 +190,8 @@ class TFProcess:
         probs = tf.decode_raw(self.probs, tf.float32)
         komi = tf.decode_raw(self.komi, tf.float32)
         winner = tf.decode_raw(self.winner, tf.float32)
+        alpha = tf.decode_raw(self.alpha, tf.float32)
+        beta = tf.decode_raw(self.beta, tf.float32)
 
         planes = tf.cast(planes, self.model_dtype)
 
@@ -190,17 +199,21 @@ class TFProcess:
         probs = tf.reshape(probs, (batch_size, BOARD_SQUARES + 1))
         komi = tf.reshape(komi, (batch_size, 1))
         winner = tf.reshape(winner, (batch_size, 1))
+        alpha = tf.reshape(alpha, (batch_size, 1))
+        beta = tf.reshape(beta, (batch_size, 1))
 
         if gpus_num is None:
             gpus_num = self.gpus_num
-        self.init_net(planes, probs, komi, winner, gpus_num)
+        self.init_net(planes, probs, komi, winner, alpha, beta, gpus_num)
 
-    def init_net(self, planes, probs, komi, winner, gpus_num):
+    def init_net(self, planes, probs, komi, winner, alpha, beta, gpus_num):
         self.y_ = probs  # (tf.float32, [None, BOARD_SQUARE + 1])
         self.sx = tf.split(planes, gpus_num)
         self.sk = tf.split(komi, gpus_num)     # (tf.float32, [None, 1])
         self.sy_ = tf.split(probs, gpus_num)
         self.sz_ = tf.split(winner, gpus_num)
+        self.su_ = tf.split(alpha, gpus_num)
+        self.sv_ = tf.split(beta, gpus_num)
         self.batch_norm_count = 0
         self.reuse_var = None
 
@@ -216,6 +229,8 @@ class TFProcess:
         tower_loss = []
         tower_policy_loss = []
         tower_mse_loss = []
+        tower_kle_loss = []
+        tower_axb_loss = []
         tower_reg_term = []
         tower_y_conv = []
         with tf.variable_scope("fp32_storage",
@@ -224,8 +239,8 @@ class TFProcess:
             for i in range(gpus_num):
                 with tf.device("/gpu:%d" % i):
                     with tf.name_scope("tower_%d" % i):
-                        loss, policy_loss, mse_loss, reg_term, y_conv = self.tower_loss(
-                            self.sx[i], self.sk[i], self.sy_[i], self.sz_[i])
+                        loss, policy_loss, mse_loss, kle_loss, axb_loss, reg_term, y_conv = self.tower_loss(
+                            self.sx[i], self.sk[i], self.sy_[i], self.sz_[i], self.su_[i], self.sv_[i])
 
                         # Reset batchnorm key to 0.
                         self.reset_batchnorm_key()
@@ -238,6 +253,8 @@ class TFProcess:
                         tower_loss.append(loss)
                         tower_policy_loss.append(policy_loss)
                         tower_mse_loss.append(mse_loss)
+                        tower_kle_loss.append(kle_loss)
+                        tower_axb_loss.append(axb_loss)
                         tower_reg_term.append(reg_term)
                         tower_y_conv.append(y_conv)
 
@@ -245,6 +262,8 @@ class TFProcess:
         self.loss = tf.reduce_mean(tower_loss)
         self.policy_loss = tf.reduce_mean(tower_policy_loss)
         self.mse_loss = tf.reduce_mean(tower_mse_loss)
+        self.kle_loss = tf.reduce_mean(tower_kle_loss)
+        self.axb_loss = tf.reduce_mean(tower_axb_loss)
         self.reg_term = tf.reduce_mean(tower_reg_term)
         self.y_conv = tf.concat(tower_y_conv, axis=0)
         self.mean_grads = self.average_gradients(tower_grads)
@@ -340,13 +359,14 @@ class TFProcess:
             average_grads.append(grad_and_var)
         return average_grads
 
-    def tower_loss(self, x, komi, y_, z_):
-        y_conv, z_conv = self.construct_net(x, komi)
+    def tower_loss(self, x, komi, y_, z_, u_, v_):
+        y_conv, z_conv, u_conv = self.construct_net(x, komi)  # policy, win-log-odds, alpha, beta
 
         # Cast the nn result back to fp32 to avoid loss overflow/underflow
         if self.model_dtype != tf.float32:
             y_conv = tf.cast(y_conv, tf.float32)
             z_conv = tf.cast(z_conv, tf.float32)
+            u_conv = tf.cast(u_conv, tf.float32)
 
         # Calculate loss on policy head
         cross_entropy = \
@@ -355,8 +375,22 @@ class TFProcess:
         policy_loss = tf.reduce_mean(cross_entropy)
 
         # Loss on value head
+        winrate_conv = tf.nn.tanh(z_conv)
         mse_loss = \
-            tf.reduce_mean(tf.squared_difference(z_, z_conv))
+            tf.reduce_mean(tf.squared_difference(z_, winrate_conv))
+
+        winrate = (z_ + 1.0) / 2.0
+        win_cross_entropy = \
+            tf.nn.sigmoid_cross_entropy_with_logits(labels=winrate,
+                                                    logits=z_conv)
+        kle_loss = tf.reduce_mean(win_cross_entropy)
+
+        # Loss on alpha*beta
+        # axb_loss = self.axb_scale \
+        #            * tf.reduce_mean(tf.multiply(v_, tf.math.abs(tf.math.subtract(u_, u_conv))))
+        axb_diff = tf.multiply(v_, tf.math.subtract(u_, u_conv))
+        axb_loss = self.axb_scale \
+                   * (tf.reduce_mean(tf.math.softplus(2 * axb_diff) - axb_diff) - tf.math.softplus(0.0))
 
         # Regularizer
         reg_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
@@ -365,9 +399,13 @@ class TFProcess:
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
-        loss = self.policy_loss_wt * policy_loss + self.mse_loss_wt * mse_loss + self.reg_loss_wt * reg_term
+        loss = self.policy_loss_wt * policy_loss \
+               + self.mse_loss_wt * mse_loss \
+               + self.kle_loss_wt * kle_loss \
+               + self.axb_loss_wt * axb_loss \
+               + self.reg_loss_wt * reg_term
 
-        return loss, policy_loss, mse_loss, reg_term, y_conv
+        return loss, policy_loss, mse_loss, kle_loss, axb_loss, reg_term, y_conv
 
     def assign(self, var, values):
         try:
@@ -425,17 +463,19 @@ class TFProcess:
     def measure_loss(self, batch, training=False):
         # Measure loss over one batch. If training is true, also
         # accumulate the gradient and increment the global step.
-        ops = [self.policy_loss, self.mse_loss, self.reg_term, self.accuracy ]
+        ops = [self.policy_loss, self.mse_loss, self.kle_loss, self.axb_loss, self.reg_term, self.accuracy ]
         if training:
             ops += [self.grad_op, self.step_op],
         r = self.session.run(ops, feed_dict={self.training: training,
                            self.planes: batch[0],
                            self.probs: batch[1],
                            self.komi: batch[2],
-                           self.winner: batch[3]})
+                           self.winner: batch[3],
+                           self.alpha: batch[4],
+                           self.beta: batch[5]})
         # Google's paper scales mse by 1/4 to a [0,1] range, so we do the same here
-        return {'policy': r[0], 'mse': r[1]/4., 'reg': r[2],
-                'accuracy': r[3], 'total': r[0]+r[1]+r[2] }
+        return {'policy': r[0], 'mse': r[1]/4., 'kle': r[2], 'axb': r[3], 'reg': r[4],
+                'accuracy': r[5], 'total': r[0]+r[1]+r[2]+r[3]+r[4] }
 
     def process(self, train_data, test_data):
         info_steps = INFO_STEPS
@@ -458,16 +498,18 @@ class TFProcess:
 
             if n % info_steps == 0:
                 speed = info_steps * self.batch_size / timer.elapsed()
-                print("step {}, policy={:g} mse={:g} reg={:g} total={:g} ({:g} pos/s)".format(
-                    steps, stats.mean('policy'), stats.mean('mse'), stats.mean('reg'),
+                print("step {}, policy={:g} mse={:g} kle={:g} axb={:g} reg={:g} total={:g} ({:g} pos/s)".format(
+                    steps, stats.mean('policy'), stats.mean('mse'), stats.mean('kle'), stats.mean('axb'), stats.mean('reg'),
                     stats.mean('total'), speed))
                 summaries = stats.summaries({'Policy Loss': 'policy',
-                                             'MSE Loss': 'mse'})
+                                             'MSE Loss': 'mse',
+                                             'KLE Loss': 'kle',
+                                             'Alpha*Beta Loss': 'axb'})
                 self.train_writer.add_summary(
                     tf.Summary(value=summaries), steps)
                 stats.clear()
 
-            if n >= self.min_steps and n % self.train_steps == 0:
+            if n >= self.min_steps and (n - self.min_steps) % self.train_steps == 0:
                 test_stats = Stats()
                 test_batches = 800 # reduce sample mean variance by ~28x
                 for _ in range(0, test_batches):
@@ -476,12 +518,16 @@ class TFProcess:
                     test_stats.add(losses)
                 summaries = test_stats.summaries({'Policy Loss': 'policy',
                                                   'MSE Loss': 'mse',
+                                                  'KLE Loss': 'kle',
+                                                  'Alpha*Beta Loss': 'axb',
                                                   'Accuracy': 'accuracy'})
                 self.test_writer.add_summary(tf.Summary(value=summaries), steps)
-                print("step {}, policy={:g} training accuracy={:g}%, mse={:g}".\
+                print("step {}, policy={:g} training accuracy={:g}%, mse={:g}, kle={:g}, axb={:g}".\
                     format(steps, test_stats.mean('policy'),
                         test_stats.mean('accuracy')*100.0,
-                        test_stats.mean('mse')))
+                        test_stats.mean('mse'),
+                        test_stats.mean('kle'),
+                        test_stats.mean('axb')))
 
                 # Write out current model and checkpoint
                 path = os.path.join(os.getcwd(), "leelaz-model")
@@ -667,7 +713,7 @@ class TFProcess:
         self.add_weights(b_fc1)
         h_fc1 = tf.add(tf.matmul(h_conv_pol_flat, W_fc1), b_fc1)
 
-        # Value head - alpha
+        # Value head - alpha is h_fc3
         conv_val = self.conv_block(flow, filter_size=1,
                                    input_channels=self.residual_filters,
                                    output_channels=VAL_OUTPUTS,
@@ -689,65 +735,68 @@ class TFProcess:
         b_fc3 = bias_variable("b_fc_3",[value_head_rets], self.model_dtype)
         self.add_weights(W_fc3)
         self.add_weights(b_fc3)
-        h_fc3 = tf.add(tf.matmul(h_fc2, W_fc3), b_fc3)
+        h_fc3 = tf.add(tf.matmul(h_fc2, W_fc3), b_fc3) # alpha
 
         scale_factor = tf.constant(10.0 / BOARD_SQUARES / self.beta_scale)
 
         if VALUE_HEAD_TYPE == SINGLE:
-            h_fc6 = tf.nn.tanh(h_fc3)
+            h_fc8 = None
+            h_fc7 = tf.nn.tanh(h_fc3)
 
-            # Value head - beta
+            # Value head - beta is h_fc5
 
-        elif VALUE_HEAD_TYPE == DOUBLE_I:
-            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(h_fc3[1])) # correct? wrong?
-            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3[0], x_komi))) # correct? wrong?
+        else:
+            if VALUE_HEAD_TYPE == DOUBLE_I:
+                h_fc5 = tf.scalar_mul(scale_factor, tf.exp(h_fc3[1])) # correct? wrong?
+                h_fc3 = h_fc3[0]                                      # correct? wrong?
 
-        elif VALUE_HEAD_TYPE == DOUBLE_T:
-            W_fc5 = weight_variable("w_fc_5",[VAL_CHANS, 1], self.model_dtype)
-            b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
-            self.add_weights(W_fc5)
-            self.add_weights(b_fc5)
+            elif VALUE_HEAD_TYPE == DOUBLE_T:
+                W_fc5 = weight_variable("w_fc_5",[VAL_CHANS, 1], self.model_dtype)
+                b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
+                self.add_weights(W_fc5)
+                self.add_weights(b_fc5)
 
-            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc2, W_fc5), b_fc5)))
-            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
+                h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc2, W_fc5), b_fc5)))
 
-        elif VALUE_HEAD_TYPE == DOUBLE_Y:
-            W_fc4 = weight_variable("w_fc_4",[VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
-            b_fc4 = bias_variable("b_fc_4",[VBE_CHANS], self.model_dtype)
-            self.add_weights(W_fc4)
-            self.add_weights(b_fc4)
-            h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
+            elif VALUE_HEAD_TYPE == DOUBLE_Y:
+                W_fc4 = weight_variable("w_fc_4",[VAL_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
+                b_fc4 = bias_variable("b_fc_4",[VBE_CHANS], self.model_dtype)
+                self.add_weights(W_fc4)
+                self.add_weights(b_fc4)
+                h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_val_flat, W_fc4), b_fc4))
 
-            W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1], self.model_dtype)
-            b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
-            self.add_weights(W_fc5)
-            self.add_weights(b_fc5)
+                W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1], self.model_dtype)
+                b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
+                self.add_weights(W_fc5)
+                self.add_weights(b_fc5)
 
-            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
-            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
+                h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
 
-        elif VALUE_HEAD_TYPE == DOUBLE_V:
-            conv_vbe = self.conv_block(flow, filter_size=1,
-                                       input_channels=self.residual_filters,
-                                       output_channels=VBE_OUTPUTS,
-                                       name="vbe_head")
-            h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, VBE_OUTPUTS * BOARD_SQUARES])
+            elif VALUE_HEAD_TYPE == DOUBLE_V:
+                conv_vbe = self.conv_block(flow, filter_size=1,
+                                           input_channels=self.residual_filters,
+                                           output_channels=VBE_OUTPUTS,
+                                           name="vbe_head")
+                h_conv_vbe_flat = tf.reshape(conv_vbe, [-1, VBE_OUTPUTS * BOARD_SQUARES])
 
-            W_fc4 = weight_variable("w_fc_4",[VBE_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
-            b_fc4 = bias_variable("b_fc_4",[VBE_CHANS], self.model_dtype)
-            self.add_weights(W_fc4)
-            self.add_weights(b_fc4)
-            h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_vbe_flat, W_fc4), b_fc4))
+                W_fc4 = weight_variable("w_fc_4",[VBE_OUTPUTS * BOARD_SQUARES, VBE_CHANS], self.model_dtype)
+                b_fc4 = bias_variable("b_fc_4",[VBE_CHANS], self.model_dtype)
+                self.add_weights(W_fc4)
+                self.add_weights(b_fc4)
+                h_fc4 = tf.nn.relu(tf.add(tf.matmul(h_conv_vbe_flat, W_fc4), b_fc4))
 
-            W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1], self.model_dtype)
-            b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
-            self.add_weights(W_fc5)
-            self.add_weights(b_fc5)
+                W_fc5 = weight_variable("w_fc_5",[VBE_CHANS, 1], self.model_dtype)
+                b_fc5 = bias_variable("b_fc_5",[1], self.model_dtype)
+                self.add_weights(W_fc5)
+                self.add_weights(b_fc5)
 
-            h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
-            h_fc6 = tf.nn.tanh(tf.multiply(h_fc5, tf.add(h_fc3, x_komi)))
+                h_fc5 = tf.scalar_mul(scale_factor, tf.exp(tf.add(tf.matmul(h_fc4, W_fc5), b_fc5)))
 
-        return h_fc1, h_fc6
+            h_fc6 = tf.multiply(h_fc5, tf.add(h_fc3, x_komi))    # beta x (alpha + kt)
+#            h_fc7 = tf.nn.tanh(h_fc6)                            # win-rate
+#            h_fc8 = tf.multiply(h_fc5, h_fc3)    # beta x alpha
+
+        return h_fc1, h_fc6, h_fc3         # policy, win-log-odds, alpha
 
     def snap_save(self):
         # Save a snapshot of all the variables in the current graph.

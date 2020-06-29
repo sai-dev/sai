@@ -24,6 +24,9 @@ DATA_ITEM_LINES = 15
 BOARD_SIZE = 19
 BOARD_SQUARES = BOARD_SIZE * BOARD_SIZE
 
+# Workers
+WORKERS = 8
+
 # Sane values are from 4096 to 64 or so.
 # You need to adjust the learning rate if you change this. Should be
 # a multiple of RAM_BATCH_SIZE. NB: It's rare that large batch sizes are
@@ -87,6 +90,8 @@ VBE_CHANS = 256 # only for double W and Y
 # Loss weights
 POLICY_LOSS_WT = 1.0
 MSE_LOSS_WT = 1.0
+KLE_LOSS_WT = 0.0
+AXB_LOSS_WT = 0.0
 REG_LOSS_WT = 1.0
 
 # Learning rate
