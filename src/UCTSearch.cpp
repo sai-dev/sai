@@ -625,6 +625,19 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
 
     const auto color = m_rootstate.board.get_to_move();
 
+    // Raw network eval is a noisy estimate, but we want to be extra
+    // conservative before resigning, so this is also checked against
+    // the resign threshold. Mainly useful when lambda and/or mu are
+    // large, since in that case the agent winrate transform may yield
+    // a poor estimate of the winrate at true komi.
+    auto raw_eval = m_root->get_net_eval();
+    if (color == FastBoard::WHITE) {
+        raw_eval = 1.0f - raw_eval;
+    }
+    if (raw_eval > cfg_resign_threshold) {
+        return false;
+    }
+
     const auto is_default_cfg_resign = cfg_resignpct < -0.5f;
     // If lambda and mu are nonzero then the agent estimate of winrate
     // is regressed towards 0.5, so transform resign threshold

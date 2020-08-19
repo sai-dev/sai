@@ -299,7 +299,14 @@ void UCTNode::prepare_root_node(Network & network, int color,
     myprintf("NN eval=%f. Agent eval=%f\n", get_net_eval(color), get_agent_eval(color));
 #else
     if (!fast_roll_out) {
-        myprintf("NN eval=%f. Agent eval=%f (lambda=%.3f, mu=%.3f)\n", get_net_eval(color), get_agent_eval(color), cfg_lambda, cfg_mu);
+        auto x = get_eval_base();
+        auto y = get_eval_bonus();
+        if (x > y) {
+            auto z = x;
+            x = y;
+            y = z;
+        }
+        myprintf("NN eval=%f. Agent eval=%f (lambda=%.2f, mu=%.2f, interval [%.1f ; %.1f])\n", get_net_eval(color), get_agent_eval(color), cfg_lambda, cfg_mu, x, y);
     }
 #endif
 
