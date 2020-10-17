@@ -379,19 +379,6 @@ class TFProcess:
         mse_loss = \
             tf.reduce_mean(tf.squared_difference(z_, winrate_conv))
 
-        winrate = (z_ + 1.0) / 2.0
-        win_cross_entropy = \
-            tf.nn.sigmoid_cross_entropy_with_logits(labels=winrate,
-                                                    logits=z_conv)
-        kle_loss = tf.reduce_mean(win_cross_entropy)
-
-        # Loss on alpha*beta
-        # axb_loss = self.axb_scale \
-        #            * tf.reduce_mean(tf.multiply(v_, tf.math.abs(tf.math.subtract(u_, u_conv))))
-        axb_diff = tf.multiply(v_, tf.math.subtract(u_, u_conv))
-        axb_loss = self.axb_scale \
-                   * (tf.reduce_mean(tf.math.softplus(2 * axb_diff) - axb_diff) - tf.math.softplus(0.0))
-
         # Regularizer
         reg_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
         reg_term = self.l2_scale * tf.add_n(
@@ -401,10 +388,35 @@ class TFProcess:
         # want to reduce the factor in front of self.mse_loss here.
         loss = self.policy_loss_wt * policy_loss \
                + self.mse_loss_wt * mse_loss \
-               + self.kle_loss_wt * kle_loss \
-               + self.axb_loss_wt * axb_loss \
                + self.reg_loss_wt * reg_term
 
+        # KL loss on value
+        winrate = (z_ + 1.0) / 2.0
+        win_cross_entropy = \
+            tf.nn.sigmoid_cross_entropy_with_logits(labels = winrate,
+                                                    logits = 2 * z_conv)
+        kle_loss = 2.0 * tf.reduce_mean(win_cross_entropy)
+        if self.kle_loss_wt > 0.0:
+            loss += self.kle_loss_wt * kle_loss
+
+        # Loss on alpha*beta
+        axb_diff = tf.multiply(v_, tf.math.subtract(u_, u_conv))
+        axb_loss = self.axb_scale \
+                   * (tf.reduce_mean(tf.math.softplus(2 * axb_diff) - axb_diff) - tf.math.softplus(0.0))
+        if self.axb_loss_wt > 0.0:
+            loss += self.axb_loss_wt * axb_loss
+
+        # This 'policy layer calibration' term helps the tower to avoid coordinates shifts
+        # 'w_fc_1' is the 722x362 matrix of weights of the dense layer in the policy head
+        # By attracting it to plttarget matrix, we enforce the calibration of the 1x1 conv layer
+        # This should help all the tower.
+        if PLC_COEFF > 0.0:
+            w_fc1 = [v for v in tf.trainable_variables() if v.name == "fp32_storage/w_fc_1:0"][0]
+            pltarget = 0.5 * tf.concat([tf.eye(BOARD_SQUARES,1+BOARD_SQUARES),tf.eye(BOARD_SQUARES,1+BOARD_SQUARES)],axis=0)    
+            plc_term = self.l2_scale * tf.nn.l2_loss(w_fc1 - pltarget)
+            loss += self.reg_loss_wt * PLC_COEFF * plc_term
+            reg_term += PLC_COEFF * plc_term   # this is done to see the term inside regularization
+        
         return loss, policy_loss, mse_loss, kle_loss, axb_loss, reg_term, y_conv
 
     def assign(self, var, values):
@@ -512,6 +524,7 @@ class TFProcess:
             if n >= self.min_steps and (n - self.min_steps) % self.train_steps == 0:
                 test_stats = Stats()
                 test_batches = 800 # reduce sample mean variance by ~28x
+                print("Computing validation loss and saving weights.")
                 for _ in range(0, test_batches):
                     test_batch = next(test_data)
                     losses = self.measure_loss(test_batch, training=False)
@@ -546,6 +559,28 @@ class TFProcess:
                     save_path = self.saver.save(self.session, path,
                                                 global_step=steps)
                     print("Model saved in file: {}".format(save_path))
+
+            elif n % (10 * info_steps) == 0:
+                val_stats = Stats()
+                val_batches = info_steps
+                for _ in range(0, val_batches):
+                    val_batch = next(test_data)
+                    losses = self.measure_loss(val_batch, training=False)
+                    val_stats.add(losses)
+                summaries = val_stats.summaries({'Policy Loss': 'policy',
+                                                  'MSE Loss': 'mse',
+                                                  'KLE Loss': 'kle',
+                                                  'Alpha*Beta Loss': 'axb',
+                                                  'Accuracy': 'accuracy'})
+                self.test_writer.add_summary(tf.Summary(value=summaries), steps)
+                print("step {}, policy={:g} training accuracy={:g}%, mse={:g}, kle={:g}, axb={:g}".\
+                    format(steps, val_stats.mean('policy'),
+                        val_stats.mean('accuracy')*100.0,
+                        val_stats.mean('mse'),
+                        val_stats.mean('kle'),
+                        val_stats.mean('axb')))
+                val_stats.clear()
+
         print("Finished.")
         os._exit(0)
 

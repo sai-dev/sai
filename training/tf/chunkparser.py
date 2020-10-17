@@ -400,7 +400,6 @@ class ChunkParser:
         self.init_structs()
         while True:
             chunkdata = chunkdatasrc.next()
-            print('.')
             if chunkdata is None:
                 break
             for item in self.convert_chunkdata_to_v2(chunkdata):

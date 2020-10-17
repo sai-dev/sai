@@ -47,6 +47,7 @@ class FileDataSrc:
         if not self.chunks:
             self.chunks, self.done = self.done, self.chunks
             random.shuffle(self.chunks)
+            print('Worker shuffling and (re)reading chunks')
         if not self.chunks:
             return None
         while len(self.chunks):
@@ -176,8 +177,11 @@ def main():
                               sample=args.sample,
                               batch_size=RAM_BATCH_SIZE).parse()
 
+    minsteps = args.minsteps * 128 // RAM_BATCH_SIZE
+    steps = args.steps * 128 // RAM_BATCH_SIZE
+    maxsteps = args.maxsteps * 128 // RAM_BATCH_SIZE
     tfprocess = TFProcess(blocks, filters,
-                          args.rate, args.minsteps, args.steps, args.maxsteps, args.maxkeep,
+                          args.rate, minsteps, steps, maxsteps, args.maxkeep,
                           args.policyloss, args.mseloss, args.kleloss, args.axbloss, args.regloss, args.betascale)
     tfprocess.init(RAM_BATCH_SIZE,
                    logbase=args.logbase,

@@ -35,10 +35,10 @@ BATCH_SIZE = 512
 # Number of examples in a GPU batch. Higher values are more efficient.
 # The maximum depends on the amount of RAM in your GPU and the network size.
 # Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 128
+RAM_BATCH_SIZE = 64
 
 # Memory allocation
-GPU_MEM_FRACTION = 0.8
+GPU_MEM_FRACTION = 0.999
 
 # 20 bit should be about 2.2GB of RAM on 19x19 and 0.5GB on 9x9
 # Formula is M*S*(16/8+4) with M the shuffle buffer size, S the board
@@ -51,8 +51,8 @@ GPU_MEM_FRACTION = 0.8
 # In the case of "moving window" training set it is also reasonable to
 # reduce more and up to a factor equal to the number of times each chunk
 # enters a training.
-TRAIN_SHUFFLE_BITS=21
-TEST_SHUFFLE_BITS=17
+TRAIN_SHUFFLE_BITS=16
+TEST_SHUFFLE_BITS=12
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
 # This should be between 2 and 4 times the ratio of N to M.
@@ -61,7 +61,7 @@ DOWN_SAMPLE = 16
 # Network structure -- common part
 
 RESIDUAL_FILTERS = 256
-RESIDUAL_BLOCKS = 12
+RESIDUAL_BLOCKS = 20
 POLICY_OUTPUTS = 2
 INPUT_STM = 0 # 1: both side to move and komi in input (18 input planes)
               # 0: only komi in input (17 input planes)
@@ -89,10 +89,13 @@ VBE_CHANS = 256 # only for double W and Y
 
 # Loss weights
 POLICY_LOSS_WT = 1.0
-MSE_LOSS_WT = 1.0
-KLE_LOSS_WT = 0.0
-AXB_LOSS_WT = 0.0
-REG_LOSS_WT = 1.0
+MSE_LOSS_WT    = 1.0
+KLE_LOSS_WT    = 0.0
+AXB_LOSS_WT    = 0.0
+REG_LOSS_WT    = 1.0
+
+# Policy layer calibration
+PLC_COEFF      = 0.0 # 2.0 is enough
 
 # Learning rate
 LEARN_RATE = 0.001
