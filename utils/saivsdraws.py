@@ -24,8 +24,9 @@ def load_table_file(csv_table_file):
 
     return x
 
-def load_old_ratings(csv_ratings_file, csv_nets_file, default_ratings):
+def load_old_ratings(csv_ratings_file, csv_nets_file, n):
     rats_di = dict()
+    max_rat = 0.0
     
     with open(csv_ratings_file, newline='') as ratingsfile:
         rats_csv_it = csv.reader(ratingsfile)
@@ -33,8 +34,9 @@ def load_old_ratings(csv_ratings_file, csv_nets_file, default_ratings):
             hash = row[0]
             rat = float(row[-1])
             rats_di[hash] = rat
+            max_rat = max(rat, max_rat)
 
-    updated_ratings = default_ratings
+    updated_ratings = np.full((n,1), max_rat)
     with open(csv_nets_file, newline='') as netsfile:
         nets_csv_it = csv.reader(netsfile)
         for i, row in enumerate(nets_csv_it):
@@ -207,9 +209,10 @@ if __name__ == '__main__':
         print(f"File {vsfile} has {n} networks, while file {numfile} has {m} networks.")
         exit(1)
 
-    initial_ratings = np.random.normal(size=(n,1))
     if out_e:
-        initial_ratings = load_old_ratings(outfile, netsfile, initial_ratings)
+        initial_ratings = load_old_ratings(outfile, netsfile, n)
+    else:
+        initial_ratings = np.random.normal(size=(n,1))
 
     final_ratings = build_process()
     
