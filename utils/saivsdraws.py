@@ -108,6 +108,9 @@ def build_process():
     h = tf.add(tf.add(b_plus_c_u, a_plus_b_v), root)
     b_softplus = tf.multiply(draws, minus_log_u)
 
+    p_estim_per_u = 1.0 - tf.multiply(tf.math.xdivy(b_frac, h), tf.transpose(u))
+    p_estim = tf.multiply(u, p_estim_per_u)
+    q_estim = 1.00001 - p_estim - tf.transpose(p_estim)
     draw_loglike = tf.math.xlogy(draws, b_frac) + draws * np.log(2) - b_softplus - tf.transpose(b_softplus) - tf.math.xlogy(draws, h)
     wins_loglike = tf.math.xlogy(wins, 1.0 - tf.multiply(tf.math.xdivy(b_frac, h), tf.transpose(u))) - tf.multiply(wins, minus_log_u)
 
@@ -127,6 +130,9 @@ def build_process():
     #    draw_loglike = tf.math.xlogy(tf.multiply(nums, beta), q)
 
     loglike = 2.0 * tf.reduce_sum(wins_loglike) + tf.reduce_sum(draw_loglike)
+    avg_ll = loglike / tf.reduce_sum(nums)
+    excess = tf.reduce_mean(2.0 * tf.math.xlogy(p_estim, p_estim) + tf.math.xlogy(q_estim, q_estim))
+    excess -= avg_ll
 
     learning_rate = 0.01
     epochs = 50000
@@ -154,7 +160,8 @@ def build_process():
             #            print(sess.run(tf.gradients(tf.reduce_sum(root), s)))
             sess.run(optimizer)
             #            print(sess.run(s))
-            this_ll = sess.run(loglike)
+            this_ll = sess.run(avg_ll)
+            this_excess = sess.run(excess)
             if max_ll > 0 or this_ll > max_ll:
                 max_ll = this_ll
                 stable = 0
@@ -163,7 +170,8 @@ def build_process():
                 stable += 1
             
             if i % 20 == 0:
-                print(i, this_ll, stable)
+#                print(i, this_ll, stable)
+                print(i, -this_ll, this_excess, stable)
             if stable > 1000:
                 break
 
