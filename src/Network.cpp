@@ -271,13 +271,13 @@ int Network::load_v1_network(std::istream& wtfile, int format_version) {
                 // first line of 4: holds convolutional weights
 
                 if (linecount == 0)
-                n_wts_1st_layer = n_wts;
-              // check if we are still in the resconv tower
-          if (linecount==0 || n_wts==m_channels*9*m_channels)
-            // yes: these are convolutional weights
-            m_fwd_weights->m_conv_weights.emplace_back(weights);
-      else {
-        // no: first line of policy head [1x1 conv weights]
+                    n_wts_1st_layer = n_wts;
+                // check if we are still in the resconv tower
+                if (linecount==0 || n_wts==m_channels*9*m_channels)
+                    // yes: these are convolutional weights
+                    m_fwd_weights->m_conv_weights.emplace_back(weights);
+                else {
+                    // no: first line of policy head [1x1 conv weights]
                 is_head_line = true;
                 m_policy_outputs = n_wts/m_channels;
                 assert (n_wts == m_channels*m_policy_outputs);
@@ -1161,7 +1161,6 @@ Network::Netresult Network::get_output_internal(
         const auto vbe_output =
             innerproduct<false>(vbe_channels, m_ip2_vbe_w, m_ip2_vbe_b);
 
-        result.value = 0.5f;
         result.alpha = val_output[0];
         result.beta = std::exp(vbe_output[0] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
@@ -1171,27 +1170,30 @@ Network::Netresult Network::get_output_internal(
         const auto vbe_output =
             innerproduct<false>(vbe_channels, m_ip2_vbe_w, m_ip2_vbe_b);
 
-        result.value = 0.5f;
         result.alpha = val_output[0];
         result.beta = std::exp(vbe_output[0] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
     } else if (m_value_head_type==DOUBLE_T) {
         const auto vbe_output =
             innerproduct<false>(val_channels, m_ip2_vbe_w, m_ip2_vbe_b);
-        result.value = 0.5f;
         result.alpha = val_output[0];
         result.beta = std::exp(vbe_output[0] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
     } else if (m_value_head_type==DOUBLE_I) {
-        result.value = 0.5f;
         result.alpha = val_output[0];
         result.beta = std::exp(val_output[1] + beta_nat_tune) * 10.0f / NUM_INTERSECTIONS;
         result.is_sai = true;
     } else if (m_value_head_type==SINGLE) {
-        result.value = (1.0f + std::tanh(val_output[0])) / 2.0f;
-        result.alpha = 0.0f;
-        result.beta = 1.0f;
+        result.alpha = 2 * val_output[0]; // logits of the winrate for LZ networks
+        result.beta = 1.0f; // conventional value
+        result.value = sigmoid(result.alpha, 1, 0).first;
         result.is_sai = false;
+    }
+
+    if (result.is_sai) {
+        const auto komi = state->get_komi();
+        const auto white = (FastBoard::WHITE == state->get_to_move());
+        result.value = sigmoid(result.alpha, result.beta, white ? komi : -komi).first;
     }
 
     for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
@@ -1209,30 +1211,25 @@ Network::Netresult_extended Network::get_extended(const FastState& state, const 
     const auto alpha = result.alpha;
     const auto beta = result.beta;
 
-    const auto winrate = sigmoid(alpha,  beta, state.board.black_to_move() ? -komi : komi);
+    const auto winrate = result.value;
     const auto alpkt = (state.board.black_to_move() ? alpha : -alpha) - komi;
 
     const auto pi = sigmoid(alpkt, beta, 0.0f);
-    // if pi is near to 1, this is much more precise than 1-pi
-    //    const auto one_m_pi = sigmoid(-alpkt, beta, 0.0f);
 
     const auto pi_lambda = std::make_pair((1-cfg_lambda)*pi.first + cfg_lambda*0.5f,
                                           (1-cfg_lambda)*pi.second + cfg_lambda*0.5f);
     const auto pi_mu = std::make_pair((1-cfg_mu)*pi.first + cfg_mu*0.5f,
                                       (1-cfg_mu)*pi.second + cfg_mu*0.5f);
 
-    // this is useful when lambda is near to 0 and pi near 1
-    //    const auto one_m_pi_lambda = (1-cfg_lambda)*one_m_pi + cfg_lambda*0.5f;
     const auto sigma_inv_pi_lambda = std::log(pi_lambda.first) - std::log(pi_lambda.second);
-    const auto eval_bonus = (cfg_lambda == 0) ? 0.0f : sigma_inv_pi_lambda / beta - alpkt;
+    const auto quantile_lambda = (cfg_lambda == 0) ? 0.0f : sigma_inv_pi_lambda / beta - alpkt;
 
-    //    const auto one_m_pi_mu = (1-cfg_mu)*one_m_pi + cfg_mu*0.5f;
     const auto sigma_inv_pi_mu = std::log(pi_mu.first) - std::log(pi_mu.second);
-    const auto eval_base = (cfg_mu == 0) ? 0.0f : sigma_inv_pi_mu / beta - alpkt;
+    const auto quantile_mu = (cfg_mu == 0) ? 0.0f : sigma_inv_pi_mu / beta - alpkt;
 
-    const auto agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, eval_base, eval_bonus);
+    const auto agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, quantile_mu, quantile_lambda);
 
-    return { winrate.first, alpkt, pi.first, eval_bonus, eval_base, agent_eval };
+    return { winrate, alpkt, pi.first, quantile_lambda, quantile_mu, agent_eval };
 }
 
 
@@ -1285,8 +1282,8 @@ void Network::show_heatmap(const FastState* const state,
         myprintf("beta: %.2f,      ", result.beta);
         myprintf("winrate: %.1f%%\n", result_extended.winrate*100);
         myprintf("black alpkt: %2.2f,   ", result_extended.alpkt);
-        myprintf("x_bar: %.2f,     ", result_extended.eval_bonus);
-        myprintf("x_base: %.2f\n", result_extended.eval_base);
+        myprintf("x_bar: %.2f,     ", result_extended.quantile_lambda);
+        myprintf("x_base: %.2f\n", result_extended.quantile_mu);
         myprintf("komi: %.1f,            ", state->get_komi());
         myprintf("lambda: %.2f,    ", cfg_lambda);
         myprintf("mu: %.2f\n", cfg_mu);

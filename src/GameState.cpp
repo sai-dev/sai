@@ -49,12 +49,12 @@
 #include "KoState.h"
 #include "UCTSearch.h"
 
-StateEval GameState::get_eval() const {
-    return KoState::get_eval();
+StateEval GameState::get_state_eval() const {
+    return KoState::get_state_eval();
 }
 
-void GameState::set_eval(const StateEval& ev) {
-    KoState::set_eval(ev);
+void GameState::set_state_eval(const StateEval& ev) {
+    KoState::set_state_eval(ev);
 }
 
 
@@ -350,22 +350,24 @@ std::string GameState::eval_comment(bool print_header) const {
     auto comstr = std::stringstream{};
 
     if (print_header) {
-        comstr << "alpkt_online_median" << ", "
+        comstr << "alpkt_tree" << ", "
                << "alpkt" << ", "
                << "beta" << ", "
                << "pi" << ", "
                << "agent_eval_avg" << ", "
-               << "agent_x_lambda" << ", "
+               << "quantile_lambda" << ", "
+               << "quantile_mu" << ", "
                << "bitfield";
     } else {
-        const auto ev = get_eval();
+        const auto ev = get_state_eval();
         comstr << std::setprecision(3)
-               << ev.alpkt_online_median << ", "
+               << ev.alpkt_tree << ", "
                << ev.alpkt << ", "
                << ev.beta << ", "
                << ev.pi << ", "
                << ev.agent_eval_avg << ", "
                << ev.agent_x_lambda << ", "
+               << ev.agent_x_mu << ", "
                << flags_to_text();
     }
 

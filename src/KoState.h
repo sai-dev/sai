@@ -48,17 +48,16 @@ struct StateEval {
     float agent_x_lambda = 0.0f;
     float agent_x_mu = 0.0f;
     float agent_eval_avg = 0.5f;
-    float alpkt_median = 0.0f;
-    float alpkt_online_median = 0.0f;
+    float alpkt_tree = 0.0f;
 
     StateEval(int visits, float alpkt, float beta, float pi,
               float agent_eval, float agent_x_lambda, float agent_x_mu,
-              float agent_eval_avg, float alpkt_median,
-              float alpkt_online_median)
+              float agent_eval_avg,
+              float alpkt_tree)
     : visits(visits), alpkt(alpkt), beta(beta), pi(pi),
-        agent_eval(agent_eval), agent_x_lambda(agent_x_lambda),
-        agent_x_mu(agent_x_mu), agent_eval_avg(agent_eval_avg),
-        alpkt_median(alpkt_median), alpkt_online_median(alpkt_online_median)
+      agent_eval(agent_eval), agent_x_lambda(agent_x_lambda),
+      agent_x_mu(agent_x_mu), agent_eval_avg(agent_eval_avg),
+      alpkt_tree(alpkt_tree)
     {}
 
     StateEval() {}
@@ -70,8 +69,8 @@ public:
     bool superko() const;
     void reset_game();
 
-    StateEval get_eval() const;
-    void set_eval(const StateEval& ev);
+    StateEval get_state_eval() const;
+    void set_state_eval(const StateEval& ev);
 
     void play_move(int vertex);
     void play_move(int color, int vertex);
@@ -79,12 +78,6 @@ public:
 private:
     std::vector<std::uint64_t> m_ko_hash_history;
     StateEval m_ev;
-    /* float m_alpkt = 0.0f; */
-    /* float m_beta = 1.0f; */
-    /* float m_pi = 0.5f; */
-    /* float m_avg_eval = 0.5f; */
-    /* float m_eval_bonus = 0.0f; */
-    /* float m_eval_base = 0.0f; */
 };
 
 #endif

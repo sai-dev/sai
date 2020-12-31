@@ -47,10 +47,12 @@
 #include "UCTSearch.h"
 
 struct UCTStats {
-    float alpkt_online_median;
+    float alpkt_tree;
     float beta_median;
     float azwinrate_avg;
 };
+
+class SearchResult;
 
 class UCTNode {
 public:
@@ -93,20 +95,9 @@ public:
     float get_policy() const;
     void set_policy(float policy);
     float get_eval_variance(float default_var = 0.0f) const;
-    float get_eval(int tomove) const;
+    float get_eval(int tomove = FastBoard::BLACK) const;
     float get_raw_eval(int tomove, int virtual_loss = 0) const;
-    float get_net_eval(int tomove) const;
-    float get_agent_eval(int tomove) const;
-    float get_eval_bonus() const;
-    float get_eval_bonus_father() const;
-    void set_eval_bonus_father(float bonus);
-    float get_eval_base() const;
-    float get_eval_base_father() const;
-    void set_eval_base_father(float bonus);
-    float get_net_eval() const;
-    float get_net_beta() const;
-    float get_net_alpkt() const;
-    float get_alpkt_online_median() const;
+    float get_net_pi(int tomove = FastBoard::BLACK) const;
     void set_values(float value, float alpkt, float beta);
     bool low_visits_child(UCTNode* const child) const;
 #ifdef USE_EVALCMD
@@ -120,9 +111,7 @@ public:
 #endif
     void virtual_loss();
     void virtual_loss_undo();
-    void clear_visits();
-    void clear_children_visits();
-    void update(float eval, bool forced=false);
+    float update(const SearchResult &result, bool forced=false);
     float get_eval_lcb(int color) const;
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
@@ -147,10 +136,28 @@ public:
     float get_beta_median() const;
     float get_azwinrate_avg() const;
     UCTStats get_uct_stats() const;
-    void update_alpkt_median(float new_alpkt_value, float new_beta_value);
+    void update_quantile(std::atomic<float> &old_quantile, float old_gxgp_sum,
+                         float old_gp_sum, float parameter, int new_visits,
+                         float new_alpkt, float new_beta);
+    void update_all_quantiles(float new_alpkt, float new_beta);
     std::tuple<float, float, float> score_stats() const;
-
     void clear_expand_state();
+
+    float get_avg_pi(int tomove = FastBoard::BLACK) const;
+    float get_agent_eval(int tomove = FastBoard::BLACK) const;
+    float get_net_alpkt() const { return m_net_alpkt; }
+    float get_net_beta() const { return m_net_beta; }
+    float get_quantile_lambda(int tomove = FastBoard::BLACK) const;
+    float get_quantile_mu(int tomove = FastBoard::BLACK) const;
+    float get_quantile_one() const { return m_quantile_one; }
+    float get_father_quantile_lambda() const { return m_father_quantile_lambda; }
+    float get_father_quantile_mu() const { return m_father_quantile_mu; }
+    void set_father_quantiles(const UCTNode* father) {
+        m_father_quantile_lambda = father->get_quantile_lambda();
+        m_father_quantile_mu = father->get_quantile_mu();
+    }
+    StateEval state_eval() const;
+
 private:
     enum Status : char {
         INVALID, // superko
@@ -167,6 +174,10 @@ private:
                             bool is_tromptaylor_scoring) const;
     void get_subtree_betas(std::vector<float> & vector) const;
     void az_sum_recursion(float& sum, size_t& n) const;
+    void update_gxx_sums(std::atomic<float> &old_gxgp_sum,
+                         std::atomic<float> &old_gp_sum,
+                         float old_quantile,
+                         float new_alpkt, float new_beta);
 
     // Note : This class is very size-sensitive as we are going to create
     // tens of millions of instances of these.  Please put extra caution
@@ -182,15 +193,9 @@ private:
     std::atomic<int> m_forced{0};
     // UCT eval
     float m_policy;
-    // Original net eval for this node (not children).
-    float m_net_eval{0.5f};
-    //    float m_net_value{0.5f};
-    float m_net_alpkt{0.0f}; // alpha + \tilde k
-    float m_net_beta{1.0f};
-    float m_eval_bonus{0.0f}; // x bar
-    float m_eval_base{0.0f}; // x base
-    float m_eval_base_father{0.0f}; // x base of father node
-    float m_eval_bonus_father{0.0f}; // x bar of father node
+    // Original net eval for this node (not children, black's pov).
+    float m_net_pi{0.5f};
+
 #ifdef USE_EVALCMD
     std::vector<int> m_progid; // progressive unique identifier,
                                // typically it is just one integer,
@@ -202,16 +207,13 @@ private:
     std::array<float, 5> m_last_urgency;
 #endif
 
-    // the following is used only in fpu, with reduction
-    float m_agent_eval{0.5f}; // eval_with_bonus(eval_bonus()) no father
     // Variable used for calculating variance of evaluations.
     // Initialized to small non-zero value to avoid accidental zero variances
     // at low visits.
     std::atomic<float> m_squared_eval_diff{1e-4f};
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
-
-    std::atomic<float> m_alpkt_median{0.0f};
+    std::atomic<float> m_pi_sum{0.0f};
 
     // m_expand_state acts as the lock for m_children.
     // see manipulation methods below for possible state transition
@@ -234,7 +236,7 @@ private:
     std::atomic<float> m_min_psa_ratio_children{2.0f};
     std::vector<UCTNodePointer> m_children;
 
-    //  m_expand_state manipulation methods
+    // m_expand_state manipulation methods
     // INITIAL -> EXPANDING
     // Return false if current state is not INITIAL
     bool acquire_expanding();
@@ -247,6 +249,28 @@ private:
 
     // wait until we are on EXPANDED state
     void wait_expanded();
+
+    float m_net_alpkt{0.0f}; // alpha + \tilde k
+    float m_net_beta{1.0f};
+    float m_net_quantile_lambda{0.0f};
+    float m_net_quantile_mu{0.0f};
+
+    float m_agent_eval{0.5f};
+
+    // should be equal to m_visits in single threading
+    std::atomic<int> m_quantile_updates{0};
+
+    std::atomic<float> m_quantile_lambda{0.0f}; // x bar
+    std::atomic<float> m_quantile_mu{0.0f}; // x base
+    std::atomic<float> m_quantile_one{0.0f}; // quantile for parameter = 1, equals -alpkt
+    std::atomic<float> m_gxgp_sum_lambda{0.0f};
+    std::atomic<float> m_gxgp_sum_mu{0.0f};
+    std::atomic<float> m_gxgp_sum_one{0.0f};
+    std::atomic<float> m_gp_sum_lambda{0.0f};
+    std::atomic<float> m_gp_sum_mu{0.0f};
+    std::atomic<float> m_gp_sum_one{0.0f};
+    std::atomic<float> m_father_quantile_lambda{0.0f}; // x bar of father node
+    std::atomic<float> m_father_quantile_mu{0.0f}; // x base of father node
 };
 
 #endif

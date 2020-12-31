@@ -287,26 +287,22 @@ void UCTNode::prepare_root_node(Network & network, int color,
         create_children(network, nodes, root_state, root_value, root_alpkt, root_beta);
     }
     if (has_children() && !had_children) {
-            // blackevals is useless here because root nodes are never
-           // evaluated, nevertheless the number of visits must be updated
-            update(0);
+        // blackevals is useless here because root nodes are never
+        // evaluated, nevertheless the number of visits must be updated
+        m_visits++;
     }
 
-    //    root_eval = get_net_eval(color);
-    //    root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
-
 #ifndef NDEBUG
-    myprintf("NN eval=%f. Agent eval=%f\n", get_net_eval(color), get_agent_eval(color));
+    myprintf("NN eval=%f. Agent eval=%f\n", get_net_pi(color), get_agent_eval(color));
 #else
     if (!fast_roll_out) {
-        auto x = get_eval_base();
-        auto y = get_eval_bonus();
-        if (x > y) {
-            auto z = x;
-            x = y;
-            y = z;
+        auto x = get_quantile_mu(color);
+        auto y = get_quantile_lambda(color);
+        if (y < x) {
+            std::swap(x, y);
         }
-        myprintf("NN eval=%f. Agent eval=%f (lambda=%.2f, mu=%.2f, interval [%.1f ; %.1f])\n", get_net_eval(color), get_agent_eval(color), cfg_lambda, cfg_mu, x, y);
+        myprintf("NN eval=%f. Agent eval=%f (lambda=%.2f, mu=%.2f, interval [%.1f ; %.1f])\n",
+                 get_net_pi(color), get_agent_eval(color), cfg_lambda, cfg_mu, x, y);
     }
 #endif
 

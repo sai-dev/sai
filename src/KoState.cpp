@@ -64,7 +64,7 @@ void KoState::reset_game() {
     m_ko_hash_history.clear();
     m_ko_hash_history.push_back(board.get_ko_hash());
     const StateEval void_ev;
-    set_eval(void_ev);
+    set_state_eval(void_ev);
 }
 
 void KoState::play_move(int vertex) {
@@ -78,10 +78,10 @@ void KoState::play_move(int color, int vertex) {
     m_ko_hash_history.push_back(board.get_ko_hash());
 }
 
-StateEval KoState::get_eval() const {
+StateEval KoState::get_state_eval() const {
     return m_ev;
 }
 
-void KoState::set_eval(const StateEval& ev) {
+void KoState::set_state_eval(const StateEval& ev) {
     m_ev = ev;
 }

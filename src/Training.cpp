@@ -330,7 +330,7 @@ void Training::dump_training(int winner_color,
         } else if (winner_color == FastBoard::EMPTY) {
             out << "0";
         }
-        out << " " << it->uct_stats.alpkt_online_median
+        out << " " << it->uct_stats.alpkt_tree
             << " " << it->uct_stats.beta_median
             << " " << it->uct_stats.azwinrate_avg
             << std::endl;

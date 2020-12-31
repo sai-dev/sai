@@ -92,8 +92,8 @@ class Network {
         float winrate;
         float alpkt;
         float pi;
-        float eval_bonus;
-        float eval_base;
+        float quantile_lambda;
+        float quantile_mu;
         float agent_eval;
     };
 

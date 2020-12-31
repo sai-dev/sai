@@ -51,6 +51,7 @@
 #include "Network.h"
 #include "Random.h"
 #include "Utils.h"
+#include "UCTSearch.h"
 
 using namespace Utils;
 
@@ -64,9 +65,9 @@ bool UCTNode::first_visit() const {
 bool UCTNode::create_children(Network & network,
                               std::atomic<int>& nodecount,
                               GameState& state,
-                                          float& value,
+                              float& value,
                               float& alpkt,
-                                          float& beta,
+                              float& beta,
                               float min_psa_ratio) {
 
     // no successors in final state
@@ -96,36 +97,28 @@ bool UCTNode::create_children(Network & network,
     }
 
     // DCNN returns value as side to move
-    auto stm_eval = raw_netlist.value; // = m_net_value
+    const auto stm_eval = raw_netlist.value;
     const auto to_move = state.board.get_to_move();
     // our search functions evaluate from black's point of view
+    // notice that 'value' is used only for LZ networks
+    value = (to_move == FastBoard::BLACK) ? stm_eval : 1.0f - stm_eval;
 
     if (network.m_value_head_sai) {
         m_net_beta = beta = raw_netlist.beta;
         const auto result_extended = Network::get_extended(state, raw_netlist);
         m_net_alpkt = alpkt = result_extended.alpkt;
-        m_eval_bonus = result_extended.eval_bonus;
-        m_eval_base = result_extended.eval_base;
+        m_net_quantile_lambda = result_extended.quantile_lambda;
+        m_net_quantile_mu = result_extended.quantile_mu;
+        m_net_pi = result_extended.pi; // equal to value
         m_agent_eval = result_extended.agent_eval;
-        m_net_eval = result_extended.pi;
-
-        if (to_move == FastBoard::WHITE) {
-            stm_eval = 1.0f - m_agent_eval;
-        } else {
-            stm_eval = m_agent_eval;
-        }
     } else {
         m_net_beta = beta = 1.0f;
-        m_net_alpkt = alpkt = -state.get_komi();
-        m_eval_bonus = 0.0f;
-        m_eval_base = 0.0f;
+        const auto alpha = raw_netlist.alpha; // logits of winrate
+        m_net_alpkt = alpkt = (to_move == FastBoard::BLACK) ? alpha : -alpha;
+        m_net_quantile_lambda = 0.0f;
+        m_net_quantile_mu = 0.0f;
 
-        if (to_move == FastBoard::WHITE) {
-            value = 1.0f - stm_eval;
-        } else {
-            value = stm_eval;
-        }
-        m_net_eval = value;
+        m_net_pi = value;
         m_agent_eval = value;
     }
 
@@ -215,13 +208,12 @@ bool UCTNode::create_children(Network & network,
 
     link_nodelist(nodecount, nodelist, min_psa_ratio);
     // Increment visit and assign eval.
-    const auto result = SearchResult::from_eval(value, alpkt, beta);
-    const auto eval = network.m_value_head_sai ?
-        result.eval_with_bonus(get_eval_bonus_father(),
-				    get_eval_base_father()) :
-        result.eval();
-    update(eval);
-    update_alpkt_median(alpkt, beta);
+    const auto result = SearchResult::from_eval(value, alpkt, beta,
+                                                network.m_value_head_sai);
+    update(result);
+    if (network.m_value_head_sai) {
+        update_all_quantiles(alpkt, beta);
+    }
     expand_done();
     return true;
 }
@@ -281,22 +273,12 @@ void UCTNode::virtual_loss_undo() {
     m_virtual_loss -= VIRTUAL_LOSS_COUNT;
 }
 
-void UCTNode::clear_visits() {
-    m_visits = 0;
-    m_forced = 0;
-    m_blackevals = 0;
-    m_alpkt_median = 0;
-}
+float UCTNode::update(const SearchResult &result, bool forced) {
+    const auto eval = result.is_sai_head() ?
+        result.eval_with_bonus(get_father_quantile_lambda(),
+                               get_father_quantile_mu()) :
+        result.eval();
 
-void UCTNode::clear_children_visits() {
-    for (const auto& child : m_children) {
-        if(child.is_inflated()) {
-            child.get()->clear_visits();
-        }
-    }
-}
-
-void UCTNode::update(float eval, bool forced) {
     // Cache values to avoid race conditions.
     auto old_eval = static_cast<float>(m_blackevals);
     auto old_visits = static_cast<int>(m_visits);
@@ -310,21 +292,64 @@ void UCTNode::update(float eval, bool forced) {
     if (forced) {
         m_forced++;
     }
+    atomic_add(m_pi_sum, result.eval());
+    return eval;
 }
 
-void UCTNode::update_alpkt_median(float new_alpkt, float new_beta) {
-    // Cache values to avoid race conditions.
-    const auto new_visits = static_cast<int>(m_visits);
-    assert (new_visits > 0);
-    // Sometimes this function is not called when visits==1 so be
+void UCTNode::update_gxx_sums(std::atomic<float> &old_gxgp_sum,
+                              std::atomic<float> &old_gp_sum,
+                              float old_quantile,
+                              float new_alpkt, float new_beta) {
+    const auto g_func = sigmoid(new_alpkt, new_beta, old_quantile);
+    const auto gp_term = new_beta * g_func.first * g_func.second;
+    const auto gxgp_term = g_func.first - old_quantile * gp_term;
+    atomic_add(old_gxgp_sum, gxgp_term);
+    atomic_add(old_gp_sum, gp_term);
+}
+
+void UCTNode::update_quantile(std::atomic<float> &old_quantile,
+                              float old_gxgp_sum, float old_gp_sum,
+                              float parameter, int new_visits,
+                              float new_alpkt, float new_beta) {
+    const auto avg_p = 0.5f * parameter + (1.0f - parameter) * get_avg_pi();
+
+    // Sometimes this function is not called when visits==0 so be
     // flexible and set the first value also in those cases.
-    if (new_visits <= 8 && m_alpkt_median == 0.0f) {
-        m_alpkt_median = new_alpkt;
+    if (new_visits <= 8 && old_quantile == 0.0f) {
+        old_quantile = std::log(avg_p / (1.0f - avg_p)) / new_beta - new_alpkt;
     } else {
-        const auto old_median = static_cast<float>(m_alpkt_median);
-        const auto delta = 5.0f / m_net_beta / new_visits * (sigmoid(new_alpkt, new_beta, -old_median).first - 0.5f);
-        atomic_add(m_alpkt_median, delta);
+        const auto avg_f_prime = old_gp_sum / float(new_visits);
+        const auto avg_f = old_gxgp_sum / float(new_visits)
+            + static_cast<float>(old_quantile) * avg_f_prime;
+        const auto delta = (avg_p - avg_f) / avg_f_prime;
+        atomic_add(old_quantile, delta);
     }
+}
+
+void UCTNode::update_all_quantiles(float new_alpkt, float new_beta) {
+    // Cache values to avoid race conditions.
+    const auto old_q_lambda = static_cast<float>(m_quantile_lambda);
+    const auto old_q_mu = static_cast<float>(m_quantile_mu);
+    const auto old_q_one = static_cast<float>(m_quantile_one);
+    const auto new_visits = static_cast<int>(++m_quantile_updates);
+    update_gxx_sums(m_gxgp_sum_lambda, m_gp_sum_lambda, old_q_lambda,
+                    new_alpkt, new_beta);
+    update_gxx_sums(m_gxgp_sum_mu, m_gp_sum_mu, old_q_mu,
+                    new_alpkt, new_beta);
+    update_gxx_sums(m_gxgp_sum_one, m_gp_sum_one, old_q_one,
+                    new_alpkt, new_beta);
+    update_quantile(m_quantile_lambda,
+                    static_cast<float>(m_gxgp_sum_lambda),
+                    static_cast<float>(m_gp_sum_lambda),
+                    cfg_lambda, new_visits, new_alpkt, new_beta);
+    update_quantile(m_quantile_mu,
+                    static_cast<float>(m_gxgp_sum_mu),
+                    static_cast<float>(m_gp_sum_mu),
+                    cfg_mu, new_visits, new_alpkt, new_beta);
+    update_quantile(m_quantile_one,
+                    static_cast<float>(m_gxgp_sum_one),
+                    static_cast<float>(m_gp_sum_one),
+                    1, new_visits, new_alpkt, new_beta);
 }
 
 bool UCTNode::has_children() const {
@@ -346,48 +371,8 @@ float UCTNode::get_policy() const {
     return m_policy;
 }
 
-float UCTNode::get_eval_bonus() const {
-    return m_eval_bonus;
-}
-
-float UCTNode::get_eval_bonus_father() const {
-    return m_eval_bonus_father;
-}
-
-void UCTNode::set_eval_bonus_father(float bonus) {
-    m_eval_bonus_father = bonus;
-}
-
-float UCTNode::get_eval_base() const {
-    return m_eval_base;
-}
-
-float UCTNode::get_eval_base_father() const {
-    return m_eval_base_father;
-}
-
-void UCTNode::set_eval_base_father(float bonus) {
-    m_eval_base_father = bonus;
-}
-
-float UCTNode::get_net_eval() const {
-    return m_net_eval;
-}
-
-float UCTNode::get_net_beta() const {
-    return m_net_beta;
-}
-
-float UCTNode::get_net_alpkt() const {
-    return m_net_alpkt;
-}
-
-float UCTNode::get_alpkt_online_median() const {
-    return m_alpkt_median;
-}
-
 void UCTNode::set_values(float value, float alpkt, float beta) {
-    m_net_eval = value;
+    m_net_pi = value;
     m_net_alpkt = alpkt;
     m_net_beta = beta;
 }
@@ -487,11 +472,20 @@ float UCTNode::get_eval(int tomove) const {
     return get_raw_eval(tomove, m_virtual_loss);
 }
 
-float UCTNode::get_net_eval(int tomove) const {
+float UCTNode::get_net_pi(int tomove) const {
     if (tomove == FastBoard::WHITE) {
-        return 1.0f - m_net_eval;
+        return 1.0f - m_net_pi;
     }
-    return m_net_eval;
+    return m_net_pi;
+}
+
+float UCTNode::get_avg_pi(int tomove) const {
+    const auto visits = static_cast<float>(m_visits);
+    const auto avg_pi = visits > 0.5f ? static_cast<float>(m_pi_sum) / visits : 0.5f;
+    if (tomove == FastBoard::WHITE) {
+        return 1.0f - avg_pi;
+    }
+    return avg_pi;
 }
 
 float UCTNode::get_agent_eval(int tomove) const {
@@ -499,6 +493,20 @@ float UCTNode::get_agent_eval(int tomove) const {
         return 1.0f - m_agent_eval;
     }
     return m_agent_eval;
+}
+
+float UCTNode::get_quantile_lambda(int tomove) const {
+    if (tomove == FastBoard::WHITE) {
+        return 1.0f - m_quantile_lambda;
+    }
+    return m_quantile_lambda;
+}
+
+float UCTNode::get_quantile_mu(int tomove) const {
+    if (tomove == FastBoard::WHITE) {
+        return 1.0f - m_quantile_mu;
+    }
+    return m_quantile_mu;
 }
 
 double UCTNode::get_blackevals() const {
@@ -621,7 +629,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     assert(best != nullptr);
     if(best->get_visits() == 0) {
         best->inflate();
-        best->get()->set_values(m_net_eval, m_net_alpkt, m_net_beta);
+        best->get()->set_values(m_net_pi, m_net_alpkt, m_net_beta);
     }
 #ifndef NDEBUG
     best->get()->set_urgency(best_value, b_psa, b_q,
@@ -824,7 +832,7 @@ float UCTNode::get_beta_median() const {
 }
 
 void UCTNode::az_sum_recursion(float& sum, size_t& n) const {
-    sum += get_net_eval();
+    sum += get_net_pi();
     n++;
     for (auto& child : m_children) {
         if (child.get_visits() > 0) {
@@ -845,16 +853,16 @@ float UCTNode::get_azwinrate_avg() const {
 UCTStats UCTNode::get_uct_stats() const {
     UCTStats stats;
 
-    stats.alpkt_online_median = m_alpkt_median;
+    stats.alpkt_tree = -m_quantile_one;
     stats.beta_median = get_beta_median();
     stats.azwinrate_avg = get_azwinrate_avg();
     return stats;
 }
 
 std::tuple<float, float, float> UCTNode::score_stats() const {
-    const auto alpkt_for_score = get_alpkt_online_median();
+    const auto alpkt_for_score = -get_quantile_one();
     const auto beta_for_score = get_net_beta();
-    const auto eval_for_score = get_eval(FastBoard::BLACK);
+    const auto eval_for_score = get_eval();
     return std::make_tuple(alpkt_for_score, beta_for_score, eval_for_score);
 }
 
@@ -886,4 +894,11 @@ void UCTNode::wait_expanded() {
     (void)v;
 #endif
     assert(v == ExpandState::EXPANDED);
+}
+
+StateEval UCTNode::state_eval() const {
+    StateEval ev(get_visits(), m_net_alpkt, m_net_beta, m_net_pi,
+                 m_agent_eval, m_net_quantile_lambda, m_net_quantile_mu,
+                 get_eval(), -m_quantile_one);
+    return ev;
 }

@@ -80,8 +80,8 @@ public:
     void display_state();
     bool has_resigned() const;
     int who_resigned() const;
-    StateEval get_eval() const;
-    void set_eval(const StateEval& ev);
+    StateEval get_state_eval() const;
+    void set_state_eval(const StateEval& ev);
     //    void copy_last_rnd_move_num ();
     std::string eval_comment(bool print_header = false) const;
     bool score_agreed() const;

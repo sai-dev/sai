@@ -126,6 +126,11 @@ UCTSearch::UCTSearch(GameState& g, Network& network)
     m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
 }
 
+SearchResult SearchResult::from_node(const UCTNode* node, bool sai_head) {
+    return SearchResult::from_eval(node->get_net_pi(), node->get_net_alpkt(),
+                                   node->get_net_beta(), sai_head);
+}
+
 void UCTSearch::reset() {
     set_playout_limit(cfg_max_playouts);
     set_visit_limit(cfg_max_visits);
@@ -271,16 +276,17 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     if (node->expandable()) {
         if (currstate.get_passes() >= 2) {
             if (cfg_japanese_mode && m_chn_scoring) {
-                result = SearchResult::from_eval(node->get_net_eval(),
+                result = SearchResult::from_eval(node->get_net_pi(),
                                                  node->get_net_alpkt(),
-                                                 node->get_net_beta());
+                                                 node->get_net_beta(),
+                                                 m_network.m_value_head_sai);
 #ifndef NDEBUG
                 sminfo.leafstr = "Chn (net)";
                 sminfo.score = node->get_net_alpkt();
 #endif
             } else {
                 auto score = currstate.final_score();
-                result = SearchResult::from_score(score);
+                result = SearchResult::from_score(score, m_network.m_value_head_sai);
                 node->set_values(Utils::winner(score), score, 10.0f);
 #ifndef NDEBUG
                 sminfo.leafstr = "TT (score)";
@@ -307,7 +313,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                     node->set_progid(m_nodecounter++);
                 }
 #endif
-                result = SearchResult::from_eval(value, alpkt, beta);
+                result = SearchResult::from_eval(value, alpkt, beta, m_network.m_value_head_sai);
                 new_node = true;
 #ifndef NDEBUG
                 sminfo.leafstr = "new";
@@ -335,8 +341,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                                            m_nopass);
         if (next != nullptr) {
             auto move = next->get_move();
-            next->set_eval_bonus_father(node->get_eval_bonus());
-            next->set_eval_base_father(node->get_eval_base());
+            next->set_father_quantiles(node);
 
             restrict_return = (cfg_restrict_tt &&
                                currstate.get_passes() == 1 &&
@@ -371,9 +376,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         }
     }
 
-    auto current_node_result = SearchResult::from_eval(node->get_net_eval(),
-                                                       node->get_net_alpkt(),
-                                                       node->get_net_beta());
+    auto current_node_result = SearchResult::from_node(node, m_network.m_value_head_sai);
 
     // New node was updated in create_children.
     if (result.valid() && !new_node) {
@@ -395,13 +398,11 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         // first pass again.
         const auto & result_for_updating = update_with_current ?
             current_node_result : result;
-        const auto eval = m_network.m_value_head_sai ?
-            result_for_updating.eval_with_bonus(node->get_eval_bonus_father(),
-                                                node->get_eval_base_father()) :
-            result_for_updating.eval();
-        node->update(eval, result.is_forced());
-        // should check whether it is sai or lz before updating alpkt_median
-        node->update_alpkt_median(result_for_updating.get_alpkt(), result_for_updating.get_beta());
+        const auto eval = node->update(result_for_updating, result.is_forced());
+        if (m_network.m_value_head_sai) {
+            node->update_all_quantiles(result_for_updating.get_alpkt(),
+                                       result_for_updating.get_beta());
+        }
 
 #ifdef USE_EVALCMD
         if (m_evaluating) {
@@ -427,8 +428,6 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
         }
     }
 
-    //    return restrict_return ? current_node_result : result;
-    //    return result;
     return update_with_current ? current_node_result : result;
 }
 
@@ -470,8 +469,10 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  node->get_eval_lcb(color) < 0.0f ? 1 : 2,
                  std::max(-99.9f, node->get_eval_lcb(color) * 100.0f),
                  node->get_policy() * 100.0f,
-                 node->get_alpkt_online_median(),
+                 -node->get_quantile_one(),
                  node->get_net_beta(),
+                 node->get_father_quantile_lambda(),
+                 node->get_father_quantile_mu(),
                  pv.c_str());
 #else
         myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %5.2f, den: %4d) "
@@ -485,7 +486,7 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
                  node->get_eval_lcb(color) * 100.0f,
                  node->get_policy() * 100.0f,
-                 node->get_alpkt_online_median(),
+                 -node->get_quantile_one(),
                  pv.c_str());
 #endif
     }
@@ -495,8 +496,14 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
              parent.get_eval_lcb(color) < 0.0f ? 1 : 2,
              std::max(-99.9f, parent.get_eval_lcb(color) * 100.0f),
              parent.get_policy() * 100.0f,
-             parent.get_alpkt_online_median(),
+             -parent.get_quantile_one(),
              parent.get_net_beta());
+    auto x = parent.get_quantile_lambda(color);
+    auto y = parent.get_quantile_mu(color);
+    if (y < x) {
+        std::swap(x, y);
+    }
+    myprintf("Final agent interval: [%.2f, %.2f].\n", x, y);
     tree_stats(parent);
 }
 
@@ -531,7 +538,7 @@ void UCTSearch::output_analysis(FastState & state, UCTNode & parent) {
         auto policy = node->get_policy();
         auto lcb = node->get_eval_lcb(color);
         auto visits = node->get_visits();
-        auto areas = node->get_alpkt_online_median();
+        auto areas = -node->get_quantile_one();
         // Need at least 2 visits for valid LCB.
         auto lcb_ratio_exceeded = visits > 2 &&
             visits > max_visits * cfg_lcb_min_visit_ratio;
@@ -630,13 +637,13 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
     // the resign threshold. Mainly useful when lambda and/or mu are
     // large, since in that case the agent winrate transform may yield
     // a poor estimate of the winrate at true komi.
-    auto raw_eval = m_root->get_net_eval();
-    if (color == FastBoard::WHITE) {
-        raw_eval = 1.0f - raw_eval;
-    }
-    if (raw_eval > cfg_resign_threshold) {
-        return false;
-    }
+    // auto raw_eval = m_root->get_net_pi();
+    // if (color == FastBoard::WHITE) {
+    //     raw_eval = 1.0f - raw_eval;
+    // }
+    // if (raw_eval > cfg_resign_threshold) {
+    //     return false;
+    // }
 
     const auto is_default_cfg_resign = cfg_resignpct < -0.5f;
     // If lambda and mu are nonzero then the agent estimate of winrate
@@ -645,7 +652,8 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
 
     // ### TO DO ### improve by computing resign_threshold just once
     // at program start and when lambda or mu change.
-    const auto resign_threshold = Utils::agent_winrate_transform(cfg_resign_threshold);
+    // const auto resign_threshold = Utils::agent_winrate_transform(cfg_resign_threshold);
+    const auto resign_threshold = cfg_resign_threshold;
 
     if (besteval > resign_threshold) {
         // eval > cfg_resign
@@ -723,7 +731,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
             move_flags = m_root->randomize_first_proportionally(
                              color, m_rootstate.is_blunder_allowed());
 
-            if (should_resign(passflag, m_root->get_first_child()->get_eval(color))) {
+            if (should_resign(passflag, m_root->get_first_child()->get_avg_pi(color))) {
                 myprintf("Chosen move would lead to immediate resignation... \n"
                          "Reverting to best move.\n");
                 m_root->sort_children(color,  cfg_lcb_min_visit_ratio * max_visits);
@@ -741,7 +749,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     assert(first_child != nullptr);
 
     auto bestmove = first_child->get_move();
-    auto besteval = first_child->first_visit() ? 0.5f : first_child->get_raw_eval(color);
+    auto besteval = first_child->first_visit() ? 0.5f : first_child->get_avg_pi(color);
 
     // check whether the move has the highest policy
     if (first_child->get_policy() != max_policy){
@@ -760,7 +768,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 if (nopass->first_visit()) {
                     besteval = 1.0f;
                 } else {
-                    besteval = nopass->get_raw_eval(color);
+                    besteval = nopass->get_avg_pi(color);
                 }
             } else {
                 myprintf("Pass is the only acceptable move.\n");
@@ -800,7 +808,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                     if (nopass->first_visit()) {
                         besteval = 1.0f;
                     } else {
-                        besteval = nopass->get_raw_eval(color);
+                        besteval = nopass->get_avg_pi(color);
                     }
                 } else {
                     myprintf("No alternative to passing.\n");
@@ -812,7 +820,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 // Find a valid non-pass move.
                 const auto nopass = m_root->get_nopass_child(m_rootstate);
                 if (nopass != nullptr && !nopass->first_visit()) {
-                    const auto nopass_eval = nopass->get_raw_eval(color);
+                    const auto nopass_eval = nopass->get_avg_pi(color);
                     if (nopass_eval > 0.45f) {
                         myprintf("Avoiding pass because there could be a winning alternative.\n");
                         bestmove = nopass->get_move();
@@ -851,7 +859,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
         if (should_resign(passflag, besteval)) {
             myprintf("Eval (%.2f%%) looks bad. Resign threshold %.2f%%. Resigning.\n",
                      100.0f * besteval,
-                     100.0f * Utils::agent_winrate_transform(cfg_resign_threshold));
+                     100.0f * cfg_resign_threshold);
             bestmove = FastBoard::RESIGN;
         }
     }
@@ -1254,19 +1262,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
             }
         }
         if(chosen_child) {
-            const auto alpkt = chosen_child->get_net_alpkt();
-            const auto beta = chosen_child->get_net_beta();
-            const auto x_lambda = chosen_child->get_eval_bonus();
-            const auto x_mu = chosen_child->get_eval_base();
-            const StateEval ev(chosen_child->get_visits(),
-                               alpkt, beta, sigmoid(alpkt, beta, 0.0f).first,
-                               Utils::sigmoid_interval_avg(alpkt, beta,
-                                                           x_mu, x_lambda),
-                               x_lambda, x_mu,
-                               chosen_child->get_eval(FastBoard::BLACK),
-                               chosen_child->estimate_alpkt(0, true),
-                               chosen_child->get_alpkt_online_median());
-            m_rootstate.set_eval(ev);
+            const auto ev = chosen_child->state_eval();
+            m_rootstate.set_state_eval(ev);
+
 
             // For pass_agree we really want the score of the best
             // move, not of the root node
@@ -1274,10 +1272,10 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
 #ifndef NDEBUG
             myprintf("visits=%d, alpkt=%.2f, beta=%.3f, pi=%.3f, agent=%.3f, "
-                     "avg=%.3f, alpkt_med=%.3f, alpkt_online=%.3f, "
+                     "avg=%.3f, alpkt_tree=%.3f, "
                      "x_mu=%.1f, x_lambda=%.1f\n",
                      ev.visits, ev.alpkt, ev.beta, ev.pi, ev.agent_eval,
-                     ev.agent_eval_avg, ev.alpkt_median, ev.alpkt_online_median,
+                     ev.agent_eval_avg, ev.alpkt_tree,
                      ev.agent_x_mu, ev.agent_x_lambda);
 #endif
         }
@@ -1404,6 +1402,7 @@ Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_st
         result.policy_pass = freq_visits.back();
     }
 
+    // TODO: improve eval command and what it returns
     result.value = Utils::median(value_vec);
     const auto alpkt_median = Utils::median(alpkt_vec);
     result.alpha = (alpkt_median + m_rootstate.get_komi())
@@ -1438,7 +1437,7 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
              << ",first_move"
              << ",eval_update"
              << ",policy"
-             << ",net_eval"
+             << ",net_pi"
              << ",alpkt"
              << ",beta"
              << ",bonus"
@@ -1463,13 +1462,13 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
             ss << "," << m_rootstate.move_to_text(get_firstmove(id));
             ss << "," << get_firstmove_blackeval(id);
             ss << "," << node->get_policy();
-            ss << "," << node->get_net_eval();
+            ss << "," << node->get_net_pi();
             ss << "," << node->get_net_alpkt();
             ss << "," << node->get_net_beta();
-            ss << "," << node->get_eval_bonus();
-            ss << "," << node->get_eval_base();
+            ss << "," << node->get_quantile_lambda();
+            ss << "," << node->get_quantile_mu();
             ss << "," << node->get_visits();
-            ss << "," << node->get_agent_eval(FastBoard::BLACK);
+            ss << "," << node->get_agent_eval();
 #ifndef NDEBUG
             ss << "," << node->get_urgency()[0];
             ss << "," << node->get_urgency()[1];
@@ -1483,7 +1482,7 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
             }
             ss << std::endl;
 
-            value_vec.push_back(node->get_net_eval());
+            value_vec.push_back(node->get_net_pi());
             alpkt_vec.push_back(node->get_net_alpkt());
             beta_vec.push_back(node->get_net_beta());
         }
@@ -1502,11 +1501,11 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
 
         std::stringstream cs;
         cs << node->get_policy();
-        cs << ", " << node->get_net_eval();
+        cs << ", " << node->get_net_pi();
         cs << ", " << node->get_net_alpkt();
         cs << ", " << node->get_net_beta();
         cs << ", " << node->get_visits();
-        cs << ", " << node->get_agent_eval(FastBoard::BLACK);
+        cs << ", " << node->get_agent_eval();
 
         sgf_str.append("C[" + cs.str() + "]");
     }
