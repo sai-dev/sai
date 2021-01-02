@@ -69,6 +69,14 @@ std::pair<float, float> sigmoid(float alpha, float beta, float bonus);
 extern std::array<std::array<int, NUM_INTERSECTIONS>, 8>
     symmetry_nn_idx_table;
 
+struct AgentEval {
+    float lambda;
+    float mu;
+    float quantile_lambda;
+    float quantile_mu;
+    float alpkt_tree;
+};
+
 // See drain_evals() / resume_evals() for details.
 class NetworkHaltException : public std::exception {};
 
@@ -86,16 +94,6 @@ class Network {
     };
     using PolicyVertexPair = std::pair<float, int>;
     using Netresult = NNCache::Netresult;
-
-    // Results which may obtained by a Netresult together with a FastState
-    struct Netresult_extended {
-        float winrate;
-        float alpkt;
-        float pi;
-        float quantile_lambda;
-        float quantile_mu;
-        float agent_eval;
-    };
 
     Netresult get_output(const GameState *const state,
                          const Ensemble ensemble,
@@ -123,8 +121,8 @@ class Network {
     void benchmark(const GameState *const state,
                    const int iterations = 1600);
     static void show_heatmap(const FastState *const state,
-                             const Netresult &netres, const bool topmoves);
-    static Netresult_extended get_extended(const FastState &, const Netresult &result);
+                             const Netresult &netres, const bool topmoves,
+                             const AgentEval &agent);
     static std::vector<float> gather_features(const GameState *const state,
                                               const int symmetry,
                                               const int input_moves = DEFAULT_INPUT_MOVES,

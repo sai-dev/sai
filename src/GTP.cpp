@@ -981,7 +981,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         const auto vec = search->dump_evals(playouts, eval_string, eval_sgf_string);
         eval_sgf_string.append(")\n");
 
-        Network::show_heatmap(&game, vec, false);
+        Network::show_heatmap(&game, vec, false, search->get_root_agent_eval());
 
         cmdstream >> filename;
         if (cmdstream.fail()) {
@@ -1028,17 +1028,19 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         cmdstream >> symmetry;
 
         Network::Netresult vec;
+        search->prepare_root_node();
         if (cmdstream.fail()) {
             // Default = DIRECT with no symmetric change
             vec = s_network->get_output(
                 &game, Network::Ensemble::DIRECT,
                 Network::IDENTITY_SYMMETRY, false, cfg_use_nncache);
         } else if (symmetry == "all") {
+            const auto agent_eval = search->get_root_agent_eval();
             for (auto s = 0; s < Network::NUM_SYMMETRIES; ++s) {
                 vec = s_network->get_output(
                     &game, Network::Ensemble::DIRECT, s,
                     false, cfg_use_nncache);
-                Network::show_heatmap(&game, vec, false);
+                Network::show_heatmap(&game, vec, false, agent_eval);
             }
         } else if (symmetry == "average" || symmetry == "avg") {
             vec = s_network->get_output(
@@ -1053,7 +1055,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         }
 
         if (symmetry != "all") {
-            Network::show_heatmap(&game, vec, false);
+            Network::show_heatmap(&game, vec, false, search->get_root_agent_eval());
         }
 
         gtp_printf(id, "");

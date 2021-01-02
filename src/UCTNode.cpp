@@ -104,22 +104,16 @@ bool UCTNode::create_children(Network & network,
     value = (to_move == FastBoard::BLACK) ? stm_eval : 1.0f - stm_eval;
 
     if (network.m_value_head_sai) {
+        m_net_alpkt = alpkt = state.get_alpkt(raw_netlist.alpha);
         m_net_beta = beta = raw_netlist.beta;
-        const auto result_extended = Network::get_extended(state, raw_netlist);
-        m_net_alpkt = alpkt = result_extended.alpkt;
-        m_net_quantile_lambda = result_extended.quantile_lambda;
-        m_net_quantile_mu = result_extended.quantile_mu;
-        m_net_pi = result_extended.pi; // equal to value
-        m_agent_eval = result_extended.agent_eval;
+        m_net_pi = value;
+
+        set_lambda_mu();
     } else {
-        m_net_beta = beta = 1.0f;
         const auto alpha = raw_netlist.alpha; // logits of winrate
         m_net_alpkt = alpkt = (to_move == FastBoard::BLACK) ? alpha : -alpha;
-        m_net_quantile_lambda = 0.0f;
-        m_net_quantile_mu = 0.0f;
-
+        m_net_beta = beta = 1.0f;
         m_net_pi = value;
-        m_agent_eval = value;
     }
 
     std::vector<int> stabilizer_subgroup;
@@ -311,12 +305,17 @@ void UCTNode::update_quantile(std::atomic<float> &old_quantile,
                               float old_gxgp_sum, float old_gp_sum,
                               float parameter, int new_visits,
                               float new_alpkt, float new_beta) {
+    if (std::abs(parameter) < 1e-5) {
+        old_quantile = 0;
+        return;
+    }
     const auto avg_p = 0.5f * parameter + (1.0f - parameter) * get_avg_pi();
 
     // Sometimes this function is not called when visits==0 so be
     // flexible and set the first value also in those cases.
     if (new_visits <= 8 && old_quantile == 0.0f) {
-        old_quantile = std::log(avg_p / (1.0f - avg_p)) / new_beta - new_alpkt;
+        // No numerical issues here, as avg_p is away from 0 and 1
+        old_quantile = (std::log(avg_p) - std::log1p(-avg_p)) / new_beta - new_alpkt;
     } else {
         const auto avg_f_prime = old_gp_sum / float(new_visits);
         const auto avg_f = old_gxgp_sum / float(new_visits)
@@ -488,23 +487,16 @@ float UCTNode::get_avg_pi(int tomove) const {
     return avg_pi;
 }
 
-float UCTNode::get_agent_eval(int tomove) const {
-    if (tomove == FastBoard::WHITE) {
-        return 1.0f - m_agent_eval;
-    }
-    return m_agent_eval;
-}
-
 float UCTNode::get_quantile_lambda(int tomove) const {
     if (tomove == FastBoard::WHITE) {
-        return 1.0f - m_quantile_lambda;
+        return -m_quantile_lambda;
     }
     return m_quantile_lambda;
 }
 
 float UCTNode::get_quantile_mu(int tomove) const {
     if (tomove == FastBoard::WHITE) {
-        return 1.0f - m_quantile_mu;
+        return -m_quantile_mu;
     }
     return m_quantile_mu;
 }
@@ -527,9 +519,8 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
     auto total_visited_policy = 0.0f;
     auto parentvisits = size_t{0};
 
-    // fpu reduction is computed on parent agent_eval or on the
-    // largest of the children which have already been visited,
-    // whichever is larger.
+    // fpu reduction is computed on the largest of the children which
+    // have already been visited,
     const auto color = currstate.get_to_move();
     auto max_eval = 0.0f;
 
@@ -898,7 +889,12 @@ void UCTNode::wait_expanded() {
 
 StateEval UCTNode::state_eval() const {
     StateEval ev(get_visits(), m_net_alpkt, m_net_beta, m_net_pi,
-                 m_agent_eval, m_net_quantile_lambda, m_net_quantile_mu,
+                 m_quantile_lambda, m_quantile_mu,
                  get_eval(), -m_quantile_one);
     return ev;
+}
+
+void UCTNode::set_lambda_mu() {
+    m_lambda = cfg_lambda;
+    m_mu = cfg_mu;
 }

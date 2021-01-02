@@ -100,6 +100,10 @@ public:
 
     FullBoard board;
 
+    float get_alpkt(float alpha) const {
+        return (board.black_to_move() ? alpha : -alpha) - m_komi;
+    }
+
 private:
     float m_komi;
     int m_handicap;

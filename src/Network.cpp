@@ -1206,36 +1206,9 @@ Network::Netresult Network::get_output_internal(
     return result;
 }
 
-Network::Netresult_extended Network::get_extended(const FastState& state, const Network::Netresult& result) {
-    const auto komi = state.get_komi();
-    const auto alpha = result.alpha;
-    const auto beta = result.beta;
-
-    const auto winrate = result.value;
-    const auto alpkt = (state.board.black_to_move() ? alpha : -alpha) - komi;
-
-    const auto pi = sigmoid(alpkt, beta, 0.0f);
-
-    const auto pi_lambda = std::make_pair((1-cfg_lambda)*pi.first + cfg_lambda*0.5f,
-                                          (1-cfg_lambda)*pi.second + cfg_lambda*0.5f);
-    const auto pi_mu = std::make_pair((1-cfg_mu)*pi.first + cfg_mu*0.5f,
-                                      (1-cfg_mu)*pi.second + cfg_mu*0.5f);
-
-    const auto sigma_inv_pi_lambda = std::log(pi_lambda.first) - std::log(pi_lambda.second);
-    const auto quantile_lambda = (cfg_lambda == 0) ? 0.0f : sigma_inv_pi_lambda / beta - alpkt;
-
-    const auto sigma_inv_pi_mu = std::log(pi_mu.first) - std::log(pi_mu.second);
-    const auto quantile_mu = (cfg_mu == 0) ? 0.0f : sigma_inv_pi_mu / beta - alpkt;
-
-    const auto agent_eval = Utils::sigmoid_interval_avg(alpkt, beta, quantile_mu, quantile_lambda);
-
-    return { winrate, alpkt, pi.first, quantile_lambda, quantile_mu, agent_eval };
-}
-
-
 void Network::show_heatmap(const FastState* const state,
                            const Netresult& result,
-                           const bool topmoves) {
+                           const bool topmoves, const AgentEval &agent) {
     std::vector<std::string> display_map;
     std::string line;
 
@@ -1277,16 +1250,17 @@ void Network::show_heatmap(const FastState* const state,
 
     myprintf("pass: %d, illegal: %d\n", pass_policy, illegal_millis);
     if (result.is_sai) {
-        const auto result_extended = get_extended(*state, result);
-        myprintf("alpha: %.2f,          ", result.alpha);
-        myprintf("beta: %.2f,      ", result.beta);
-        myprintf("winrate: %.1f%%\n", result_extended.winrate*100);
-        myprintf("black alpkt: %2.2f,   ", result_extended.alpkt);
-        myprintf("x_bar: %.2f,     ", result_extended.quantile_lambda);
-        myprintf("x_base: %.2f\n", result_extended.quantile_mu);
-        myprintf("komi: %.1f,            ", state->get_komi());
-        myprintf("lambda: %.2f,    ", cfg_lambda);
-        myprintf("mu: %.2f\n", cfg_mu);
+        auto x = agent.quantile_lambda;
+        auto y = agent.quantile_mu;
+        if (y<x) std::swap(x,y);
+        myprintf("alpha: %5.2f,      ", result.alpha);
+        myprintf("beta: %.2f,          ", result.beta);
+        myprintf("winrate: %2.1f%%\n", result.value*100);
+        myprintf("komi: %2.1f,         ", state->get_komi());
+        myprintf("lambda: %.2f,        ", agent.lambda);
+        myprintf("mu: %.2f\n", agent.mu);
+        myprintf("alpkt tree: %3.2f, ", agent.alpkt_tree);
+        myprintf("interval: [%.1f, %.1f]\n", x, y);
     } else {
         myprintf("value: %.1f%%\n", result.value*100);
     }

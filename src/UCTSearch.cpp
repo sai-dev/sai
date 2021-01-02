@@ -1271,10 +1271,10 @@ int UCTSearch::think(int color, passflag_t passflag) {
             child_for_score = chosen_child;
 
 #ifndef NDEBUG
-            myprintf("visits=%d, alpkt=%.2f, beta=%.3f, pi=%.3f, agent=%.3f, "
+            myprintf("visits=%d, alpkt=%.2f, beta=%.3f, pi=%.3f, "
                      "avg=%.3f, alpkt_tree=%.3f, "
                      "x_mu=%.1f, x_lambda=%.1f\n",
-                     ev.visits, ev.alpkt, ev.beta, ev.pi, ev.agent_eval,
+                     ev.visits, ev.alpkt, ev.beta, ev.pi,
                      ev.agent_eval_avg, ev.alpkt_tree,
                      ev.agent_x_mu, ev.agent_x_lambda);
 #endif
@@ -1443,7 +1443,6 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
              << ",bonus"
              << ",base"
              << ",visits"
-             << ",agent_eval"
 #ifndef NDEBUG
              << ",urgency"
              << ",psa"
@@ -1468,7 +1467,6 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
             ss << "," << node->get_quantile_lambda();
             ss << "," << node->get_quantile_mu();
             ss << "," << node->get_visits();
-            ss << "," << node->get_agent_eval();
 #ifndef NDEBUG
             ss << "," << node->get_urgency()[0];
             ss << "," << node->get_urgency()[1];
@@ -1505,7 +1503,6 @@ void UCTSearch::dump_evals_recursion(std::string & dump_str,
         cs << ", " << node->get_net_alpkt();
         cs << ", " << node->get_net_beta();
         cs << ", " << node->get_visits();
-        cs << ", " << node->get_agent_eval();
 
         sgf_str.append("C[" + cs.str() + "]");
     }
@@ -1919,4 +1916,12 @@ float UCTSearch::final_japscore() {
     } else {
         return NUM_INTERSECTIONS * 100.0;
     }
+}
+
+AgentEval UCTSearch::get_root_agent_eval() const {
+    return m_root->get_agent_eval();
+}
+
+void UCTSearch::prepare_root_node() {
+    m_root->prepare_root_node(m_network, m_rootstate.board.get_to_move(), m_nodes, m_rootstate, false, false);
 }

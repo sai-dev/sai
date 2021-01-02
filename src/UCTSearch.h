@@ -143,6 +143,8 @@ public:
     void tree_stats();
     std::string explain_last_think() const;
     SearchResult play_simulation(GameState& currstate, UCTNode* const node);
+    AgentEval get_root_agent_eval() const;
+    void prepare_root_node();
 
 private:
     float get_min_psa_ratio() const;

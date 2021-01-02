@@ -279,7 +279,8 @@ void UCTNode::inflate_all_children() {
 void UCTNode::prepare_root_node(Network & network, int color,
                                 std::atomic<int>& nodes,
                                 GameState& root_state,
-                                bool fast_roll_out) {
+                                bool fast_roll_out,
+                                bool verbose) {
     float root_value, root_alpkt, root_beta;
 
     const auto had_children = has_children();
@@ -292,19 +293,21 @@ void UCTNode::prepare_root_node(Network & network, int color,
         m_visits++;
     }
 
+    if (verbose) {
 #ifndef NDEBUG
-    myprintf("NN eval=%f. Agent eval=%f\n", get_net_pi(color), get_agent_eval(color));
+        myprintf("NN eval=%f.\n", get_net_pi(color));
 #else
-    if (!fast_roll_out) {
-        auto x = get_quantile_mu(color);
-        auto y = get_quantile_lambda(color);
-        if (y < x) {
-            std::swap(x, y);
+        if (!fast_roll_out) {
+            auto x = get_quantile_mu(color);
+            auto y = get_quantile_lambda(color);
+            if (y < x) {
+                std::swap(x, y);
+            }
+            myprintf("NN eval=%f. (lambda=%.2f, mu=%.2f, interval [%.1f ; %.1f])\n",
+                     get_net_pi(color), cfg_lambda, cfg_mu, x, y);
         }
-        myprintf("NN eval=%f. Agent eval=%f (lambda=%.2f, mu=%.2f, interval [%.1f ; %.1f])\n",
-                 get_net_pi(color), get_agent_eval(color), cfg_lambda, cfg_mu, x, y);
-    }
 #endif
+    }
 
     // There are a lot of special cases where code assumes
     // all children of the root are inflated, so do that.

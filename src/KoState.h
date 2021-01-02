@@ -44,18 +44,17 @@ struct StateEval {
     float alpkt = 0.0f;
     float beta = 1.0f;
     float pi = 0.5f;
-    float agent_eval = 0.5f;
     float agent_x_lambda = 0.0f;
     float agent_x_mu = 0.0f;
     float agent_eval_avg = 0.5f;
     float alpkt_tree = 0.0f;
 
     StateEval(int visits, float alpkt, float beta, float pi,
-              float agent_eval, float agent_x_lambda, float agent_x_mu,
+              float agent_x_lambda, float agent_x_mu,
               float agent_eval_avg,
               float alpkt_tree)
     : visits(visits), alpkt(alpkt), beta(beta), pi(pi),
-      agent_eval(agent_eval), agent_x_lambda(agent_x_lambda),
+      agent_x_lambda(agent_x_lambda),
       agent_x_mu(agent_x_mu), agent_eval_avg(agent_eval_avg),
       alpkt_tree(alpkt_tree)
     {}

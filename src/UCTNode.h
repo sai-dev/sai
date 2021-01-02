@@ -121,7 +121,8 @@ public:
     void prepare_root_node(Network & network, int color,
                            std::atomic<int>& nodecount,
                            GameState& state,
-                           bool fast_roll_out = false);
+                           bool fast_roll_out = false,
+                           bool verbose = true);
     bool get_children_visits(const GameState& state, const UCTNode& root,
                              std::vector<float> & probabilities,
                              bool standardize = true);
@@ -144,9 +145,10 @@ public:
     void clear_expand_state();
 
     float get_avg_pi(int tomove = FastBoard::BLACK) const;
-    float get_agent_eval(int tomove = FastBoard::BLACK) const;
     float get_net_alpkt() const { return m_net_alpkt; }
     float get_net_beta() const { return m_net_beta; }
+    float get_lambda() const { return m_lambda; }
+    float get_mu() const { return m_mu; }
     float get_quantile_lambda(int tomove = FastBoard::BLACK) const;
     float get_quantile_mu(int tomove = FastBoard::BLACK) const;
     float get_quantile_one() const { return m_quantile_one; }
@@ -157,6 +159,10 @@ public:
         m_father_quantile_mu = father->get_quantile_mu();
     }
     StateEval state_eval() const;
+    void set_lambda_mu();
+    AgentEval get_agent_eval() const {
+        return {m_lambda, m_mu, m_quantile_lambda, m_quantile_mu, -m_quantile_one};
+    }
 
 private:
     enum Status : char {
@@ -252,10 +258,8 @@ private:
 
     float m_net_alpkt{0.0f}; // alpha + \tilde k
     float m_net_beta{1.0f};
-    float m_net_quantile_lambda{0.0f};
-    float m_net_quantile_mu{0.0f};
-
-    float m_agent_eval{0.5f};
+    float m_lambda{0.0f};
+    float m_mu{0.0f};
 
     // should be equal to m_visits in single threading
     std::atomic<int> m_quantile_updates{0};
