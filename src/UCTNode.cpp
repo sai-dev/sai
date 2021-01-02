@@ -303,30 +303,32 @@ void UCTNode::update_gxx_sums(std::atomic<float> &old_gxgp_sum,
 
 void UCTNode::update_quantile(std::atomic<float> &old_quantile,
                               float old_gxgp_sum, float old_gp_sum,
-                              float parameter, int new_visits,
+                              float parameter, int new_visits, float avg_pi,
                               float new_alpkt, float new_beta) {
     if (std::abs(parameter) < 1e-5) {
-        old_quantile = 0;
+        old_quantile = 0.0f;
         return;
     }
-    const auto avg_p = 0.5f * parameter + (1.0f - parameter) * get_avg_pi();
+    if (new_visits <= 0) return; // should never happen
+    const auto avg_p = 0.5f * parameter + (1.0f - parameter) * avg_pi;
 
     // Sometimes this function is not called when visits==0 so be
     // flexible and set the first value also in those cases.
     if (new_visits <= 8 && old_quantile == 0.0f) {
         // No numerical issues here, as avg_p is away from 0 and 1
-        old_quantile = (std::log(avg_p) - std::log1p(-avg_p)) / new_beta - new_alpkt;
+        old_quantile = (std::log(avg_p) - std::log1p(-avg_p)) / std::max(0.01f, new_beta) - new_alpkt;
     } else {
         const auto avg_f_prime = old_gp_sum / float(new_visits);
         const auto avg_f = old_gxgp_sum / float(new_visits)
             + static_cast<float>(old_quantile) * avg_f_prime;
-        const auto delta = (avg_p - avg_f) / avg_f_prime;
+        const auto delta = (avg_p - avg_f) / std::max(0.1f, avg_f_prime);
         atomic_add(old_quantile, delta);
     }
 }
 
 void UCTNode::update_all_quantiles(float new_alpkt, float new_beta) {
     // Cache values to avoid race conditions.
+    const auto avg_pi = get_avg_pi();
     const auto old_q_lambda = static_cast<float>(m_quantile_lambda);
     const auto old_q_mu = static_cast<float>(m_quantile_mu);
     const auto old_q_one = static_cast<float>(m_quantile_one);
@@ -340,15 +342,15 @@ void UCTNode::update_all_quantiles(float new_alpkt, float new_beta) {
     update_quantile(m_quantile_lambda,
                     static_cast<float>(m_gxgp_sum_lambda),
                     static_cast<float>(m_gp_sum_lambda),
-                    cfg_lambda, new_visits, new_alpkt, new_beta);
+                    cfg_lambda, new_visits, avg_pi, new_alpkt, new_beta);
     update_quantile(m_quantile_mu,
                     static_cast<float>(m_gxgp_sum_mu),
                     static_cast<float>(m_gp_sum_mu),
-                    cfg_mu, new_visits, new_alpkt, new_beta);
+                    cfg_mu, new_visits, avg_pi, new_alpkt, new_beta);
     update_quantile(m_quantile_one,
                     static_cast<float>(m_gxgp_sum_one),
                     static_cast<float>(m_gp_sum_one),
-                    1, new_visits, new_alpkt, new_beta);
+                    1, new_visits, avg_pi, new_alpkt, new_beta);
 }
 
 bool UCTNode::has_children() const {

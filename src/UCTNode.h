@@ -139,7 +139,7 @@ public:
     UCTStats get_uct_stats() const;
     void update_quantile(std::atomic<float> &old_quantile, float old_gxgp_sum,
                          float old_gp_sum, float parameter, int new_visits,
-                         float new_alpkt, float new_beta);
+                         float avg_pi, float new_alpkt, float new_beta);
     void update_all_quantiles(float new_alpkt, float new_beta);
     std::tuple<float, float, float> score_stats() const;
     void clear_expand_state();
