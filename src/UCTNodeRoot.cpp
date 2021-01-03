@@ -303,8 +303,10 @@ void UCTNode::prepare_root_node(Network & network, int color,
             if (y < x) {
                 std::swap(x, y);
             }
-            myprintf("NN eval=%f. (lambda=%.2f, mu=%.2f, interval [%.1f ; %.1f])\n",
-                     get_net_pi(color), cfg_lambda, cfg_mu, x, y);
+            myprintf("NN eval=%.3f, tree eval=%.3f; "
+                     "lambda=%.2f, mu=%.2f, interval [%.1f ; %.1f]\n",
+                     get_raw_eval(color), get_net_pi(color),
+                     get_lambda(), get_mu(), x, y);
         }
 #endif
     }

@@ -88,6 +88,8 @@ public:
     std::pair<int, int> get_accepted_scores() const { return m_acceptedscore; }
     float get_final_accepted_score() const;
     void update_accepted_score(std::tuple<float, float, float> node_stats, bool switch_player = false);
+    bool is_cpu_color() const;
+    void set_cpu_color(int which_color);
 
 private:
     bool valid_handicap(int stones);
@@ -96,6 +98,7 @@ private:
     TimeControl m_timecontrol;
     int m_resigned{FastBoard::EMPTY};
     std::pair<int, int> m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS};
+    int m_cpu_color{FastBoard::EMPTY};
 };
 
 #endif

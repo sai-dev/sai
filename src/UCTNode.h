@@ -159,7 +159,7 @@ public:
         m_father_quantile_mu = father->get_quantile_mu();
     }
     StateEval state_eval() const;
-    void set_lambda_mu();
+    void set_lambda_mu(const GameState &state);
     AgentEval get_agent_eval() const {
         return {m_lambda, m_mu, m_quantile_lambda, m_quantile_mu, -m_quantile_one};
     }

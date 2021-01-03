@@ -41,6 +41,7 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -90,8 +91,10 @@ bool cfg_laddercode;
 bool cfg_pass_agree;
 float cfg_noise_value;
 float cfg_noise_weight;
-float cfg_lambda;
-float cfg_mu;
+std::array<float, 4> cfg_lambda;
+std::array<float, 4> cfg_mu;
+std::string cfg_lambda_default_str;
+std::string cfg_mu_default_str;
 float cfg_betatune;
 float cfg_komi;
 int cfg_random_cnt;
@@ -358,8 +361,21 @@ void GTP::setup_default_parameters() {
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_komi = KOMI;
-    cfg_lambda = 0.3f;
-    cfg_mu = 0.03f;
+    cfg_lambda = {0.3f, 0.0f, 0.0f, 0.0f};
+    cfg_mu =  {0.03f, 0.0f, 0.0f, 0.0f};
+    {
+        std::ostringstream lambdas, mus;
+        for (auto i=0 ; i<4 ; i++) {
+            if (i) {
+                lambdas << ",";
+                mus << ",";
+            }
+            lambdas << cfg_lambda[i];
+            mus << cfg_mu[i];
+        }
+        cfg_lambda_default_str = lambdas.str();
+        cfg_mu_default_str = mus.str();
+    }
     cfg_betatune = 0.0f;
     // This will be overwritten in initialize() after network size is known.
     cfg_max_tree_size = UCTSearch::DEFAULT_MAX_MEMORY;
@@ -470,6 +486,7 @@ const std::string GTP::s_commands[] = {
     "lz-genmove_analyze",
     "lz-memory_report",
     "lz-setoption",
+    "lz-search_reset",
     "gomill-explain_last_move",
     ""
 };
@@ -673,6 +690,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             if (!game.play_textmove(color, vertex)) {
                 gtp_fail_printf(id, "illegal move");
             } else {
+                // Now should be CPU turn
+                game.set_cpu_color(FastBoard::THIS_COLOR);
                 gtp_printf(id, "");
             }
         } else {
@@ -719,6 +738,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         // start thinking
         {
             game.set_to_move(who);
+            game.set_cpu_color(FastBoard::THIS_COLOR);
             // Outputs winrate and pvs for lz-genmove_analyze
             int move = search->think(who);
             game.play_move(move);
@@ -788,6 +808,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             game.set_passes(0);
             {
                 game.set_to_move(who);
+                game.set_cpu_color(FastBoard::THIS_COLOR);
                 int move = search->think(who, UCTSearch::NOPASS);
                 game.play_move(move);
 
@@ -924,6 +945,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         size_t blunders = 0, last = 0, movenum = game.get_movenum();
 #endif
         do {
+            game.set_cpu_color(FastBoard::BOTH_COLORS);
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
 #ifndef NDEBUG
             if (game.is_blunder()) {
@@ -944,6 +966,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 #endif
         return;
     } else if (command.find("go") == 0 && command.size() < 6) {
+        game.set_cpu_color(FastBoard::THIS_COLOR);
         int move = search->think(game.get_to_move());
         game.play_move(move);
 
@@ -990,8 +1013,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             const auto stpos = (slash == std::string::npos ? 0 : slash + 1);
             std::sprintf(num, "%03zu", game.get_movenum());
             std::sprintf(komi, "%.1f", game.get_komi());
-            std::sprintf(lambda, "%.2f", cfg_lambda);
-            std::sprintf(mu, "%.2f", cfg_mu);
+            std::sprintf(lambda, "%.2f", cfg_lambda[0]);
+            std::sprintf(mu, "%.2f", cfg_mu[0]);
             filename = std::string("sde-") + num + "-" + cfg_weightsfile.substr(stpos,4)
                 + "-" + komi + "-" + lambda + "-" + mu;
             // todo code the position
@@ -1382,6 +1405,9 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         return;
     } else if (command.find("lz-setoption") == 0) {
         return execute_setoption(*search.get(), id, command);
+    } else if (command.find("lz-search_reset") == 0) {
+        search = std::make_unique<UCTSearch>(game, *s_network);
+        return;
     } else if (command.find("gomill-explain_last_move") == 0) {
         gtp_printf(id, "%s\n", search->explain_last_think().c_str());
         return;
@@ -1548,24 +1574,18 @@ void GTP::execute_setoption(UCTSearch & search,
 
         gtp_printf(id, "");
     } else if (name == "lambda") {
-        std::istringstream valuestream(value);
-        float lambda;
-        valuestream >> lambda;
-        if (cfg_lambda != lambda) {
-            cfg_lambda = lambda;
-            search.reset();
+        if (!parse_agent_params(cfg_lambda, value)) {
+            gtp_fail_printf(id, "incorrect value");
+            return;
         }
-
+        dump_agent_params();
         gtp_printf(id, "");
     } else if (name == "mu") {
-        std::istringstream valuestream(value);
-        float mu;
-        valuestream >> mu;
-        if (cfg_mu != mu) {
-            cfg_mu = mu;
-            search.reset();
+        if (!parse_agent_params(cfg_mu, value)) {
+            gtp_fail_printf(id, "incorrect value");
+            return;
         }
-
+        dump_agent_params();
         gtp_printf(id, "");
     } else if (name == "playouts") {
         std::istringstream valuestream(value);

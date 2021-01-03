@@ -119,7 +119,6 @@ public:
     static constexpr auto EXPLORE_MOVE_VISITS = 30;
 
     UCTSearch(GameState& g, Network & network);
-    void reset();
     int think(int color, passflag_t passflag = NORMAL);
 #ifdef USE_EVALCMD
     void set_firstmove(int move);

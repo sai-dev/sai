@@ -248,16 +248,6 @@ float Utils::sigmoid_interval_avg(float alpkt, float beta, float s, float t) {
     return main_term - bb + aa;
 }
 
-float Utils::agent_winrate_transform(float p) {
-    const auto p_mu = cfg_mu * 0.5f + (1.0f - cfg_mu) * p;
-
-    // deal with 0/0 when lambda and mu are equal
-    if (std::abs(cfg_lambda-cfg_mu) < 0.001f)
-        return p_mu;
-    const auto p_lambda = cfg_lambda * 0.5f + (1.0f - cfg_lambda) * p;
-    return 1.0f / (1.0f + (std::log(p_lambda) - std::log(p_mu)) / (std::log(1-p_mu) - std::log(1-p_lambda)));
-}
-
 float Utils::log_sigmoid(float x) {
     // Returns log(1/(1+exp(-x))
     // When sigmoid is about 1, log(sigmoid) is about 0 but not very precise
@@ -322,4 +312,54 @@ const std::string Utils::leelaz_file(std::string file) {
     boost::filesystem::create_directories(dir);
     dir /= file;
     return dir.string();
+}
+
+bool Utils::parse_agent_params(std::array<float, 4> &params, const std::string &str) {
+    std::vector<float> numbers;
+    std::stringstream ss(str);
+    while (ss.good()) {
+        std::string substr;
+        std::getline(ss, substr, ',');
+        numbers.push_back(std::stof(substr));
+    }
+    // auto it_str = str.cbegin();
+    // const auto ok = phrase_parse(it_str, str.cend(),
+    //                              *x3::float_, ",", numbers);
+    // if (!ok || it_str != str.cend()) {
+    //         return false;
+    //     }
+    const auto n = numbers.size();
+    if (n>4) {
+        return false;
+    }
+    //    params[0] = numbers[0];
+    switch(n) {
+    case 1:
+        // CPU when behind = CPU when ahead
+        numbers.push_back(numbers[0]);
+        // fall through
+    case 2:
+        // human when ahead = CPU when ahead
+        numbers.push_back(numbers[0]);
+        // fall through
+    case 3:
+        // human when behind = CPU when behind
+        numbers.push_back(numbers[1]);
+    }
+    std::copy(cbegin(numbers), cend(numbers), begin(params));
+
+    return true;
+}
+
+void Utils::dump_agent_params() {
+    std::array<std::string, 4> labels = {"Agent parameters (lambda, mu):"
+                                         "\n CPU,   ahead",
+                                        ", behind",
+                                         "\n human, ahead",
+                                        ", behind"};
+    for (auto i = 0 ; i<4 ; i++) {
+        myprintf("%s (%.2f, %.2f)", labels[i].c_str(), cfg_lambda[i], cfg_mu[i]);
+    }
+    myprintf("\n");
+
 }

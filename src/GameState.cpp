@@ -48,6 +48,7 @@
 #include "FullBoard.h"
 #include "KoState.h"
 #include "UCTSearch.h"
+#include "Utils.h"
 
 StateEval GameState::get_state_eval() const {
     return KoState::get_state_eval();
@@ -68,6 +69,8 @@ void GameState::init_game(int size, float komi) {
 
     m_resigned = FastBoard::EMPTY;
     m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS };
+    m_cpu_color = FastBoard::EMPTY;
+    Utils::dump_agent_params();
 }
 
 void GameState::reset_game() {
@@ -80,6 +83,7 @@ void GameState::reset_game() {
 
     m_resigned = FastBoard::EMPTY;
     m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS };
+    m_cpu_color = FastBoard::EMPTY;
 }
 
 bool GameState::forward_move() {
@@ -449,5 +453,52 @@ float GameState::get_final_accepted_score() const {
     } else {
         // return an impossible value
         return std::numeric_limits<float>::infinity();
+    }
+}
+
+void GameState::set_cpu_color(int which_color) {
+    auto new_color = m_cpu_color;
+    std::string role;
+    switch (which_color) {
+    case FastBoard::BOTH_COLORS:
+        new_color = FastBoard::INVAL;
+        break;
+    case FastBoard::THIS_COLOR:
+        new_color = get_to_move();
+        break;
+    case FastBoard::OTHER_COLOR:
+        new_color = !get_to_move();
+        break;
+    }
+    switch (new_color) {
+    case FastBoard::INVAL:
+        role = "both players";
+        break;
+    case FastBoard::BLACK:
+        role = "Black";
+        break;
+    case FastBoard::WHITE:
+        role = "White";
+        break;
+    }
+    if (m_cpu_color == FastBoard::EMPTY) {
+        m_cpu_color = new_color;
+        Utils::myprintf("CPU role fixed as %s.\n", role.c_str());
+    } else if (which_color == FastBoard::BOTH_COLORS &&
+               m_cpu_color != new_color) {
+        Utils::myprintf("Warning: CPU role was previously fixed, and cannot be set to both players now.\n"
+                        "The commands 'clear_board' and 'loadsgf' will reset it to undefined.\n");
+    } else if (which_color == FastBoard::THIS_COLOR &&
+               m_cpu_color == !new_color) {
+        Utils::myprintf("Warning: CPU role was previously fixed differently, and cannot be changed now.\n"
+                        "The commands 'clear_board' and 'loadsgf' will reset it to undefined.\n");
+    }
+}
+
+bool GameState::is_cpu_color() const {
+    if (m_cpu_color == FastBoard::INVAL) {
+        return true;
+    } else {
+        return m_cpu_color == get_to_move();
     }
 }

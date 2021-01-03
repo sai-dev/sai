@@ -50,10 +50,11 @@ namespace Utils {
     void log_input(const std::string& input);
     bool input_pending();
     float sigmoid_interval_avg(float alpkt, float beta, float s, float t);
-    float agent_winrate_transform(float p);
     float log_sigmoid(float x);
     float median(std::vector<float> & sample);
     float winner (float score);
+    bool parse_agent_params(std::array<float, 4> &params, const std::string &str);
+    void dump_agent_params();
 
     template<class T>
     void atomic_add(std::atomic<T> &f, T d) {

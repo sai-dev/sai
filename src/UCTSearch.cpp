@@ -131,15 +131,6 @@ SearchResult SearchResult::from_node(const UCTNode* node, bool sai_head) {
                                    node->get_net_beta(), sai_head);
 }
 
-void UCTSearch::reset() {
-    set_playout_limit(cfg_max_playouts);
-    set_visit_limit(cfg_max_visits);
-
-    m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
-    m_last_rootstate.reset(nullptr);
-    m_nodes = m_root->count_nodes_and_clear_expand_state();
-}
-
 bool UCTSearch::advance_to_new_rootstate() {
     if (!m_root || !m_last_rootstate) {
         // No current state
@@ -333,6 +324,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     auto restrict_return = false;
     auto update_with_current = false;
 
+    const auto savestate = currstate;
     if (node->has_children() && !result.valid()) {
         auto next = node->uct_select_child(currstate,
                                            node == m_root.get(),
@@ -357,6 +349,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
                     currstate.set_passes(0);
                 }
                 result = play_simulation(currstate, next);
+                // Now currstate is the one at the end of the simulation
                 if (currstate.board.last_forced()) {
                     result.set_forced();
                 }
@@ -400,6 +393,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             current_node_result : result;
         const auto eval = node->update(result_for_updating, result.is_forced());
         if (m_network.m_value_head_sai) {
+            node->set_lambda_mu(savestate);
             node->update_all_quantiles(result_for_updating.get_alpkt(),
                                        result_for_updating.get_beta());
         }
@@ -471,8 +465,6 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  node->get_policy() * 100.0f,
                  -node->get_quantile_one(),
                  node->get_net_beta(),
-                 node->get_father_quantile_lambda(),
-                 node->get_father_quantile_mu(),
                  pv.c_str());
 #else
         myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %5.2f, den: %4d) "
@@ -503,7 +495,8 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
     if (y < x) {
         std::swap(x, y);
     }
-    myprintf("Final agent interval: [%.2f, %.2f].\n", x, y);
+    myprintf("Final agent lambda=%.2f, mu=%.2f, interval [%.1f, %.1f].\n",
+             parent.get_lambda(), parent.get_mu(), x, y);
     tree_stats(parent);
 }
 
@@ -606,7 +599,8 @@ void UCTSearch::tree_stats() {
     const auto maxvisit = (m_maxvisits == UNLIMITED_PLAYOUTS) ?
         "inf" : std::to_string(m_maxvisits);
     myprintf("lambda: %.1f, mu: %.1f, maxvisits: %s, maxplayouts: %s\n\n",
-             cfg_lambda, cfg_mu, maxvisit.c_str(), maxplay.c_str());
+             m_root->get_lambda(), m_root->get_mu(),
+             maxvisit.c_str(), maxplay.c_str());
 }
 
 
@@ -632,31 +626,10 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
 
     const auto color = m_rootstate.board.get_to_move();
 
-    // Raw network eval is a noisy estimate, but we want to be extra
-    // conservative before resigning, so this is also checked against
-    // the resign threshold. Mainly useful when lambda and/or mu are
-    // large, since in that case the agent winrate transform may yield
-    // a poor estimate of the winrate at true komi.
-    // auto raw_eval = m_root->get_net_pi();
-    // if (color == FastBoard::WHITE) {
-    //     raw_eval = 1.0f - raw_eval;
-    // }
-    // if (raw_eval > cfg_resign_threshold) {
-    //     return false;
-    // }
-
     const auto is_default_cfg_resign = cfg_resignpct < -0.5f;
-    // If lambda and mu are nonzero then the agent estimate of winrate
-    // is regressed towards 0.5, so transform resign threshold
-    // accordingly.
-
-    // ### TO DO ### improve by computing resign_threshold just once
-    // at program start and when lambda or mu change.
-    // const auto resign_threshold = Utils::agent_winrate_transform(cfg_resign_threshold);
     const auto resign_threshold = cfg_resign_threshold;
 
     if (besteval > resign_threshold) {
-        // eval > cfg_resign
         return false;
     }
 

@@ -156,9 +156,9 @@ static void parse_commandline(int argc, char *argv[]) {
                      "Weaken engine by limiting the number of visits.")
         ("komi", po::value<float>()->default_value(cfg_komi),
                      "Komi")
-        ("lambda", po::value<float>()->default_value(cfg_lambda),
+        ("lambda", po::value<std::string>()->default_value(cfg_lambda_default_str),
                      "Lambda value")
-        ("mu",  po::value<float>()->default_value(cfg_mu),
+        ("mu",  po::value<std::string>()->default_value(cfg_mu_default_str),
                      "Mu value")
         ("betatune",  po::value<float>()->default_value(cfg_betatune),
                      "Beta adjustment in log2 scale.")
@@ -528,8 +528,19 @@ static void parse_commandline(int argc, char *argv[]) {
         }
     }
 
-    cfg_lambda = vm["lambda"].as<float>();
-    cfg_mu = vm["mu"].as<float>();
+    if (!vm["lambda"].defaulted()) {
+        if (!parse_agent_params(cfg_lambda, vm["lambda"].as<std::string>())) {
+            printf("Wrong lambda: should be a comma-separated list of 1 to 4 numbers, without spaces.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    if (!vm["mu"].defaulted()) {
+        if (!parse_agent_params(cfg_mu, vm["mu"].as<std::string>())) {
+            printf("Wrong mu: should be a comma-separated list of 1 to 4 numbers, without spaces.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     cfg_betatune = vm["betatune"].as<float>();
     cfg_komi = vm["komi"].as<float>();
 

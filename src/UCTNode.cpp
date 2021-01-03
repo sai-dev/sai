@@ -107,8 +107,6 @@ bool UCTNode::create_children(Network & network,
         m_net_alpkt = alpkt = state.get_alpkt(raw_netlist.alpha);
         m_net_beta = beta = raw_netlist.beta;
         m_net_pi = value;
-
-        set_lambda_mu();
     } else {
         const auto alpha = raw_netlist.alpha; // logits of winrate
         m_net_alpkt = alpkt = (to_move == FastBoard::BLACK) ? alpha : -alpha;
@@ -206,6 +204,7 @@ bool UCTNode::create_children(Network & network,
                                                 network.m_value_head_sai);
     update(result);
     if (network.m_value_head_sai) {
+        set_lambda_mu(state);
         update_all_quantiles(alpkt, beta);
     }
     expand_done();
@@ -342,11 +341,11 @@ void UCTNode::update_all_quantiles(float new_alpkt, float new_beta) {
     update_quantile(m_quantile_lambda,
                     static_cast<float>(m_gxgp_sum_lambda),
                     static_cast<float>(m_gp_sum_lambda),
-                    cfg_lambda, new_visits, avg_pi, new_alpkt, new_beta);
+                    get_lambda(), new_visits, avg_pi, new_alpkt, new_beta);
     update_quantile(m_quantile_mu,
                     static_cast<float>(m_gxgp_sum_mu),
                     static_cast<float>(m_gp_sum_mu),
-                    cfg_mu, new_visits, avg_pi, new_alpkt, new_beta);
+                    get_mu(), new_visits, avg_pi, new_alpkt, new_beta);
     update_quantile(m_quantile_one,
                     static_cast<float>(m_gxgp_sum_one),
                     static_cast<float>(m_gp_sum_one),
@@ -896,7 +895,15 @@ StateEval UCTNode::state_eval() const {
     return ev;
 }
 
-void UCTNode::set_lambda_mu() {
-    m_lambda = cfg_lambda;
-    m_mu = cfg_mu;
+void UCTNode::set_lambda_mu(const GameState &state) {
+    auto i = 0;
+    if (!state.is_cpu_color()) {
+        i = 2;
+    }
+    if (get_raw_eval(state.get_to_move()) < 0.5f) {
+        i++;
+    }
+
+    m_lambda = cfg_lambda[i];
+    m_mu = cfg_mu[i];
 }
