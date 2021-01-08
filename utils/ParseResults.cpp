@@ -1,11 +1,12 @@
-#include<algorithm>
-#include<cmath>
-#include<fstream>
-#include<iostream>
-#include<map>
-#include<random>
-#include<string>
-#include<vector>
+#include <functional>
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <map>
 
 using namespace std;
 
@@ -19,57 +20,106 @@ struct sainet {
     string descr;
     int gener;
     float rating = -1.0f;
-    int index = 0;
-    int hookdist = -1;
-    int rank = 0;
-    bool won_once = false;
-    bool lost_once = false;
+    int index = -1;
+
+    bool is_valid() const noexcept { return !hash.empty() && cumul >= 0.0; }
+    bool has_rating() const noexcept { return rating >= 0.0f; }
+
+    friend inline bool operator<(const sainet & net1, const sainet & net2) noexcept{
+        return net1.cumul < net2.cumul;
+    }
 };
 
 struct match {
     string hash1;
     string hash2;
-    int h1wins;
-    int h2wins;
-    int n;
+    int idx1 = -1;
+    int idx2 = -1;
+    int h1wins = 0;
+    int h2wins = 0;
+    int num = 0;
+
+    int jigos() const noexcept { return num - h1wins - h2wins; }
+
+    bool irrelevant() const noexcept {
+        return idx1 == -1 || idx2 == -1 || num == 0;
+    }
+
+    bool is_valid() const noexcept {
+        return !hash1.empty() && !hash2.empty()
+            && num >= 0 && h1wins >= 0 && h2wins >= 0
+            && num >= h1wins + h2wins;
+    }
+
+#if 0
+    void flip() noexcept {
+        swap(hash1,  hash2);
+        swap(idx1,   idx2);
+        swap(h1wins, h2wins);
+    }
+#endif
 };
 
-struct wincount {
-    int idx1;
-    int idx2;
-    int wins;
-    int num;
+struct net_status{
+    int hook_dist = -1;
+    unsigned int rank = 0;
+    bool always_won = true;
+    bool always_lost = true;
 };
+
+using nets_t    = vector<sainet>;
+using matches_t = vector<match>;
+using stats_t   = vector<net_status>;
+
+using tab_t = vector< vector<int> >;
+
+
+enum filter_mode {
+    KEEP_ALL_CONNECTED,
+    DROP_ONLY_LEAFS,
+    DROP_LEAFS_AND_BEFORE_HOOK
+};
+
+namespace {
+
+inline void print_match(const match & m){
+    cerr << "Match: ";
+    if(min(m.idx1, m.idx2) != -1)
+        cerr << "[" << m.idx1 << "-" << m.idx2 << "] ";
+    cerr << m.hash1.substr(0,8)
+         << " vs "    << m.hash2.substr(0,8)
+         << " (" << m.h1wins << "/" << m.jigos() << "/" << m.h2wins << ")\n";
+}
+
 
 enum tags {
-    NA = 0,  // Zero is 'na': if a new tag is found, accessing the map
-             // inserts a new pair whose value is initialized to 0
     HASH,
     BLOCKS,
     DESCRIPTION,
     FILTERS,
     TRAINING_COUNT,
     TRAINING_STEPS,
-    GAME_COUNT };
+    GAME_COUNT,
+    NA, // for un-recognised tages [must be last]
+};
 
-static std::map<std::string, tags> tag_v =
-    {
-        { "\"hash\"", HASH },
-        { "\"blocks\"", BLOCKS },
-        { "\"description\"", DESCRIPTION },
-        { "\"filters\"", FILTERS },
-        { "\"training_count\"", TRAINING_COUNT },
-        { "\"training_steps\"", TRAINING_STEPS },
-        { "\"game_count\"", GAME_COUNT }
+inline tags tag_type(const string & tag)
+{
+    static const vector<string> known_tags = {
+        "\"hash\"",            // HASH
+        "\"blocks\"",          // BLOCKS
+        "\"description\"",     // DESCRIPTION
+        "\"filters\"",         // FILTERS
+        "\"training_count\"",  // TRAINING_COUNT
+        "\"training_steps\"",  // TRAINING_STEPS
+        "\"game_count\""       // GAME_COUNT
     };
 
-typedef vector< vector<int> > tab_t;
+    const vector<string>::const_iterator it =
+        find(begin(known_tags), end(known_tags), tag);
 
-vector<sainet> nets;
-vector<match> mats;
-vector<wincount> wins;
-auto ELO_PRIOR_STD = 0.0f;
-
+    return it == end(known_tags) ? NA : static_cast<tags>( distance(begin(known_tags), it) );
+}
 
 void get_first_line(ifstream& data, string& s, const int header_lines = 4) {
     auto j = 0;
@@ -77,25 +127,23 @@ void get_first_line(ifstream& data, string& s, const int header_lines = 4) {
     do {
         position = data.tellg();
         getline(data, s);
-        j++;
+        ++j;
     } while (s.front() != '{');
     data.seekg(position);
     if (j-1 != header_lines) {
         // Different number of header lines were expected
-        cout << "Skipped " << j-1
+        cerr << "Skipped " << j-1
              << " header lines. Did something change?" << endl;
     }
 }
 
-
-bool quote_opened (const string &s) {
+inline bool quote_opened (const string &s) {
     const auto n = std::count(s.begin(), s.end(), '"');
     return n % 2;
 }
 
-void complete_quote (ifstream &netsdata, string &s) {
+inline void complete_quote (ifstream &netsdata, string &s) {
     string tmp;
-
     while (netsdata >> tmp) {
         s.append(tmp);
         if (!quote_opened(s))
@@ -103,7 +151,53 @@ void complete_quote (ifstream &netsdata, string &s) {
     }
 }
 
-void load_netsdata(string filename, string hook) {
+inline int get_index(const vector<sainet> & nets, string hash) {
+    for (auto & j : nets) {
+        if (j.hash == hash) {
+            return j.index;
+        }
+    }
+    return -1;
+}
+
+void sort_and_set_indices(vector<sainet> & nets, matches_t & matches) {
+    // sort by cumul
+    stable_sort(begin(nets), end(nets));
+
+    int i = 0;
+    for(auto & net : nets){
+        net.index = i++;
+    }
+
+    for(auto & match : matches){
+        match.idx1 = get_index(nets, match.hash1);
+        match.idx2 = get_index(nets, match.hash2);
+    }
+
+    // drop matches against unknown or dropped nets
+    matches.erase(remove_if(begin(matches), end(matches),
+                            mem_fn(&match::irrelevant)),
+                  end(matches));
+}
+
+#ifndef NDEBUG
+bool check_indices(const vector<sainet> & nets) {
+    if (!is_sorted(begin(nets), end(nets)))
+        return false;
+
+    int i = 0;
+    for (auto & net : nets) {
+        if( net.index != i++ )
+            return false;
+    }
+
+    return true;
+}
+#endif
+
+} // end namespace
+
+nets_t load_netsdata(const string & filename) {
     ifstream netsdata;
 
     netsdata.open(filename);
@@ -112,19 +206,19 @@ void load_netsdata(string filename, string hook) {
              << "." << endl;
         exit (1);
     } else {
-        cerr << "File " + filename + " opened." << endl;
+        cerr << "File " + filename + " opened..." << endl;
     }
 
     string s;
     get_first_line(netsdata, s, 4); // Four header lines are expected
     netsdata >> s;
 
-    bool hookfound = false;
+    nets_t nets;
+
     auto i = 0;
     string tag;
     sainet tmp;
     while (netsdata >> s) {
-        //        cout << i << " : " << s << endl;
         if (quote_opened(s)) {
             complete_quote(netsdata, s);
         }
@@ -133,18 +227,19 @@ void load_netsdata(string filename, string hook) {
                 continue;
             }
             if (s == "}") {
-                // cout << tmp.index << ". "
-                //           << tmp.hash << ", "
-                //           << tmp.cumul << ", "
-                //           << tmp.steps << ", "
-                //           << tmp.games << endl;
-                nets.emplace_back(tmp);
-                tmp.index++;
+                if (!tmp.is_valid()){
+                    cerr << "Found invalid net at row " << nets.size() << "\n";
+                    exit (1);
+                }
+
+                nets.push_back(move(tmp));
+                // reset variables
+                tmp = sainet{};
                 i = 0;
                 continue;
             }
             tag = s;
-            i++;
+            ++i;
             continue;
         } else if (i%3 == 1) {
             if (s != ":") {
@@ -152,13 +247,11 @@ void load_netsdata(string filename, string hook) {
                      << " has unexpected format. Fields should be assigned with ':'. Quitting." << endl;
                 exit (1);
             }
-            i++;
+            ++i;
             continue;
         }
-        //        cout << s << endl;
-        i++;
-        //        cout << "tag: " << tag << ", val: " << tag_v[tag] << endl;
-        switch (tag_v[tag]) {
+        ++i;
+        switch (tag_type(tag)) {
             // i counts the words of the current line
             // string format is              i
             // { "_id" : ObjectId("..."),    0  1  2  3
@@ -169,8 +262,6 @@ void load_netsdata(string filename, string hook) {
             // "ip" : "192.167.12.14",      16 17 18
             // "training_count" : ...,      19 20 21
             // "training_steps" : ... }     22 23 24 25
-        case NA:
-            break;
         case HASH:
             // hash
             tmp.hash = s.substr(1, 64);
@@ -180,13 +271,6 @@ void load_netsdata(string filename, string hook) {
             tmp.blocks = 0;
             tmp.filters = 0;
             tmp.gener = 0;
-            tmp.rank = 0;
-            if (tmp.hash == hook) {
-                tmp.hookdist = 0;
-                hookfound = true;
-            } else {
-                tmp.hookdist = -1;
-            }
             break;
         case BLOCKS:
             // blocks
@@ -254,19 +338,20 @@ void load_netsdata(string filename, string hook) {
                 tmp.games = stoi(s);
             }
             break;
+        case NA:
+        default:
+            break;
         }
     } 
 
     netsdata.close();
-    if (!hookfound) {
-        cerr << "Unable to find hook hash " << hook
-             << " in nets file." << endl;
-        exit (1);
-    }
+
+    cerr << "Nets found: " << nets.size() << "\n";
+
+    return nets;
 }
 
-
-void load_matchdata(string filename) {
+matches_t load_matchdata(string filename) {
     ifstream matchdata;
 
     matchdata.open(filename);
@@ -274,13 +359,14 @@ void load_matchdata(string filename) {
         cerr << "Unable to open matchdata file " << filename
              << "." << endl;
         exit (1);
-    } else {
-        cerr << "File " + filename + " opened." << endl;
     }
+
+    cerr << "File " + filename + " opened...\n";
 
     string s;
     get_first_line(matchdata, s, 4); // Four header lines are expected
 
+    matches_t matches;
     auto i = 0;
     match tmp;
     while (matchdata >> s) {
@@ -288,10 +374,6 @@ void load_matchdata(string filename) {
         case 3:
             // network1
             tmp.hash1 = s.substr(1, 64);
-            tmp.hash2 = "";
-            tmp.h1wins = 0;
-            tmp.h2wins = 0;
-            tmp.n = 0;
             break;
         case 6:
             // network2
@@ -316,181 +398,202 @@ void load_matchdata(string filename) {
             if (s.back() == ',') {
                 s.pop_back();
             }
-            tmp.n = stoi(s);
+            tmp.num = stoi(s);
             break;
         }
-        i++;
+        ++i;
         if (s == "}") {
-            // cout << tmp.hash1.substr(0,8) << ", "
-            //           << tmp.hash2.substr(0,8) << ", "
-            //           << tmp.h1wins << ", "
-            //           << tmp.h2wins << endl;
-            mats.emplace_back(tmp);
+            if (!tmp.is_valid()){
+                cerr << "Found invalid match at row " << matches.size() << "\n";
+                exit (1);
+            }
+
+            matches.push_back(move(tmp));
+            // reset variables
+            tmp = match{};
             i = 0;
         }
     } 
     matchdata.close();
+
+    cerr << "Matches found: " << matches.size() << "\n";
+
+    return matches;
 }
 
-int index(string hash) {
-    for (auto & j : nets) {
-        if (j.hash == hash) {
-            return j.index;
-        }
+
+stats_t get_stats(const matches_t & matches, size_t n, size_t hook_index){
+    assert(hook_index < n);
+
+    stats_t stats(n);
+
+    // first pass to compute node ranks...
+    // ...and mark the always won/lost
+    for (auto & match : matches) {
+        auto & stat1 = stats[match.idx1];
+        auto & stat2 = stats[match.idx2];
+
+        ++stat1.rank;
+        ++stat2.rank;
+
+        if(match.h1wins != match.num)
+            stat1.always_won = stat2.always_lost = false;
+
+        if(match.h2wins != match.num)
+            stat2.always_won = stat1.always_lost = false;
     }
-    return -1;
-}
 
+    // mark the hook net
+    stats[hook_index].hook_dist = 0;
 
-void pt(const wincount & w) {
-    cout << w.idx1 << ", "
-              << w.idx2 << ", "
-              << w.wins << endl;
-}
-
-void list_wins() {
-    for (auto & vs : mats) {
-        wincount ij, ji;
-        ij.idx1 = ji.idx2 = index(vs.hash1);
-        ij.idx2 = ji.idx1 = index(vs.hash2);
-        if (ij.idx1 == -1 || ij.idx2 == -1) {
-            continue;
-        }
-        ij.wins = vs.h1wins;
-        ji.wins = vs.h2wins;
-        ij.num = ji.num = vs.n;
-        wins.emplace_back(ij);
-        wins.emplace_back(ji);
-        //        pt(ij);
-        //        pt(ji);
-    }
-}
-
-void check_indices() {
-    for (auto i = 0 ; i < int(nets.size()) ; i++) {
-        if (i != nets[i].index) {
-            cerr << "Wrong index in nets table: "
-                      << i << ", " << nets[i].index << endl;
-            exit (1);
-        }
-    }
-}
-
-
-int connect_graph() {
     int dist = 0;
-    int cnt_nets = 0;
     bool modified;
     do {
+        // cerr << "Loop: " << dist << "\n";
         modified = false;
-        for (auto & edge : wins) {
-            auto & net1 = nets[edge.idx1];
-            auto & net2 = nets[edge.idx2];
+        for (auto & match : matches) {
+            auto & stat1 = stats[match.idx1];
+            auto & stat2 = stats[match.idx2];
 
-            if (dist == 0) {
-                // on the first pass, compute node ranks...
-                net1.rank++;
-                net2.rank++;
-                // (rank is twice the number of node's edges)
-                // ...and mark the first wins and first losses
-                if (edge.wins > 0) {
-                    net1.won_once = true;
-                    net2.lost_once = true;
-                }
-            }
-
-            if (net1.hookdist >= 0)
-                continue;
-            if (net2.hookdist == dist) {
-                net1.hookdist = 1 + dist;
+            if (stat1.hook_dist == -1 && stat2.hook_dist == dist){
+                stat1.hook_dist = 1 + dist;
                 modified = true;
-                cnt_nets++;
-                //                cout << ".";
+            }
+
+            if (stat2.hook_dist == -1 && stat1.hook_dist == dist){
+                stat2.hook_dist = 1 + dist;
+                modified = true;
             }
         }
-        dist++;
-        //        cout << dist << endl;
+        ++dist;
     } while (modified);
-    return cnt_nets;
-}
 
-void remove_unconnected_nets(bool prune) {
-    for (auto itnet = nets.begin() ; itnet != nets.end() ; ) {
-        auto & net = *itnet;
-        if (net.hookdist == -1 ||
-            (prune && net.hookdist > 0 && net.rank <= 2) ) {
-            // if the node is disconnected from hook
-            // or if pruning is enabled and the node is a leaf
-            // different from hook
-            // remove the node
-            itnet = nets.erase(itnet);
-        } else if (prune && !net.won_once) {
-            cout << "Net " << net.hash.substr(0,8)
-                 << " never won. Pruning." << endl;
-            if (net.hookdist == 0) {
-                cerr << "Error: pruning hook not allowed. Quitting." << endl;
-                exit(1);
-            }
-            itnet = nets.erase(itnet);
-        } else if (prune && !net.lost_once) {
-            cout << "Net " << net.hash.substr(0,8)
-                 << " never lost. Pruning." << endl;
-            if (net.hookdist == 0) {
-                cerr << "Error: pruning hook not allowed. Quitting." << endl;
-                exit(1);
-            }
-            itnet = nets.erase(itnet);
-        } else {
-            itnet++;
-        }
-    }
-    auto i = 0;
-    for (auto & net : nets) {
-        net.index = i++;
-    }
-
-    check_indices();
-    wins.clear();
-    list_wins();
+    return stats;
 }
 
 
-float delta_rating(unsigned int wins, unsigned int num, unsigned int losses = 0) {
+void create_connected_graph_from_hook(nets_t & nets, matches_t & matches, const string & hook, filter_mode fm){
+    assert(( (void)"Indices must be set", check_indices(nets) ));
+
+    const size_t n = nets.size();
+
+    const auto hook_index = get_index(nets, hook);
+    if (hook_index == -1) {
+        cerr << "Unable to find hook hash " << hook
+             << " in nets file." << endl;
+        exit (1);
+    }
+
+    // cerr << "Hook index: " << hook_index << "\n";
+
+    if (fm == DROP_LEAFS_AND_BEFORE_HOOK && hook_index > 0){
+        // drop matches before hook
+        const auto drop = [hook_index](const match & m){
+            return max(m.idx1, m.idx2) < hook_index;
+        };
+
+        matches.erase(remove_if(begin(matches), end(matches), drop),
+                      end(matches));
+    }
+
+    // get the stats
+    const stats_t stats = get_stats(matches, n, hook_index);
+
+    // small utility library od lambdas
+    const auto is_hook = [&hook_index](size_t idx){
+        return idx == size_t(hook_index);
+    };
+
+    const auto is_connected = [&stats](size_t idx){
+        return stats[idx].hook_dist > 0;
+    };
+
+    const auto is_leaf = [&is_connected,&stats](size_t idx){
+        return is_connected(idx) && stats[idx].rank <= 1;
+    };
+
+    const auto one_way = [&is_connected, &stats](size_t idx){
+        return is_connected(idx) && (stats[idx].always_lost || stats[idx].always_won);
+    };
+
+    const auto keep =
+        [fm,&is_hook,&is_connected,&is_leaf,&one_way](size_t idx){
+        if (is_hook(idx))             return true;
+        if (!is_connected(idx))       return false;
+        if (fm == KEEP_ALL_CONNECTED) return true;
+        return !(is_leaf(idx) || one_way(idx));
+    };
+
+    // this lambda gets a predicate on a index
+    // and returns another lambda: a predicate on a net
+    const auto wrapper = [](const auto & pred){
+        return [&pred](const sainet & net){
+            return pred(net.index);
+        };
+    };
+
+    // drop unneded nets
+    const nets_t::iterator first_to_prune =
+              stable_partition(begin(nets), end(nets), wrapper(keep));
+
+    cerr << "Dropping " << distance(first_to_prune, end(nets)) << " nets";
+
+    if (fm != KEEP_ALL_CONNECTED){
+        const nets_t::iterator first_non_leaf =
+            stable_partition(first_to_prune, end(nets), wrapper(is_leaf));
+
+        const size_t num_leaf = distance(first_to_prune,first_non_leaf);
+        const size_t num_one_way = count_if(first_non_leaf, end(nets),
+                                            wrapper(one_way));
+
+        cerr << " of which " << num_leaf    << " are leafs"
+             << " and "      << num_one_way << " are one way";
+    }
+    cerr << "\n";
+
+    nets.erase(first_to_prune, end(nets));
+
+    sort_and_set_indices(nets, matches);
+}
+
+float delta_rating(float prior_elo_std, float wins, float jigos, float losses) {
+    assert(( (void)"Invalid match", (wins >= 0.0f && jigos >= 0.0f && losses >= 0.0f) ));
+
     constexpr float ELO_FACTOR = 400.0f / log(10.0f);
-    auto T = ELO_PRIOR_STD / ELO_FACTOR;
-    T *= T;
 
-    if (wins + losses > num) {
-        cerr << "Something's wrong: wins + losses > num.   " << wins
-             << " + " << losses << " > " << num << endl;
-        exit(1);
-    }
-    if (num == 0)
+    const float num = wins + jigos + losses;
+
+    if (num == 0.0f)
         return 0.0f;
 
-    const auto score = 0.5f + 0.5f * (int(wins) - int(losses)) / (num + 4.0f * (wins + losses) / float(num) / T );
+    const float T = powf(prior_elo_std / ELO_FACTOR, 2.0f);
+
+    const float score = 0.5f + 0.5f * (wins - losses)
+        / (num + 4.0f * (wins + losses) / num / T );
 
     return ELO_FACTOR * (log(score) - log(1.0f-score));
 }
 
+void load_existing_ratings(string filename, nets_t & nets)
+{
+    assert(( (void)"Indices must be set", check_indices(nets) ));
 
-bool rate_connected_nets(string filename) {
     ifstream ratingsfile;
 
     ratingsfile.open(filename);
-    if (!ratingsfile) {
-        cerr << "No previous ratings file found." << endl;
-        return false;
+    if (!ratingsfile){
+        cerr << "No previous ratings file " << filename << " found." << endl;
+        exit(1);
     }
-    cerr << "File " + filename + " opened." << endl;        
 
-    std::map<std::string, float> net_rats;
+    cerr << "File " << filename << " opened...\n";
+
+    size_t count = 0;
     string s;
-
     while (ratingsfile >> s) {
         const auto hash = s.substr(0,64);
         auto commapos = s.find(',');
-        for (auto i=0 ; i<7 && commapos!=string::npos ; i++) {
+        for (auto i=0 ; i<7 && commapos!=string::npos ; ++i) {
             commapos = s.find(',', commapos + 1);
         }
         if (commapos == string::npos) {
@@ -498,144 +601,66 @@ bool rate_connected_nets(string filename) {
                  << hash << endl;
             exit(1);
         }
-        const auto rating = float(stof(s.substr(commapos+1)));
-        net_rats[hash] = rating;
+
+        const float rating = stof(s.substr(commapos+1));
+        ++count;
+
+        auto index = get_index(nets, hash);
+        if( index == -1 )
+            continue;
+
+        nets[index].rating = rating;
     }
-    cerr << "Found " << net_rats.size()
-         << " nets with previous rating values." << endl;
+
     ratingsfile.close();
 
-    for (auto & net : nets) {
-        if (net_rats.count(net.hash)) {
-            net.rating = net_rats[net.hash];
-        }
-    }
-    
-    for (auto & net : nets) {
-        if (!net_rats.count(net.hash) && net.rank > 2 && !net.won_once) {
-            auto worst_rate = 0.0f;
-            auto found = false;
-
-            for (auto & edge : wins) {
-                auto & net1 = nets[edge.idx1];
-                auto & net2 = nets[edge.idx2];
-                if (net.index != net2.index)
-                    continue;
-                if (!net_rats.count(net1.hash))
-                    continue;
-                const auto estim_rate = net_rats[net1.hash]
-                    - delta_rating(edge.wins, edge.num);
-                if (!found || estim_rate < worst_rate) {
-                    worst_rate = estim_rate;
-                    found = true;
-                }
-            }
-            if (!found) {
-                cerr << "Something's wrong. Net " << net.hash.substr(0,8)
-                     << " has no rating, at least two connections"
-                    " with no wins and no rating." << endl;
-                exit(1);
-            }
-            net.rating = worst_rate;
-        }
-    }
-
-    for (auto & net : nets) {
-        if (!net_rats.count(net.hash) && net.rank > 2 && !net.lost_once) {
-            auto best_rate = 0.0f;
-            auto found = false;
-
-            for (auto & edge : wins) {
-                auto & net1 = nets[edge.idx1];
-                auto & net2 = nets[edge.idx2];
-                if (net.index != net1.index)
-                    continue;
-                if (!net_rats.count(net2.hash))
-                    continue;
-                const auto estim_rate = net_rats[net2.hash]
-                    + delta_rating(edge.wins, edge.num);
-                if (!found || estim_rate > best_rate) {
-                    best_rate = estim_rate;
-                    found = true;
-                }
-            }
-            if (!found) {
-                cerr << "Something's wrong. Net " << net.hash.substr(0,8)
-                     << " has no rating, at least two connections"
-                    " with no losses and no rating." << endl;
-                exit(1);
-            }
-            net.rating = best_rate;
-        }
-    }
-
-    for (auto & net : nets) {
-        if (!net_rats.count(net.hash) && net.rank <= 2) {
-            auto opponent = net;
-            unsigned int wons, nums, losses;
-
-            for (auto & edge : wins) {
-                auto & net1 = nets[edge.idx1];
-                auto & net2 = nets[edge.idx2];
-                if (net.index == net1.index) {
-                    if (opponent.index == net.index) {
-                        opponent = net2;
-                    } else if (opponent.index != net2.index) {
-                        cerr << "Something's wrong. Net " << net.hash.substr(0,8)
-                             << " matches corrupted. net2: " << net2.hash.substr(0,8)
-                             << " and " << opponent.hash.substr(0,8) << endl;
-                        exit(1);
-                    }
-                    wons = edge.wins;
-                    nums = edge.num;
-                } else if (net.index == net2.index) {
-                    if (opponent.index == net.index) {
-                        opponent = net1;
-                    } else if (opponent.index != net1.index) {
-                        cerr << "Something's wrong. Net " << net.hash.substr(0,8)
-                             << " matches corrupted. net1: " << net1.hash.substr(0,8)
-                             << " and " << opponent.hash.substr(0,8) << endl;
-                        exit(1);
-                    }
-                    losses = edge.wins;
-                }
-            }
-
-            if (opponent.index == net.index) {
-                cerr << "Something's wrong. Net " << net.hash.substr(0,8)
-                     << " has no rating, but no connections were found." << endl;
-                exit(1);
-            }
-
-            if (opponent.rating < 0.0f) {
-                cerr << "Something's wrong. Net " << net.hash.substr(0,8)
-                     << " and its only connection " << opponent.hash.substr(0,8)
-                     << " have no rating: " << opponent.rating << endl;
-                exit(1);
-            }
-
-            net.rating = opponent.rating + delta_rating(wons, nums, losses);
-        }
-    }
-
-    return true;
+    cerr << "Found " << count
+         << " nets with previous rating values\n";
 }
 
-void populate_table(tab_t & table) {
-    for (auto & vs : wins) {
-        table[vs.idx1][vs.idx2] = vs.wins;
+void rate_connected_nets(nets_t & nets, const matches_t & matches, float prior_elo_std) {
+    assert(( (void)"Indices must be set", check_indices(nets) ));
+
+    // get a rough estimate of the missing ratings
+    for (auto & net : nets) {
+
+        if (net.has_rating())
+            continue;
+
+        float sum_ratings = 0.0f;
+        size_t sum_games = 0;
+
+        const auto update_sums = [&sum_ratings, &sum_games, &prior_elo_std]
+            (const match & m, const sainet & opp, float sign){
+
+            if( !opp.has_rating() )
+                return;
+
+            const float delta = delta_rating(prior_elo_std,
+                                             m.h1wins, m.jigos(), m.h2wins);
+
+            sum_ratings += float(m.num) * max(0.0f, opp.rating + sign * delta);
+            sum_games += m.num;
+        };
+
+        for (auto & match : matches) {
+            if (net.index == match.idx1)
+                update_sums(match, nets[match.idx2],  1.0f);
+            else if(net.index == match.idx2)
+                update_sums(match, nets[match.idx1], -1.0f);
+        }
+
+        if (sum_games == 0) {
+            cerr << "Something's wrong. Net " << net.hash.substr(0,8)
+                 << " has no rating, and no connections were found." << endl;
+            exit(1);
+        }
+
+        net.rating = sum_ratings / float(sum_games);
     }
 }
 
-
-void populate_tables(tab_t & table, tab_t & table_num) {
-    for (auto & vs : wins) {
-        table[vs.idx1][vs.idx2] = vs.wins;
-        table_num[vs.idx1][vs.idx2] = vs.num;
-    }
-}
-
-
+#if 0
 void random_init(vector<double> & vec) {
     random_device rd;
     mt19937 gen(rd());
@@ -650,8 +675,8 @@ double log_likely(const vector<double> & r, tab_t & table) {
 
     auto l = 0.0;
 
-    for (size_t i=0 ; i < n ; i++) {
-        for (size_t j=0 ; j < n ; j++) {
+    for (size_t i=0 ; i < n ; ++i) {
+        for (size_t j=0 ; j < n ; ++j) {
             const auto tmp = r[i] - log( exp(r[i]) + exp(r[j]) );
             l += table[i][j] * tmp;
         }
@@ -737,7 +762,65 @@ double gradient_desc(vector<double> & r,
     return sqrt(norm);
 }
 
-void write_table(tab_t & table, string filename) {
+void fit_ratings(vector< vector<int> > & table){
+    vector<double> rats(n);
+    random_init(rats);
+
+    auto l = log_likely(rats, table);
+    cerr << l << endl;
+    double delta;
+    auto h = 0.1;
+    auto it = 1.0;
+    do {
+        it *= 1.1;
+        auto der_la = 0.0;
+        delta = gradient_desc(rats, h, table, der_la);
+        l = log_likely(rats, table);
+        cerr << h << ", "
+             << delta/h << ", "
+             << der_la << ", "
+             << l << ", "
+             << rats[n-1] << endl;
+        if (delta/h < 100.0 * it * h) {
+            h *= 0.995;
+        } else {
+            h *= 1.002;
+        }
+    } while (delta > .01);
+    cerr << log_likely(rats, table);
+    for (auto & r : rats) {
+        cerr << r << "\n";
+    }
+}
+#endif
+
+auto populate_tables(const nets_t & nets, const matches_t & matches) {
+    assert(( (void)"Indices must be set", check_indices(nets) ));
+
+    const size_t n = nets.size();
+
+    std::pair<tab_t, tab_t> tables;
+    get<0>(tables).resize(n, tab_t::value_type(n));
+    get<1>(tables) = get<0>(tables);
+
+    for (auto & match : matches) {
+        get<0>(tables)[match.idx1][match.idx2] = match.h1wins;
+        get<0>(tables)[match.idx2][match.idx1] = match.h2wins;
+        get<1>(tables)[match.idx1][match.idx2] = match.num;
+        get<1>(tables)[match.idx2][match.idx1] = match.num;
+    }
+
+    for (auto & num : get<1>(tables)){
+        if (search_n(begin(num),end(num),1,0,not_equal_to<>{}) == end(num)){
+            cerr << "Num table contains rows with only zeros" << endl;
+            exit(1);
+        }
+    }
+
+    return tables;
+}
+
+void write_table(const string & filename, const tab_t & table) {
     ofstream tabledump;
 
     tabledump.open(filename);
@@ -747,25 +830,28 @@ void write_table(tab_t & table, string filename) {
         exit (1);
     }
 
+    cerr << "Writing '" << filename << "' file...\n";
+
     const auto n = table.size();
 
-    tabledump << n << endl;
+    tabledump << n << "\n";
     
-    for (size_t i=0 ; i < n ; i++) {
-        for (size_t j=0 ; j < n ; j++) {
+    for (size_t i=0 ; i < n ; ++i) {
+        assert(( (void)"Table must be a rectangle", table[i].size() == n ));
+
+        for (size_t j=0 ; j < n ; ++j) {
             if (j>0) {
                 tabledump << ",";
             }
             tabledump << table[i][j];
         }
-        tabledump << endl;
+        tabledump << "\n";
     }
 
     tabledump.close();
 }
 
-
-void write_netlist(string filename, bool rated=false) {
+void write_netlist(const string & filename, const nets_t & nets) {
     ofstream netlistdump;
 
     netlistdump.open(filename);
@@ -775,21 +861,21 @@ void write_netlist(string filename, bool rated=false) {
         exit (1);
     }
 
-    const auto n = nets.size();
-    for (size_t i=0 ; i < n ; i++) {
-        netlistdump << nets[i].hash << ","
-                    << nets[i].descr << ","
-                    << nets[i].blocks << ","
-                    << nets[i].filters << ","
-                    << nets[i].cumul << ","
-                    << nets[i].steps << ","
-                    << nets[i].games << ","
-                    << nets[i].gener;
-        if (rated) {
-            netlistdump << "," << nets[i].rating;
-        }
-        netlistdump << endl;
+    cerr << "Writing '" << filename << "' file...\n";
+
+    for (auto & net : nets) {
+        netlistdump << net.hash
+                    << "," << net.descr
+                    << "," << net.blocks
+                    << "," << net.filters
+                    << "," << net.cumul
+                    << "," << net.steps
+                    << "," << net.games
+                    << "," << net.gener
+                    << "," << net.rating
+                    << "\n";
     }
+
     netlistdump.close();
 }
 
@@ -802,77 +888,62 @@ int main(int argc, char* argv[]) {
              << "  -p        prune leaf nodes" << endl;
         exit (1);
     }
+
     string saiXX(argv[1]);
-    string hook(argv[2]);
-    string stdev(argv[3]);
-    ELO_PRIOR_STD = stof(stdev);
+    string hook_net_hash(argv[2]);
 
-    bool prune = false;
-    if (argc >= 5) {
-        string option(argv[4]);
-        if (option == "-p") {
-            prune = true;
-        }
+    const float prior_elo_std = stof(string(argv[3]));
+
+    const bool prune = argc > 4 && string(argv[4]) == "-p";
+
+    nets_t nets = load_netsdata(saiXX + "-netdata.xls");
+
+    matches_t matches = load_matchdata(saiXX + "-matches.xls");
+
+    sort_and_set_indices(nets, matches);
+
+    create_connected_graph_from_hook(nets, matches,
+                                     hook_net_hash, KEEP_ALL_CONNECTED);
+
+    cerr << "Nets linked to hook: " << nets.size() << "\n";
+    cerr << "Hook position: " << get_index(nets, hook_net_hash) << "\n";
+
+    load_existing_ratings(saiXX + "-ratings.csv", nets);
+    rate_connected_nets(nets, matches, prior_elo_std);
+
+    write_netlist(saiXX + "-rated-nets.csv", nets);
+
+    if (prune){
+        cerr << "Pruning leaf nodes..." << endl;
+    
+        create_connected_graph_from_hook(nets, matches,
+                                         hook_net_hash, DROP_ONLY_LEAFS);
+
+        cerr << "Nets linked to hook after pruning leafs: " << nets.size() << "\n";
+        cerr << "Relevant matches after pruning leafs: " << matches.size() << "\n";
+        cerr << "Hook position after pruning leafs: " << get_index(nets, hook_net_hash) << "\n";
+
+        write_netlist(saiXX + "-nets.csv", nets);
+
+        cerr << "Deep pruning uninteresting nodes..." << endl;
+
+        create_connected_graph_from_hook(nets, matches,
+                                         hook_net_hash, DROP_LEAFS_AND_BEFORE_HOOK);
+
+        const auto hook_pos = get_index(nets, hook_net_hash);
+        cerr << "Nets linked to hook after deep pruning: " << nets.size() << "\n";
+        cerr << "Relevant matches after deep pruning: " << matches.size() << "\n";
+        cerr << "Hook position after deep pruning: " << hook_pos << "\n";
+        cout << hook_pos << endl;
+
+        const auto tables = populate_tables(nets,matches);
+
+        write_netlist(saiXX + "-pruned-nets.csv", nets);
+        write_table(saiXX + "-vs.csv",  get<0>(tables));
+        write_table(saiXX + "-num.csv", get<1>(tables));
     }
 
-    load_netsdata(saiXX + "-netdata.xls", hook);
-    load_matchdata(saiXX + "-matches.xls");
+    cerr << "Done\n";
 
-    check_indices();
-    list_wins();
-    const auto c_nets = connect_graph();
-
-    cout << "Nets found: " << nets.size() << ". "
-        "Linked to hook: " << c_nets << ". "
-        "Matches found: " << mats.size() << endl;
-
-    remove_unconnected_nets(false);
-    const auto ratings_available = rate_connected_nets(saiXX + "-ratings.csv");
-    write_netlist(saiXX + "-rated-nets.csv", ratings_available);
-    remove_unconnected_nets(prune);
-
-    const auto n = nets.size();
-    if (prune) {
-        cout << "Pruning non-root leaf nodes." << endl;
-    }
-    cout << "Remaining nets: " << n << endl;
-    vector< vector<int> > table(n, vector<int>(n));
-    vector< vector<int> > table_num(n, vector<int>(n));
-    populate_tables(table, table_num);
-
-    write_netlist(saiXX + "-nets.csv");
-    write_table(table, saiXX + "-vs.csv");
-    write_table(table_num, saiXX + "-num.csv");
-    
-    // vector<double> rats(n);
-    // random_init(rats);
-
-    // auto l = log_likely(rats, table);
-    // cout << l << endl;
-    // double delta;
-    // auto h = 0.1;
-    // auto it = 1.0;
-    // do {
-    //     it *= 1.1;
-    //     auto der_la = 0.0;
-    //     delta = gradient_desc(rats, h, table, der_la);
-    //     l = log_likely(rats, table);
-    //     cout << h << ", "
-    //          << delta/h << ", "
-    //          << der_la << ", "
-    //          << l << ", "
-    //          << rats[n-1] << endl;
-    //     if (delta/h < 100.0 * it * h) {
-    //         h *= 0.995;
-    //     } else {
-    //         h *= 1.002;
-    //     }
-    // } while (delta > .01);
-    // cout << log_likely(rats, table);
-    // for (auto & r : rats) {
-    //     cout << r << endl;
-    // }
-
-    
     return 0;
 }

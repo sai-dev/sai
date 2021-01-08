@@ -24,61 +24,62 @@ def load_table_file(csv_table_file):
 
     return x
 
-def load_old_ratings(csv_ratings_file, csv_nets_file, n):
-    rats_di = dict()
-    max_rat = 0.0
+def load_initial_ratings(csv_pruned_nets_file, n):
+    updated_ratings = np.full((n,1), -1.0)
     
-    with open(csv_ratings_file, newline='') as ratingsfile:
-        rats_csv_it = csv.reader(ratingsfile)
-        for row in rats_csv_it:
-            hash = row[0]
-            rat = float(row[-1])
-            rats_di[hash] = rat
-            max_rat = max(rat, max_rat)
+    with open(csv_pruned_nets_file, newline='') as pnetsfile:
+        pnets_csv_it = csv.reader(pnetsfile)
+        for i, row in enumerate(pnets_csv_it):
+            updated_ratings[i,0] = float(row[-1]) / GORFACTOR
 
-    updated_ratings = np.full((n,1), max_rat)
-    with open(csv_nets_file, newline='') as netsfile:
-        nets_csv_it = csv.reader(netsfile)
-        for i, row in enumerate(nets_csv_it):
-            hash = row[0]
-            old_rat = rats_di.get(hash)
-            if old_rat is not None:
-                updated_ratings[i,0] = old_rat / GORFACTOR
+    # replace missing raings with max rating
+    max_rating = updated_ratings.max()
+    updated_ratings[updated_ratings == -1.0] = max_rating
 
     return updated_ratings
 
-def write_ratings_file(csv_nets_file, csv_output_file, ratings):
-    with open(csv_nets_file, newline='') as netsfile:
-        with open(csv_output_file, "w", newline='') as outfile:
-            inrd = csv.reader(netsfile)
-            outwr = csv.writer(outfile)
+def write_ratings_file(csv_nets_file, csv_ratings_file, csv_pruned_nets_file, ratings):
+    ratmap = {}
+    with open(csv_pruned_nets_file, newline='') as pnetsfile:
+        pnets_csv_it = csv.reader(pnetsfile)
+        for i, row in enumerate(pnets_csv_it):
+            hash = row[0]
+            ratmap[hash] = max (0.0, ratings[i] * GORFACTOR)
 
-            for score in ratings:
-                inrow = next(inrd)
-                gor = max (0.0, float(score) * GORFACTOR)
-                inrow.append(f'{gor:.1f}')
+    with open(csv_nets_file, newline='') as netsfile:
+        with open(csv_ratings_file, "w", newline='') as ratfile:
+            inrd = csv.reader(netsfile)
+            outwr = csv.writer(ratfile)
+            for inrow in inrd:
+                hash = inrow[0]
+                new_rat = ratmap.get(hash)
+                if new_rat is not None:
+                    # drop existing rating
+                    inrow = inrow[:-1]
+                    # append new rating
+                    gor = float(new_rat)
+                    inrow.append(f'{gor:.1f}')
                 outwr.writerow(inrow)
 
-def build_process():
+def build_process(hook_pos: int):
     """Builds TF process"""
-
 
     global wins
     global nums
     global n
     global initial_ratings
 
-    s_vbl = tf.Variable(initial_ratings[1:], dtype=tf.float32)
-    # variable part of s vector, with ratings of all nets apart from the first one
+    s_vbl = tf.Variable(initial_ratings[hook_pos+1:], dtype=tf.float32)
+    # variable part of the s vector, with ratings of all nets apart from the hook_pos ones
 
-    s0 = tf.constant(0.0, shape=[1,1], dtype=tf.float32)
-    # the rating of the first network is set to 0 wlog
+    s0 = tf.constant(initial_ratings[0:hook_pos+1], shape=[hook_pos+1,1], dtype=tf.float32)
+    # fixed part of the s vector, with rating of all nets up to hook_pos being set to previous run results
 
     s_scale = tf.Variable(1.0, dtype=tf.float32)
 
     s = tf.concat([s0, s_vbl], 0) # n*1 (column) vector with ratings
     s = tf.math.scalar_mul(s_scale, s)
-    
+
     ones = tf.constant(1.0, shape=[1, n], dtype = tf.float32) # row vector with ones
     
     s_mtx = tf.matmul(s,ones) # square matrix with column vectors s
@@ -135,7 +136,7 @@ def build_process():
     excess -= avg_ll
 
     learning_rate = 0.01
-    epochs = 50000
+    epochs = 15000
 
 #    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(-loglike)
     optimizer = tf.train.AdamOptimizer(learning_rate).minimize(-loglike)
@@ -147,9 +148,11 @@ def build_process():
 
 #    with tf.Session(config=config) as sess:
     with tf.Session() as sess:
-
     
         sess.run(init)
+
+        # print(sess.run(s))
+        # print(sess.run(draws))
         print(sess.run([tf.reduce_sum(wins_loglike), tf.reduce_sum(draw_loglike)]))
     
         stable = 0
@@ -180,33 +183,41 @@ def build_process():
 
 if __name__ == '__main__':
     argc = len(sys.argv)
-    if not(argc == 2 or argc == 5):
+    if not(argc == 3 or argc == 7):
         print('''Syntax:\n'''
-              '''saivwdraws.py <saiXX-vs.csv> <saiXX-num.csv> '''
-              '''<saiXX-nets.csv> <saiXX-ratings.csv>\n'''
-              '''saivsdraws.py <saiXX>''')
+              '''saivsdraws.py <saiXX> <hook_position>\n'''
+              '''saivwdraws.py <saiXX-vs.csv> <saiXX-num.csv> <saiXX-pruned-nets.csv> '''
+              '''<saiXX-nets.csv> <saiXX-ratings.csv> <hook_position>'''
+              )
         exit(1)
 
-    if argc == 2:
+    if argc == 3:
         vsfile = sys.argv[1] + '-vs.csv'
         numfile = sys.argv[1] + '-num.csv'
+        pnetsfile = sys.argv[1] + '-pruned-nets.csv'
         netsfile = sys.argv[1] + '-nets.csv'
-        outfile = sys.argv[1] + '-ratings.csv'
+        ratfile = sys.argv[1] + '-ratings.csv'
+        hook_pos = int(sys.argv[2])
     else:
         vsfile = sys.argv[1]
         numfile = sys.argv[2]
-        netsfile = sys.argv[3]
-        outfile = sys.argv[4]
+        pnetsfile = sys.argv[3]
+        netsfile = sys.argv[4]
+        ratfile = sys.argv[5]
+        hook_pos = int(sys.argv[6])
 
-    vs_e, num_e, nets_e, out_e = os.path.exists(vsfile), os.path.exists(numfile), \
-                                 os.path.exists(netsfile), os.path.exists(outfile)
+    vs_e, num_e = os.path.exists(vsfile), os.path.exists(numfile)
+    pnets_e, nets_e = os.path.exists(pnetsfile), os.path.exists(netsfile)
+
     if not vs_e:
         print(f"File {vsfile} does not exists.")
     if not num_e:
         print(f"File {numfile} does not exists.")
+    if not pnets_e:
+        print(f"File {pnetsfile} does not exists.")
     if not nets_e:
         print(f"File {netsfile} does not exists.")
-    if not(vs_e and num_e and nets_e):
+    if not(vs_e and num_e and pnets_e and nets_e):
         exit(1)
 
     wins = load_table_file(vsfile)
@@ -217,11 +228,12 @@ if __name__ == '__main__':
         print(f"File {vsfile} has {n} networks, while file {numfile} has {m} networks.")
         exit(1)
 
-    if out_e:
-        initial_ratings = load_old_ratings(outfile, netsfile, n)
-    else:
-        initial_ratings = np.random.normal(size=(n,1))
+    if np.count_nonzero(nums, axis=1).min() == 0:
+        print(f"File {numfile} has rows with no matches.")
+        exit(1)
 
-    final_ratings = build_process()
-    
-    write_ratings_file(netsfile, outfile, final_ratings)
+    initial_ratings = load_initial_ratings(pnetsfile, n)
+
+    final_ratings = build_process(hook_pos)
+
+    write_ratings_file(netsfile, ratfile, pnetsfile, final_ratings)
