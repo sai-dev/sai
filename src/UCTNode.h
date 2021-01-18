@@ -163,6 +163,12 @@ public:
     AgentEval get_agent_eval() const {
         return {m_lambda, m_mu, m_quantile_lambda, m_quantile_mu, -m_quantile_one};
     }
+    float get_fpu_eval(int color, bool is_root, size_t &parentvisits) const;
+    float get_uct_root(const UCTNode &root, int color) const;
+    float get_uct_internal(float winrate, float policy, double numerator) const;
+
+    static float compute_numerator(int visits);
+    static float get_uct_internal(float winrate, float policy, double numerator, int denom);
 
 private:
     enum Status : char {

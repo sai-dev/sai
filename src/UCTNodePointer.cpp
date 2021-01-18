@@ -176,3 +176,9 @@ int UCTNodePointer::get_move() const {
     if (is_inflated(v)) return read_ptr(v)->get_move();
     return read_vertex(v);
 }
+
+float UCTNodePointer::get_uct_internal(float winrate, float policy, double numerator) const {
+    auto v = m_data.load();
+    if (is_inflated(v)) return read_ptr(v)->get_uct_internal(winrate, policy, numerator);
+    return UCTNode::get_uct_internal(winrate, policy, numerator, 1);
+}

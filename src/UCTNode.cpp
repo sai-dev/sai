@@ -436,6 +436,7 @@ std::array<float, 5> UCTNode::get_urgency() const {
     return m_last_urgency;
 }
 #endif
+
 float UCTNode::get_eval_lcb(int color) const {
     // Lower confidence bound of winrate.
     auto visits = get_visits();
@@ -510,38 +511,69 @@ void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
 }
 
-UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
-                                   int max_visits,
-                                   const std::vector<int> & move_list,
-                                   bool nopass) {
-    wait_expanded();
-
-    // Count parentvisits manually to avoid issues with transpositions.
-    auto total_visited_policy = 0.0f;
-    auto parentvisits = size_t{0};
-
+float UCTNode::get_fpu_eval(int color, bool is_root, size_t &parentvisits) const {
     // fpu reduction is computed on the largest of the children which
     // have already been visited,
-    const auto color = currstate.get_to_move();
+    auto total_visited_policy = 0.0f;
     auto max_eval = 0.0f;
+    parentvisits = size_t{0};
 
     for (const auto& child : m_children) {
         if (child.valid()) {
-            parentvisits += child.get_visits();
             if (child.get_visits() > 0) {
-	      const auto child_eval = child.get()->get_raw_eval(color);
+                const auto child_eval = child.get()->get_raw_eval(color);
                 max_eval = std::max (max_eval, child_eval);
+                parentvisits += child.get_visits();
                 total_visited_policy += child.get_policy();
             }
         }
     }
 
-    const auto numerator = std::sqrt(double(parentvisits) *
-            std::log(cfg_logpuct * double(parentvisits) + cfg_logconst));
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
     // Estimated eval for unknown nodes = parent (not NN) eval - reduction
-    const auto fpu_eval = cfg_fpuzero ? 0.0f : (max_eval - fpu_reduction);
+    return cfg_fpuzero ? 0.0f : max_eval - fpu_reduction;
+}
 
+float UCTNode::compute_numerator(int visits) {
+    return std::sqrt(double(visits) *
+                     std::log(cfg_logpuct * double(visits) + cfg_logconst));
+}
+
+
+float UCTNode::get_uct_root(const UCTNode &root, int color) const {
+    if (get_visits()) {
+        return get_uct_internal(get_raw_eval(color), get_policy()/2, compute_numerator(root.get_visits()));
+    } else {
+        auto parentvisits = size_t{0};
+        const auto fpu_eval = root.get_fpu_eval(color, true, parentvisits);
+        return get_uct_internal(fpu_eval, get_policy()/2, compute_numerator(parentvisits));
+    }
+}
+
+
+float UCTNode::get_uct_internal(float winrate, float policy, double numerator) const {
+    return get_uct_internal(winrate, policy, numerator, get_denom());
+}
+
+
+float UCTNode::get_uct_internal(float winrate, float policy, double numerator, int denom) {
+    return winrate + cfg_puct * policy * numerator / double(denom);
+}
+
+
+UCTNode* UCTNode::uct_select_child(const GameState & currstate,
+                                   bool is_root,
+                                   int max_visits,
+                                   const std::vector<int> & move_list,
+                                   bool nopass) {
+    wait_expanded();
+    auto parentvisits = size_t{0};
+
+    const auto color = currstate.get_to_move();
+    // Count parentvisits manually to avoid issues with transpositions.
+    const auto fpu_eval = get_fpu_eval(color, is_root, parentvisits);
+
+    const auto numerator = compute_numerator(parentvisits);
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
@@ -578,7 +610,7 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             child->m_expand_state.load() == ExpandState::EXPANDING) {
             // Someone else is expanding this node, never select it
             // if we can avoid so, because we'd block on it.
-            winrate = -1.0f - fpu_reduction; // why not simply 'continue'?
+            winrate = -1.0f;
         } else if (visits > 0) {
             winrate = child.get_eval(color);
         }
@@ -601,10 +633,8 @@ UCTNode* UCTNode::uct_select_child(const GameState & currstate, bool is_root,
             // weight of winrate, so also consider increasing cfg_puct
             psa *= 2.0f * stdev;
         }
-        const auto denom = child.get_denom();
-        const auto puct = cfg_puct * psa * (numerator / denom);
 
-        auto value = winrate + puct;
+        auto value = child.get_uct_internal(winrate, psa, numerator);
         assert(value > std::numeric_limits<double>::lowest());
 
         if (value > best_value) {

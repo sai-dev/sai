@@ -33,6 +33,7 @@
 
 #include <list>
 #include <atomic>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -147,7 +148,7 @@ public:
 
 private:
     float get_min_psa_ratio() const;
-    void dump_stats(FastState& state, UCTNode& parent);
+    void dump_stats(FastState& state, UCTNode& parent, const std::map<int,int> & initial_visits);
     void print_move_choices_by_policy(KoState& state, UCTNode& parent,
                                       int at_least_as_many, float probab_threash);
     void tree_stats(const UCTNode& node);

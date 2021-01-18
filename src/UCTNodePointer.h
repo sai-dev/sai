@@ -136,6 +136,7 @@ public:
     // these can only be called if it is an inflated pointer
     float get_eval(int tomove) const;
     float get_eval_lcb(int color) const;
+    float get_uct_internal(float winrate, float policy, double numerator) const;
 };
 
 #endif

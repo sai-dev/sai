@@ -38,6 +38,7 @@
 #include <cstddef>
 #include <functional>
 #include <limits>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -425,7 +426,8 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     return update_with_current ? current_node_result : result;
 }
 
-void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
+void UCTSearch::dump_stats(FastState & state, UCTNode & parent,
+                           const std::map<int,int> & initial_visits) {
     if (cfg_quiet || !parent.has_children()) {
         return;
     }
@@ -444,27 +446,76 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         return;
     }
 
-    int movecount = 0;
+#ifdef NDEBUG
+    myprintf("move  visits reuse ppv winrate  agent   LCB   stdev policy fvisit alpkt w1st PV\n\n");
+#endif
+    // Some global quantities are required for plays_per_visit
+    auto total_policy = 0.0;
+    auto total_denom = 0;
     for (const auto& node : parent.get_children()) {
-        // Always display at least two moves. In the case there is
-        // only one move searched the user could get an idea why.
-        if (++movecount > 2 && !node->get_visits()) break;
+        total_policy += node->get_policy();
+        total_denom += node->get_denom();
+    }
+    // numexc approximates the derivative of log(numerator) wrt visits
+    const auto numexc = UCTNode::compute_numerator(1 + parent.get_visits())
+        / UCTNode::compute_numerator(parent.get_visits()) - 1.0;
+    const auto uexc = ( 1.0 / total_denom - numexc ) * total_policy / total_denom;
+
+    auto movecount = 0;
+    auto max_raw_eval = 0.0f;
+    auto min_ppv_1st = 1000;
+    auto min_ppv_2nd = 1000;
+    for (const auto& node : parent.get_children()) {
+        // Always display at least four moves. In the case there are
+        // only few move searched the user could get an idea why.
+        if (++movecount > 4 && !node->get_visits()) break;
 
         auto move = state.move_to_text(node->get_move());
         auto tmpstate = FastState{state};
         tmpstate.play_move(node->get_move());
         auto pv = move + " " + get_pv(tmpstate, *node);
 
+        // Expected number of tree playouts per visit at this move
+        const auto plays_per_visit = \
+            int( 1.0 / ( node->get_denom() * ( numexc + uexc * node->get_denom() / node->get_policy() ) ) );
+        if (plays_per_visit <= min_ppv_1st) {
+            min_ppv_2nd = min_ppv_1st;
+            min_ppv_1st = plays_per_visit;
+        } else if (plays_per_visit <= min_ppv_2nd) {
+            min_ppv_2nd = plays_per_visit;
+        }
+
+        // Weight (fraction of visits) of the largest grandchild under each move
+        auto fracmax = 0.0f;
+        if (node->get_visits()) {
+            auto gmax = 0;
+            for (const auto& gchild : node->get_children()) {
+                if (!gchild.active()) {
+                    continue;
+                }
+                gmax = std::max(gmax, gchild.get_visits());
+            }
+            fracmax = gmax / float(node->get_visits());
+        }
+
+        // Needed for computing MCTS inefficiency
+        max_raw_eval = std::max(max_raw_eval, node->get_raw_eval(color));
+
 #ifdef NDEBUG
-        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.*f%%) (N: %5.2f%%) (A: %5.1f) (B: %4.2f) PV: %s\n",
+        myprintf("%4s %7d %5d %3d  %5.2f%% %5.2f%% %5.*f%% %5.2f%% %5.2f%% %5.2f%% %5.1f %3.0f%% %s\n",
                  move.c_str(),
                  node->get_visits(),
+                 initial_visits.at(node->get_move()),
+                 std::min(999, plays_per_visit),
+                 node->get_visits() ? node->get_avg_pi(color)*100.0f : 0.0f,
                  node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
                  node->get_eval_lcb(color) < 0.0f ? 1 : 2,
                  std::max(-99.9f, node->get_eval_lcb(color) * 100.0f),
+                 std::sqrt(node->get_eval_variance()) * 100.0f,
                  node->get_policy() * 100.0f,
+                 node->get_visits() / float(parent.get_visits()) * 100.0f,
                  -node->get_quantile_one(),
-                 node->get_net_beta(),
+                 fracmax * 100.0f,
                  pv.c_str());
 #else
         myprintf("%4s -> %7d (U: %5.2f%%, q: %5.2f%%, num: %5.2f, den: %4d) "
@@ -482,14 +533,45 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
                  pv.c_str());
 #endif
     }
-    myprintf("\nRoot -> %7d (V: %5.2f%%) (LCB: %5.*f%%) (N: %5.2f%%) (A: %5.1f) (B: %4.2f)\n\n",
+    auto initial_visits_parent = 0;
+    for (auto v : initial_visits) {
+        initial_visits_parent += v.second;
+    }
+    // Count root node if the tree was not empty
+    if (initial_visits_parent) {
+        initial_visits_parent++;
+    }
+    auto avg_eval_this_agent = 0.0f;
+    auto raw_eval_inefficiency = 0.0f;
+    auto total_visits = 0;
+    auto policy_loss = 0.0;
+    for (const auto& node : parent.get_children()) {
+        if (node->get_visits()) {
+            avg_eval_this_agent += node->get_visits() * node->get_raw_eval(color);
+            total_visits += node->get_visits();
+            policy_loss -= node->get_visits() * std::log(double(node->get_policy()));
+            raw_eval_inefficiency += node->get_visits() * std::max(0.0f, max_raw_eval - node->get_raw_eval(color));
+        }
+    }
+    avg_eval_this_agent /= total_visits;
+    policy_loss /= total_visits;
+    raw_eval_inefficiency /= total_visits;
+    myprintf("\n      visits reuse  de winrate  agent parent  stdev p_loss  ineff alpkt beta");
+    myprintf("\nRoot %7d %5d %3d  %5.2f%% %5.2f%% %5.2f%% %5.2f%% %5.2f  %5.2f%% %5.1f %4.2f\n\n",
              parent.get_visits(),
+             initial_visits_parent,
+             min_ppv_2nd - min_ppv_1st,
+             parent.get_avg_pi(color)*100.0f,
+             avg_eval_this_agent*100.0f,
              parent.get_raw_eval(color)*100.0f,
-             parent.get_eval_lcb(color) < 0.0f ? 1 : 2,
-             std::max(-99.9f, parent.get_eval_lcb(color) * 100.0f),
-             parent.get_policy() * 100.0f,
+             // parent.get_eval_lcb(color) < 0.0f ? 1 : 2,
+             // std::max(-99.9f, parent.get_eval_lcb(color) * 100.0f),
+             std::sqrt(parent.get_eval_variance()) * 100.0f,
+             // parent.get_policy() * 100.0f,
+             policy_loss,
+             raw_eval_inefficiency*100.0f,
              -parent.get_quantile_one(),
-             parent.get_net_beta());
+             parent.get_beta_median());
     auto x = parent.get_quantile_lambda(color);
     auto y = parent.get_quantile_mu(color);
     if (y < x) {
@@ -1069,6 +1151,12 @@ int UCTSearch::think(int color, passflag_t passflag) {
     print_move_choices_by_policy(m_rootstate, *m_root, 5, 0.01f);
     myprintf("\n");
 #endif
+    // store the initial size of the MCTS subtrees before thinking
+    std::map<int,int> initial_visits;
+    for (const auto& node : m_root->get_children()) {
+        const auto move = node->get_move();
+        initial_visits[move] = node->get_visits();
+    }
 
     m_run = true;
     int cpus = cfg_num_threads;
@@ -1165,7 +1253,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
     // Display search info.
     myprintf("\n");
-    dump_stats(m_rootstate, *m_root);
+    dump_stats(m_rootstate, *m_root, initial_visits);
 
     int bestmove = get_best_move(passflag);
     float est_score;
@@ -1584,6 +1672,12 @@ void UCTSearch::ponder() {
     m_root->prepare_root_node(m_network, m_rootstate.board.get_to_move(),
                               m_nodes, m_rootstate);
 
+    // store the initial size of the MCTS subtrees before thinking
+    std::map<int,int> initial_visits;
+    for (const auto& node : m_root->get_children()) {
+        const auto move = node->get_move();
+        initial_visits[move] = node->get_visits();
+    }
     m_run = true;
     ThreadGroup tg(thread_pool);
     for (auto i = size_t{0}; i < cfg_num_threads; i++) {
@@ -1619,7 +1713,7 @@ void UCTSearch::ponder() {
 
     // Display search info.
     myprintf("\n");
-    dump_stats(m_rootstate, *m_root);
+    dump_stats(m_rootstate, *m_root, initial_visits);
 
     myprintf("\n%d visits, %d nodes\n\n", m_root->get_visits(), m_nodes.load());
 
