@@ -361,8 +361,8 @@ void GTP::setup_default_parameters() {
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_komi = KOMI;
-    cfg_lambda = {0.3f, 0.0f, 0.0f, 0.0f};
-    cfg_mu =  {0.03f, 0.0f, 0.0f, 0.0f};
+    cfg_lambda = {0.5f, 0.3f, 0.0f, 0.0f};
+    cfg_mu =  {0.05f, 0.03f, 0.0f, 0.0f};
     {
         std::ostringstream lambdas, mus;
         for (auto i=0 ; i<4 ; i++) {
@@ -944,8 +944,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 #ifndef NDEBUG
         size_t blunders = 0, last = 0, movenum = game.get_movenum();
 #endif
+        game.set_cpu_color(FastBoard::BOTH_COLORS);
         do {
-            game.set_cpu_color(FastBoard::BOTH_COLORS);
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
 #ifndef NDEBUG
             if (game.is_blunder()) {
