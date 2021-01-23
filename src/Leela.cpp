@@ -481,11 +481,6 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("restrict_tt")) {
         cfg_restrict_tt = true;
-        // Until the option --pass_agree becomes compatible with all
-        // clients, the server will not enforce it, but to have it
-        // active anyway on recent clients, we make --restrict_tt set
-        // it on, so that all self-plays will use it.
-        cfg_pass_agree = true;
     }
 
     if (vm.count("norecordvisits")) {
