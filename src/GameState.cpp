@@ -42,6 +42,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <utility>
 
 #include "FastBoard.h"
 #include "FastState.h"
@@ -70,6 +71,10 @@ void GameState::init_game(int size, float komi) {
     m_resigned = FastBoard::EMPTY;
     m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS };
     m_cpu_color = FastBoard::EMPTY;
+    m_last_think_movenum = -1;
+    m_last_think_alpkt = 0.0f;
+    m_opp_movenum = 0;
+    m_opp_lostpts = 0.0f;
     Utils::dump_agent_params();
 }
 
@@ -84,6 +89,10 @@ void GameState::reset_game() {
     m_resigned = FastBoard::EMPTY;
     m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS };
     m_cpu_color = FastBoard::EMPTY;
+    m_last_think_movenum = -1;
+    m_last_think_alpkt = 0.0f;
+    m_opp_movenum = 0;
+    m_opp_lostpts = 0.0f;
 }
 
 bool GameState::forward_move() {
@@ -501,4 +510,31 @@ bool GameState::is_cpu_color() const {
     } else {
         return m_cpu_color == get_to_move();
     }
+}
+
+std::pair<int, float> GameState::get_last_think() const {
+    return std::make_pair(m_last_think_movenum, m_last_think_alpkt);
+}
+
+float GameState::get_opp_avgloss() const {
+    return m_opp_movenum ? m_opp_lostpts / float(m_opp_movenum) : 0.0f;
+}
+
+void GameState::add_opp_ptsloss(float alpkt_new) {
+    if (!is_cpu_color()) {
+        return;
+    }
+    const auto last = get_last_think();
+    set_last_think(alpkt_new);
+    if (last.first >= 0 && int(get_movenum()) == 2 + last.first) {
+        const auto delta_alpha = (alpkt_new - last.second) * (get_to_move() == FastBoard::WHITE ? -1 : 1);
+        m_opp_lostpts += delta_alpha;
+        ++m_opp_movenum;
+        // Utils::myprintf("Opponent level updated. Movenum %d, alpkt %5.2f. This move gain %5.2f pts. Avg gain %5.2f pts. Pts num %d.\n",
+        //                 last.first, last.second, delta_alpha, get_opp_avgloss(), m_opp_movenum);
+    // } else {
+    //     Utils::myprintf("Opponent level not updated. Movenum %d, alpkt %5.2f\n", last.first, last.second);
+    }
+    // const auto curr = get_last_think();
+    // Utils::myprintf("Last think updated. Movenum %d, alpkt %5.2f\n", curr.first, curr.second);
 }

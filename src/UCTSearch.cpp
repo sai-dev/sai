@@ -708,7 +708,6 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
 
     const auto color = m_rootstate.board.get_to_move();
 
-    const auto is_default_cfg_resign = cfg_resignpct < -0.5f;
     const auto resign_threshold = cfg_resign_threshold;
 
     if (besteval > resign_threshold) {
@@ -716,8 +715,7 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
     }
 
     if ((m_rootstate.get_handicap() > 0)
-            && (color == FastBoard::WHITE)
-            && is_default_cfg_resign) {
+            && (color == FastBoard::WHITE)) {
         const auto handicap_resign_threshold =
             resign_threshold / (1 + m_rootstate.get_handicap());
 
@@ -736,6 +734,15 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
         return false;
     }
 
+    if (m_network.m_value_head_sai) {
+        if (m_root->get_beta_median() < 1.5) {
+            const auto opp_avgloss = m_rootstate.get_opp_avgloss();
+            const auto remaining_moves = std::max(4, int(num_intersections * 0.8f - movenum));
+            if (remaining_moves * 0.5 * opp_avgloss > m_root->get_quantile_one() * (color == FastBoard::WHITE ? -1 : 1) ) {
+                return false;
+            }
+        }
+    }
     return true;
 }
 
@@ -1324,8 +1331,11 @@ int UCTSearch::think(int color, passflag_t passflag) {
         }
         if(chosen_child) {
             const auto ev = chosen_child->state_eval();
+            if (m_network.m_value_head_sai) {
+                m_rootstate.add_opp_ptsloss(ev.alpkt_tree);
+                myprintf("CPU gained %3.1f points/exchange on average.\n", m_rootstate.get_opp_avgloss());
+            }
             m_rootstate.set_state_eval(ev);
-
 
             // For pass_agree we really want the score of the best
             // move, not of the root node

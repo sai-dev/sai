@@ -90,6 +90,13 @@ public:
     void update_accepted_score(std::tuple<float, float, float> node_stats, bool switch_player = false);
     bool is_cpu_color() const;
     void set_cpu_color(int which_color);
+    std::pair<int, float> get_last_think() const;
+    void set_last_think(float alpkt) {
+        m_last_think_alpkt = alpkt;
+        m_last_think_movenum = get_movenum();
+    }
+    float get_opp_avgloss() const;
+    void add_opp_ptsloss(float alpkt_new);
 
 private:
     bool valid_handicap(int stones);
@@ -99,6 +106,10 @@ private:
     int m_resigned{FastBoard::EMPTY};
     std::pair<int, int> m_acceptedscore = {-1 * NUM_INTERSECTIONS, NUM_INTERSECTIONS};
     int m_cpu_color{FastBoard::EMPTY};
+    int m_last_think_movenum{-1};
+    float m_last_think_alpkt{0.0f};
+    int m_opp_movenum{0};
+    float m_opp_lostpts{0.0f};
 };
 
 #endif
