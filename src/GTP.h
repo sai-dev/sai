@@ -97,6 +97,7 @@ extern float cfg_resignpct;
 extern float cfg_resign_threshold;
 extern int cfg_noise;
 extern bool cfg_fpuzero;
+extern bool cfg_fpuavg;
 extern bool cfg_uselcb;
 extern bool cfg_stdevuct;
 extern bool cfg_adv_features;

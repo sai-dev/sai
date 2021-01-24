@@ -252,8 +252,9 @@ static void parse_commandline(int argc, char *argv[]) {
         ("softmax_temp", po::value<float>())
         ("fpu_reduction", po::value<float>())
         ("ci_alpha", po::value<float>())
-        ("fpu_zero", "Use constant fpu=0.0 (AlphaGoZero). "
-         "The default is reduced parent's value (LeelaZero).")
+        ("fpu_zero", "Use constant fpu=0.0 (AlphaGoZero). ")
+        ("fpu_old", "Use for fpu reduced parent's value (LeelaZero). "
+         "The default is average over non-best children.")
         ("nolcb", "Choose move based on visits instead of LCB.")
         ("stdev_uct", "Use sample variance in UCT formula.")
         ;
@@ -351,6 +352,14 @@ static void parse_commandline(int argc, char *argv[]) {
     }
     if (vm.count("fpu_zero")) {
         cfg_fpuzero = true;
+        cfg_fpuavg = false;
+    }
+    if (vm.count("fpu_old")) {
+        cfg_fpuavg = false;
+        if (cfg_fpuzero) {
+            myprintf("Conflicting fpu options.\n");
+            exit(EXIT_FAILURE);
+        }
     }
     if (vm.count("stdev_uct")) {
         cfg_stdevuct = true;

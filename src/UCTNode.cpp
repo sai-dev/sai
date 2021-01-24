@@ -518,6 +518,10 @@ float UCTNode::get_fpu_eval(int color, bool is_root, size_t &parentvisits) const
     auto max_eval = 0.0f;
     parentvisits = size_t{0};
 
+    // fpu average requires these variables
+    auto n = 0;
+    auto avg_eval = 0.0f;
+
     for (const auto& child : m_children) {
         if (child.valid()) {
             if (child.get_visits() > 0) {
@@ -525,8 +529,19 @@ float UCTNode::get_fpu_eval(int color, bool is_root, size_t &parentvisits) const
                 max_eval = std::max (max_eval, child_eval);
                 parentvisits += child.get_visits();
                 total_visited_policy += child.get_policy();
+
+                ++n;
+                avg_eval += (child_eval - avg_eval) / n;
             }
         }
+    }
+ 
+    if (cfg_fpuavg) {
+        // We want the average of children except for the best one
+        if (n>1) {
+            avg_eval -= (max_eval - avg_eval) / (n-1);
+        }
+        return avg_eval;
     }
 
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);

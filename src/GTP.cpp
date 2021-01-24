@@ -80,6 +80,7 @@ float cfg_resignpct;
 float cfg_resign_threshold;
 int cfg_noise;
 bool cfg_fpuzero;
+bool cfg_fpuavg;
 bool cfg_uselcb;
 bool cfg_stdevuct;
 bool cfg_adv_features;
@@ -401,6 +402,7 @@ void GTP::setup_default_parameters() {
     cfg_laddercode = true;
     cfg_pass_agree = false;
     cfg_fpuzero = false;
+    cfg_fpuavg = true;
     cfg_uselcb = true;
     cfg_stdevuct = false;
     cfg_noise_value = 0.03;
