@@ -65,7 +65,7 @@ public:
 
         bool is_sai;
 
-        Netresult() : policy_pass(0.0f), alpha(0.0f), beta(0.0f), is_sai(false) {
+        Netresult() : policy_pass(0.0f), value(0.0f), alpha(0.0f), beta(0.0f), is_sai(false) {
             policy.fill(0.0f);
         }
     };
