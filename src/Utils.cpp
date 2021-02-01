@@ -322,17 +322,11 @@ bool Utils::parse_agent_params(std::array<float, 4> &params, const std::string &
         std::getline(ss, substr, ',');
         numbers.push_back(std::stof(substr));
     }
-    // auto it_str = str.cbegin();
-    // const auto ok = phrase_parse(it_str, str.cend(),
-    //                              *x3::float_, ",", numbers);
-    // if (!ok || it_str != str.cend()) {
-    //         return false;
-    //     }
     const auto n = numbers.size();
     if (n>4) {
         return false;
     }
-    //    params[0] = numbers[0];
+
     switch(n) {
     case 1:
         // CPU when behind = CPU when ahead
@@ -362,4 +356,14 @@ void Utils::dump_agent_params() {
     }
     myprintf("\n");
 
+}
+
+bool Utils::agent_color_dependent() {
+    auto dependent = false;
+    dependent |= (cfg_lambda[0] != cfg_lambda[2]);
+    dependent |= (cfg_lambda[1] != cfg_lambda[3]);
+    dependent |= (cfg_mu[0] != cfg_mu[2]);
+    dependent |= (cfg_mu[1] != cfg_mu[3]);
+
+    return dependent;
 }

@@ -692,8 +692,6 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             if (!game.play_textmove(color, vertex)) {
                 gtp_fail_printf(id, "illegal move");
             } else {
-                // Now should be CPU turn
-                game.set_cpu_color(FastBoard::THIS_COLOR);
                 gtp_printf(id, "");
             }
         } else {

@@ -493,6 +493,7 @@ void GameState::set_cpu_color(int which_color) {
     if (m_cpu_color == FastBoard::EMPTY) {
         m_cpu_color = new_color;
         Utils::myprintf("CPU role fixed as %s.\n", role.c_str());
+    } else if (!Utils::agent_color_dependent()) {
     } else if (which_color == FastBoard::BOTH_COLORS &&
                m_cpu_color != new_color) {
         Utils::myprintf("Warning: CPU role was previously fixed, and cannot be set to both players now.\n"
