@@ -183,7 +183,7 @@ void Training::record(Network & network, GameState& state, UCTNode& root) {
     auto step = TimeStep{};
     step.to_move = state.board.get_to_move();
     step.planes = get_planes(&state);
-    const auto komi = state.get_komi();
+    const auto komi = state.get_komi_adj();
     step.komi = komi;
     step.movenum = state.get_movenum();
     step.is_blunder = state.is_blunder();
@@ -372,7 +372,7 @@ void Training::process_game(GameState& state, size_t& train_pos, int who_won,
 
     do {
         auto to_move = state.get_to_move();
-        auto komi = state.get_komi();
+        auto komi = state.get_komi_adj();
         auto move_vertex = tree_moves[counter];
         auto move_idx = size_t{0};
 

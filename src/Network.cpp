@@ -100,7 +100,7 @@ float Network::benchmark_time(int centiseconds) {
     std::atomic<int> runcount{0};
 
     GameState state;
-    state.init_game(BOARD_SIZE, cfg_komi);
+    state.init_game(BOARD_SIZE, cfg_komi, m_value_head_sai);
 
     // As a sanity run, try one run with self check.
     // Isn't enough to guarantee correctness but better than nothing,
@@ -1191,7 +1191,7 @@ Network::Netresult Network::get_output_internal(
     }
 
     if (result.is_sai) {
-        const auto komi = state->get_komi();
+        const auto komi = state->get_komi_adj();
         const auto white = (FastBoard::WHITE == state->get_to_move());
         result.value = sigmoid(result.alpha, result.beta, white ? komi : -komi).first;
     }
@@ -1253,13 +1253,14 @@ void Network::show_heatmap(const FastState* const state,
         auto x = agent.quantile_lambda;
         auto y = agent.quantile_mu;
         if (y<x) std::swap(x,y);
-        myprintf("alpha: %5.2f,      ", result.alpha);
-        myprintf("beta: %.2f,          ", result.beta);
+        myprintf("alpha: %5.2f    ", result.alpha);
+        myprintf("beta: %.2f     ", result.beta);
         myprintf("winrate: %2.1f%%\n", result.value*100);
-        myprintf("komi: %2.1f,         ", state->get_komi());
-        myprintf("lambda: %.2f,        ", agent.lambda);
-        myprintf("mu: %.2f\n", agent.mu);
-        myprintf("alpkt tree: %3.2f, ", agent.alpkt_tree);
+        myprintf("komi: %2.1f       ", state->get_komi());
+        myprintf("handicap: %d    ", state->get_handicap());
+        myprintf("alpkt tree: %3.2f\n", agent.alpkt_tree);
+        myprintf("lambda: %.2f    ", agent.lambda);
+        myprintf("mu: %.2f       ", agent.mu);
         myprintf("interval: [%.1f, %.1f]\n", x, y);
     } else {
         myprintf("value: %.1f%%\n", result.value*100);

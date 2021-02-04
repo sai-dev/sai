@@ -167,6 +167,7 @@ public:
     static void initialize(std::unique_ptr<Network>&& network);
     static void execute(GameState & game, const std::string& xinput);
     static void setup_default_parameters();
+    static void adjust_komi(GameState & game);
 private:
     static constexpr int GTP_VERSION = 2;
 

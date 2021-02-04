@@ -177,8 +177,12 @@ void FastState::display_state() {
     }
     myprintf("    White (O) Prisoners: %d\n",
              board.get_prisoners(FastBoard::WHITE));
-    myprintf("Move %3d             Komi: %.1f\n", get_movenum(), get_komi());
-
+    myprintf("Move %3d             Komi: %.1f", get_movenum(), get_komi());
+    if (get_handicap()) {
+        myprintf("  Handicap: %d\n", get_handicap());
+    } else {
+        myprintf("\n");
+    }
     board.display_board(get_last_move());
 }
 
@@ -240,10 +244,7 @@ std::string FastState::move_to_text(int move) {
 }
 
 float FastState::final_score() const {
-    //    return board.area_score(get_komi() + get_handicap());
-    // there appears to be no good reason to correct komi with
-    // handicap stones number, for example sabaki doesn't
-    return board.area_score(get_komi());
+    return board.area_score(get_komi_adj());
 }
 
 float FastState::get_komi() const {

@@ -47,6 +47,7 @@
 #include "FastBoard.h"
 #include "FastState.h"
 #include "FullBoard.h"
+#include "GTP.h"
 #include "KoState.h"
 #include "UCTSearch.h"
 #include "Utils.h"
@@ -60,7 +61,12 @@ void GameState::set_state_eval(const StateEval& ev) {
 }
 
 
-void GameState::init_game(int size, float komi) {
+void GameState::init_game(int size, float komi, bool value_head_sai) {
+    if (!value_head_sai && komi != 7.5) {
+        Utils::myprintf("Warning: komi set to 7.5 because network "
+                        "does not allow variable komi.\n");
+        komi = 7.5;
+    }
     KoState::init_game(size, komi);
 
     game_history.clear();
@@ -406,7 +412,7 @@ void GameState::update_accepted_score(std::tuple<float, float, float> node_stats
     float alpkt, beta, black_eval;
     std::tie(alpkt, beta, black_eval) = node_stats;
 
-    const auto komi = get_komi();
+    const auto komi = get_komi_adj();
     const auto black_alpha = alpkt + komi;
     const auto lead_eval = std::max(black_eval, 1.0f - black_eval);
     constexpr auto highest_conf = 0.99f;
@@ -458,7 +464,7 @@ void GameState::update_accepted_score(std::tuple<float, float, float> node_stats
 
 float GameState::get_final_accepted_score() const {
     if (score_agreed()) {
-        return m_acceptedscore.first - get_komi();
+        return m_acceptedscore.first - get_komi_adj();
     } else {
         // return an impossible value
         return std::numeric_limits<float>::infinity();
