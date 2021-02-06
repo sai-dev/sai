@@ -51,6 +51,7 @@ inline void SharedMutex::lock() {
 
 inline void SharedMutex::unlock() {
     auto v = m_exclusive.exchange(false);
+    (void)v;
     assert(v == true);
 }
 
