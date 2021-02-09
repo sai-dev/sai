@@ -983,12 +983,13 @@ std::pair<float,float> sigmoid(float alpha, float beta, float bonus) {
 
 bool Network::probe_cache(const GameState* const state,
                           Network::Netresult& result) {
+    bool cache_success = false;
     if (m_nncache.lookup(state->board.get_hash(), result)) {
-        return true;
+        cache_success = true;
     }
     // If we are not generating a self-play game, try to find
     // symmetries if we are in the early opening.
-    if (!cfg_noise && !cfg_random_cnt
+    if (!cache_success && !cfg_noise && !cfg_random_cnt
         && state->get_movenum()
            < (state->get_timecontrol().opening_moves(BOARD_SIZE) / 2)) {
         for (auto sym = 0; sym < Network::NUM_SYMMETRIES; ++sym) {
@@ -1003,12 +1004,18 @@ bool Network::probe_cache(const GameState* const state,
                     corrected_policy[idx] = result.policy[sym_idx];
                 }
                 result.policy = std::move(corrected_policy);
-                return true;
+                cache_success = true;
             }
         }
     }
 
-    return false;
+    if (cache_success && result.is_sai) {
+        const auto komi = state->get_komi_adj();
+        const auto white = (FastBoard::WHITE == state->get_to_move());
+        result.value = sigmoid(result.alpha, result.beta, white ? komi : -komi).first;
+    }
+
+    return cache_success;
 }
 
 Network::Netresult Network::get_output(const GameState* const state,
