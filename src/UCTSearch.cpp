@@ -138,7 +138,8 @@ bool UCTSearch::advance_to_new_rootstate() {
         return false;
     }
 
-    if (m_rootstate.get_komi() != m_last_rootstate->get_komi()) {
+    if (m_rootstate.get_komi() != m_last_rootstate->get_komi() ||
+        m_rootstate.get_handicap() != m_last_rootstate->get_handicap()) {
         return false;
     }
 
@@ -148,7 +149,6 @@ bool UCTSearch::advance_to_new_rootstate() {
     if (depth < 0) {
         return false;
     }
-
 
     auto test = std::make_unique<GameState>(m_rootstate);
     for (auto i = 0; i < depth; i++) {
@@ -1267,6 +1267,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
     if (cfg_japanese_mode) {
         if (!is_better_move(bestmove, FastBoard::PASS, est_score)) {
             auto chn_endstate = std::make_unique<GameState>(m_rootstate);
+            // TODO: Not sure if the following is right, in particular in case of handicap
             chn_endstate->add_komi(est_score);
 #ifndef NDEBUG
             chn_endstate->display_state();
@@ -1367,8 +1368,8 @@ int UCTSearch::think(int color, passflag_t passflag) {
         } else {
             myprintf("Still no agreement on final score: "
                      "Black wants %.1f and White wants %.1f. Playing on.\n",
-                     m_rootstate.get_accepted_scores().second - m_rootstate.get_komi(),
-                     m_rootstate.get_accepted_scores().first - m_rootstate.get_komi());
+                     m_rootstate.get_accepted_scores().second - m_rootstate.get_komi_adj(),
+                     m_rootstate.get_accepted_scores().first - m_rootstate.get_komi_adj());
         }
     }
 
@@ -1476,7 +1477,7 @@ Network::Netresult UCTSearch::dump_evals(int req_playouts, std::string & dump_st
     // TODO: improve eval command and what it returns
     result.value = Utils::median(value_vec);
     const auto alpkt_median = Utils::median(alpkt_vec);
-    result.alpha = (alpkt_median + m_rootstate.get_komi())
+    result.alpha = (alpkt_median + m_rootstate.get_komi_adj())
         * (color==FastBoard::BLACK ? 1.0 : -1.0);
     result.beta = Utils::median(beta_vec);
 
@@ -1842,7 +1843,8 @@ void UCTSearch::fast_roll_out() {
                                   m_nodes, m_rootstate, true);
 
 #ifndef NDEBUG
-        myprintf("Fast roll-out. Step %d. Komi %f\n", step++, m_rootstate.get_komi());
+        myprintf("Fast roll-out. Step %d. Komi %.1f handicap %d\n",
+                 step++, m_rootstate.get_komi(), m_rootstate.get_handicap());
 #endif
         do {
             auto currstate = std::make_unique<GameState>(m_rootstate);
@@ -1973,7 +1975,7 @@ float UCTSearch::final_japscore() {
     explore_root_nopass();
 
 
-    const auto komi = m_rootstate.get_komi();
+    const auto komi = m_rootstate.get_komi_adj();
     const auto estimated_score =
         std::round(m_root->estimate_alpkt(0) + komi);
 #ifndef NDEBUG
@@ -1982,13 +1984,15 @@ float UCTSearch::final_japscore() {
 #endif
 
     auto chn_endstate = std::make_unique<GameState>(m_rootstate);
-    chn_endstate->set_komi(estimated_score);
+    // Fair komi should be estimated score of the stones on the goban minus handicap
+    chn_endstate->set_komi(estimated_score - m_rootstate.get_handicap());
     auto FRO_tree = std::make_unique<UCTSearch>(*chn_endstate, m_network);
 
     FRO_tree->fast_roll_out();
 
     auto jap_endboard = std::make_unique<FullBoard>(m_rootstate.board);
     if (jap_endboard->remove_dead_stones(chn_endstate->board)) {
+        // not sure if this is right in case of handicap (TODO)
         return jap_endboard->territory_score(komi);
     } else {
         return NUM_INTERSECTIONS * 100.0;

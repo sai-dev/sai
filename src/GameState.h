@@ -51,7 +51,7 @@ public:
         *(static_cast<KoState*>(this)) = *rhs;
         anchor_game_history();
     }
-    void init_game(int size, float komi);
+    void init_game(int size, float komi, bool value_head_sai = true);
     void reset_game();
     bool set_fixed_handicap(int stones);
     int set_fixed_handicap_2(int stones);

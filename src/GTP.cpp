@@ -645,7 +645,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             } else {
                 float old_komi = game.get_komi();
                 Training::clear_training();
-                game.init_game(tmp, old_komi);
+                game.init_game(tmp, old_komi, s_network->m_value_head_sai);
                 gtp_printf(id, "");
             }
         } else {
@@ -672,6 +672,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         if (!cmdstream.fail()) {
             if (komi != old_komi) {
                 game.set_komi(komi);
+                adjust_komi(game);
             }
             gtp_printf(id, "");
         } else {
@@ -692,8 +693,6 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             if (!game.play_textmove(color, vertex)) {
                 gtp_fail_printf(id, "illegal move");
             } else {
-                // Now should be CPU turn
-                game.set_cpu_color(FastBoard::THIS_COLOR);
                 gtp_printf(id, "");
             }
         } else {
@@ -1094,6 +1093,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         cmdstream >> stones;
 
         if (!cmdstream.fail() && game.set_fixed_handicap(stones)) {
+            adjust_komi(game);
             auto stonestring = game.board.get_stone_list();
             gtp_printf(id, "%s", stonestring.c_str());
         } else {
@@ -1141,6 +1141,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
         if (!cmdstream.fail()) {
             game.place_free_handicap(stones, *s_network);
+            adjust_komi(game);
             auto stonestring = game.board.get_stone_list();
             gtp_printf(id, "%s", stonestring.c_str());
         } else {
@@ -1154,6 +1155,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
         cmdstream >> tmp;   // eat set_free_handicap
 
+        auto stones = game.get_handicap();
         do {
             std::string vertex;
 
@@ -1164,9 +1166,11 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                     gtp_fail_printf(id, "illegal move");
                 } else {
                     game.set_handicap(game.get_handicap() + 1);
+                    ++stones;
                 }
             }
         } while (!cmdstream.fail());
+        adjust_komi(game);
 
         std::string stonestring = game.board.get_stone_list();
         gtp_printf(id, "%s", stonestring.c_str());
@@ -1644,4 +1648,18 @@ void GTP::execute_setoption(UCTSearch & search,
         gtp_fail_printf(id, "Unknown option");
     }
     return;
+}
+
+
+void GTP::adjust_komi(GameState & game) {
+    const auto is_sai = s_network->m_value_head_sai;
+
+    if (!is_sai) {
+        const auto fixed_komi = 7.5 - game.get_handicap();
+        if (game.get_komi() != fixed_komi) {
+            game.set_komi(fixed_komi);
+            myprintf("Komi set to %.1f because the network "
+                     "does not allow variable komi.\n", fixed_komi);
+        }
+    }
 }

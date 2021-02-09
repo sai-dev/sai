@@ -55,6 +55,7 @@ namespace Utils {
     float winner (float score);
     bool parse_agent_params(std::array<float, 4> &params, const std::string &str);
     void dump_agent_params();
+    bool agent_color_dependent();
 
     template<class T>
     void atomic_add(std::atomic<T> &f, T d) {

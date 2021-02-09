@@ -64,6 +64,7 @@ public:
     float get_komi() const;
     void set_handicap(int hcap);
     int get_handicap() const;
+    float get_komi_adj() const { return get_komi() + get_handicap(); }
     int get_passes() const;
     int get_to_move() const;
     void set_to_move(int tomove);
@@ -101,7 +102,7 @@ public:
     FullBoard board;
 
     float get_alpkt(float alpha) const {
-        return (board.black_to_move() ? alpha : -alpha) - m_komi;
+        return (board.black_to_move() ? alpha : -alpha) - get_komi_adj();
     }
 
 private:

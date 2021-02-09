@@ -701,8 +701,9 @@ int main(int argc, char *argv[]) {
     auto maingame = std::make_unique<GameState>();
 
     /* set board limits */
-    auto komi = cfg_komi;
-    maingame->init_game(BOARD_SIZE, komi);
+    const auto komi = cfg_komi;
+    const auto is_sai = GTP::s_network->m_value_head_sai;
+    maingame->init_game(BOARD_SIZE, komi, is_sai);
 
     if (cfg_benchmark) {
         cfg_quiet = false;

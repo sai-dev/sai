@@ -69,6 +69,18 @@
     <ClCompile Include="..\..\autogtp\main.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="CPUOnly\moc_Console.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CPUOnly\moc_Job.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CPUOnly\moc_Management.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CPUOnly\moc_Worker.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\autogtp\Game.h">
@@ -103,6 +115,7 @@
       <Filter>Generated Files</Filter>
     </CustomBuild>
     <CustomBuild Include="..\sai.hta" />
+    <CustomBuild Include="CPUOnly\moc_predefs.h.cbt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\autogtp\autogtp.pro" />
