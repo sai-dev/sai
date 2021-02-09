@@ -983,10 +983,8 @@ std::pair<float,float> sigmoid(float alpha, float beta, float bonus) {
 
 bool Network::probe_cache(const GameState* const state,
                           Network::Netresult& result) {
-    bool cache_success = false;
-    if (m_nncache.lookup(state->board.get_hash(), result)) {
-        cache_success = true;
-    }
+    auto cache_success = m_nncache.lookup(state->board.get_hash(), result);
+
     // If we are not generating a self-play game, try to find
     // symmetries if we are in the early opening.
     if (!cache_success && !cfg_noise && !cfg_random_cnt
@@ -1005,6 +1003,7 @@ bool Network::probe_cache(const GameState* const state,
                 }
                 result.policy = std::move(corrected_policy);
                 cache_success = true;
+                break;
             }
         }
     }
