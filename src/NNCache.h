@@ -31,11 +31,11 @@
 #define NNCACHE_H_INCLUDED
 
 #include "config.h"
-#include "SharedMutex.h"
 
 #include <array>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 
 class NNCache {
@@ -102,7 +102,7 @@ public:
     size_t get_estimated_size();
 private:
 
-    SharedMutex m_mutex;
+    std::mutex m_mutex;
 
     size_t m_size;
 
