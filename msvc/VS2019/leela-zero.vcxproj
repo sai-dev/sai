@@ -76,6 +76,7 @@
     <ClCompile Include="..\..\src\SGFParser.cpp" />
     <ClCompile Include="..\..\src\SGFTree.cpp" />
     <ClCompile Include="..\..\src\SHA256.cpp" />
+    <ClCompile Include="..\..\src\SharedMutex.cpp" />
     <ClCompile Include="..\..\src\SMP.cpp" />
     <ClCompile Include="..\..\src\TimeControl.cpp" />
     <ClCompile Include="..\..\src\Timing.cpp" />
