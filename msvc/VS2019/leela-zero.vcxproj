@@ -45,7 +45,6 @@
     <ClInclude Include="..\..\src\Random.h" />
     <ClInclude Include="..\..\src\SGFParser.h" />
     <ClInclude Include="..\..\src\SGFTree.h" />
-    <ClInclude Include="..\..\src\SharedMutex.h" />
     <ClInclude Include="..\..\src\SMP.h" />
     <ClInclude Include="..\..\src\ThreadPool.h" />
     <ClInclude Include="..\..\src\TimeControl.h" />
@@ -76,7 +75,6 @@
     <ClCompile Include="..\..\src\SGFParser.cpp" />
     <ClCompile Include="..\..\src\SGFTree.cpp" />
     <ClCompile Include="..\..\src\SHA256.cpp" />
-    <ClCompile Include="..\..\src\SharedMutex.cpp" />
     <ClCompile Include="..\..\src\SMP.cpp" />
     <ClCompile Include="..\..\src\TimeControl.cpp" />
     <ClCompile Include="..\..\src\Timing.cpp" />
