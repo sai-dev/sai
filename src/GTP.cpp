@@ -1466,8 +1466,7 @@ std::pair<bool, std::string> GTP::set_max_memory(size_t max_memory,
 
     assert(cache_size_ratio_percent >= 1);
     assert(cache_size_ratio_percent <= 99);
-    auto max_cache_size = max_memory_for_search *
-        cache_size_ratio_percent / 100;
+    auto max_cache_size = (max_memory_for_search / 100) * cache_size_ratio_percent;
 
     auto max_cache_count =
         (int)(remove_overhead(max_cache_size) / NNCache::ENTRY_SIZE);
