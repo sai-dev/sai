@@ -28,7 +28,12 @@ set(Boost_USE_MULTITHREADED ON)
 find_package(Boost 1.58.0 REQUIRED program_options filesystem)
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
-find_package(OpenCL REQUIRED)
+if(USE_CPU_ONLY)
+  message(STATUS "Using CPU based computation.")
+else()
+  message(STATUS "Looking for system OpenCL library.")
+  find_package(OpenCL REQUIRED)
+endif()
 # We need OpenBLAS for now, because we make some specific
 # calls. Ideally we'd use OpenBLAS is possible and fall back to
 # not doing those calls if it's not present.
