@@ -37,7 +37,7 @@ void Job::init(const Order &o) {
     QStringList version_list = o.parameters()["leelazVer"].split(".");
     if (version_list.size() < 2) {
         QTextStream(stdout)
-                << "Unexpected SAI version: " << o.parameters()["leelazVer"] << endl;
+                << "Unexpected SAI version: " << o.parameters()["leelazVer"] << Qt::endl;
         exit(EXIT_FAILURE);
     }
     if (version_list.size() < 3) {
@@ -94,10 +94,10 @@ Result ProductionJob::execute(){
         }
         game.readMove();
         m_boss->incMoves();
-    } while (game.nextMove() && m_state.load() == RUNNING);
-    switch (m_state.load()) {
+    } while (game.nextMove() && m_state.loadRelaxed() == RUNNING);
+    switch (m_state.loadRelaxed()) {
     case RUNNING:
-        QTextStream(stdout) << "Game has ended." << endl;
+        QTextStream(stdout) << "Game has ended." << Qt::endl;
         if (game.getScore()) {
             game.writeSgf();
             game.fixSgf(game, false, true);
@@ -175,11 +175,11 @@ Result ValidationJob::execute(){
         gameToMove->readMove();
         m_boss->incMoves();
         gameOpponent->setMove("play " + *colorToMove + " " + gameToMove->getMove());
-    } while (gameToMove->nextMove() && m_state.load() == RUNNING);
+    } while (gameToMove->nextMove() && m_state.loadRelaxed() == RUNNING);
 
-    switch (m_state.load()) {
+    switch (m_state.loadRelaxed()) {
     case RUNNING:
-        QTextStream(stdout) << "Game has ended." << endl;
+        QTextStream(stdout) << "Game has ended." << Qt::endl;
         if (first.getScore()) {
             res.add("score", first.getResult());
             res.add("winner", first.getWinnerName());

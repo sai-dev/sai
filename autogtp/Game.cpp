@@ -48,23 +48,23 @@ void Game::error(int errnum) {
     switch (errnum) {
         case Game::NO_LEELAZ:
             QTextStream(stdout)
-                << "No 'sai' binary found." << endl;
+                << "No 'sai' binary found." << Qt::endl;
             break;
         case Game::PROCESS_DIED:
             QTextStream(stdout)
-                << "The 'sai' process died unexpected." << endl;
+                << "The 'sai' process died unexpected." << Qt::endl;
             break;
         case Game::WRONG_GTP:
             QTextStream(stdout)
-                << "Error in GTP response." << endl;
+                << "Error in GTP response." << Qt::endl;
             break;
         case Game::LAUNCH_FAILURE:
             QTextStream(stdout)
-                << "Could not talk to engine after launching." << endl;
+                << "Could not talk to engine after launching." << Qt::endl;
             break;
         default:
             QTextStream(stdout)
-                << "Unexpected error." << endl;
+                << "Unexpected error." << Qt::endl;
             break;
     }
 }
@@ -94,7 +94,7 @@ bool Game::sendGtpCommand(QString cmd) {
     char readBuffer[256];
     int readCount = readLine(readBuffer, 256);
     if (readCount <= 0 || readBuffer[0] != '=') {
-        QTextStream(stdout) << "GTP: " << readBuffer << endl;
+        QTextStream(stdout) << "GTP: " << readBuffer << Qt::endl;
         error(Game::WRONG_GTP);
         return false;
     }
@@ -118,7 +118,7 @@ void Game::checkVersion(const VersionTuple &min_version) {
     //this happens with the winogard tuning
     if (readBuffer[0] == '#') {
         readBuffer[readCount-1] = 0;
-        QTextStream(stdout) << readBuffer << endl;
+        QTextStream(stdout) << readBuffer << Qt::endl;
         if (!waitReady()) {
             error(Game::PROCESS_DIED);
             exit(EXIT_FAILURE);
@@ -127,7 +127,7 @@ void Game::checkVersion(const VersionTuple &min_version) {
     }
     // We expect to read at last "=, space, something"
     if (readCount <= 3 || readBuffer[0] != '=') {
-        QTextStream(stdout) << "GTP: " << readBuffer << endl;
+        QTextStream(stdout) << "GTP: " << readBuffer << Qt::endl;
         error(Game::WRONG_GTP);
         exit(EXIT_FAILURE);
     }
@@ -136,7 +136,7 @@ void Game::checkVersion(const VersionTuple &min_version) {
     QStringList version_list = version_buff.split(".");
     if (version_list.size() < 2) {
         QTextStream(stdout)
-            << "Unexpected SAI version: " << version_buff << endl;
+            << "Unexpected SAI version: " << version_buff << Qt::endl;
         exit(EXIT_FAILURE);
     }
     if (version_list.size() < 3) {
@@ -151,9 +151,9 @@ void Game::checkVersion(const VersionTuple &min_version) {
             << " but expected "
             << std::get<0>(min_version) << "."
             << std::get<1>(min_version) << "."
-            << std::get<2>(min_version)  << endl;
+            << std::get<2>(min_version)  << Qt::endl;
         QTextStream(stdout)
-            << "Check https://github.com/sai-dev/sai for updates." << endl;
+            << "Check https://github.com/sai-dev/sai for updates." << Qt::endl;
         exit(EXIT_FAILURE);
     }
     if (!eatNewLine()) {
@@ -173,7 +173,7 @@ bool Game::gameStart(const VersionTuple &min_version,
     // This either succeeds or we exit immediately, so no need to
     // check any return values.
     checkVersion(min_version);
-    QTextStream(stdout) << "Engine has started." << endl;
+    QTextStream(stdout) << "Engine has started." << Qt::endl;
     //If there is an sgf file to start playing from then it will contain
     //whether there is handicap in use. If there is no sgf file then instead,
     //check whether there are any handicap commands to send (these fail
@@ -183,7 +183,7 @@ bool Game::gameStart(const VersionTuple &min_version,
     if (!sgf.isEmpty()) {
         QFile sgfFile(sgf + ".sgf");
         if (!sgfFile.exists()) {
-            QTextStream(stdout) << "Cannot find sgf file " << sgf << endl;
+            QTextStream(stdout) << "Cannot find sgf file " << sgf << Qt::endl;
             exit(EXIT_FAILURE);
         }
         sgfFile.open(QIODevice::Text | QIODevice::ReadOnly);
@@ -200,10 +200,10 @@ bool Game::gameStart(const VersionTuple &min_version,
         setMovesCount(moves);
     } else {
         for (auto command : m_engine.m_commands.filter("handicap")) {
-            QTextStream(stdout) << command << endl;
+            QTextStream(stdout) << command << Qt::endl;
             if (!sendGtpCommand(command))
             {
-                QTextStream(stdout) << "GTP failed on: " << command << endl;
+                QTextStream(stdout) << "GTP failed on: " << command << Qt::endl;
                 exit(EXIT_FAILURE);
             }
             m_isHandicap = true;
@@ -212,14 +212,14 @@ bool Game::gameStart(const VersionTuple &min_version,
     }
     const auto re = QRegularExpression("^((?!handicap).)*$");
     for (auto command : m_engine.m_commands.filter(re)) {
-        QTextStream(stdout) << command << endl;
+        QTextStream(stdout) << command << Qt::endl;
         if (!sendGtpCommand(command))
         {
-            QTextStream(stdout) << "GTP failed on: " << command << endl;
+            QTextStream(stdout) << "GTP failed on: " << command << Qt::endl;
             exit(EXIT_FAILURE);
         }
     }
-    QTextStream(stdout) << "Starting GTP commands sent." << endl;
+    QTextStream(stdout) << "Starting GTP commands sent." << Qt::endl;
     return true;
 }
 
@@ -260,7 +260,7 @@ bool Game::readMove() {
     if (readCount <= 3 || readBuffer[0] != '=') {
         error(Game::WRONG_GTP);
         QTextStream(stdout) << "Error read " << readCount << " '";
-        QTextStream(stdout) << readBuffer << "'" << endl;
+        QTextStream(stdout) << readBuffer << "'" << Qt::endl;
         terminate();
         return false;
     }
@@ -324,11 +324,11 @@ bool Game::getScore() {
         if (m_blackResigned) {
             m_winner = QString(QStringLiteral("white"));
             m_result = "W+Resign ";
-            QTextStream(stdout) << "Score: " << m_result << endl;
+            QTextStream(stdout) << "Score: " << m_result << Qt::endl;
         } else {
             m_winner = QString(QStringLiteral("black"));
             m_result = "B+Resign ";
-            QTextStream(stdout) << "Score: " << m_result << endl;
+            QTextStream(stdout) << "Score: " << m_result << Qt::endl;
         }
     } else{
         write("final_score\n");
@@ -355,10 +355,10 @@ bool Game::getScore() {
         QTextStream(stdout) << "Score: " << m_result;
     }
     if (m_winner.isNull()) {
-        QTextStream(stdout) << "No winner found" << endl;
+        QTextStream(stdout) << "No winner found" << Qt::endl;
         return false;
     }
-    QTextStream(stdout) << "Winner: " << m_winner << endl;
+    QTextStream(stdout) << "Winner: " << m_winner << Qt::endl;
     return true;
 }
 
@@ -378,29 +378,29 @@ bool Game::writeSgf() {
 }
 
 bool Game::loadTraining(const QString &fileName) {
-    QTextStream(stdout) << "Loading " << fileName + ".train" << endl;
+    QTextStream(stdout) << "Loading " << fileName + ".train" << Qt::endl;
     return sendGtpCommand(qPrintable("load_training " + fileName + ".train"));
 
 }
 
 bool Game::saveTraining() {
-     QTextStream(stdout) << "Saving " << m_fileName + ".train" << endl;
+     QTextStream(stdout) << "Saving " << m_fileName + ".train" << Qt::endl;
      return sendGtpCommand(qPrintable("save_training " + m_fileName + ".train"));
 }
 
 
 bool Game::loadSgf(const QString &fileName) {
-    QTextStream(stdout) << "Loading " << fileName + ".sgf" << endl;
+    QTextStream(stdout) << "Loading " << fileName + ".sgf" << Qt::endl;
     return sendGtpCommand(qPrintable("loadsgf " + fileName + ".sgf"));
 }
 
 bool Game::loadSgf(const QString &fileName, const int moves) {
-    QTextStream(stdout) << "Loading " << fileName + ".sgf with " << moves << " moves" << endl;
+    QTextStream(stdout) << "Loading " << fileName + ".sgf with " << moves << " moves" << Qt::endl;
     return sendGtpCommand(qPrintable("loadsgf " + fileName + ".sgf " + QString::number(moves+1)));
 }
 
 bool Game::komi(float komi) {
-    QTextStream(stdout) << "Setting komi " << komi << endl;
+    QTextStream(stdout) << "Setting komi " << komi << Qt::endl;
     return sendGtpCommand(qPrintable("komi " + QString::number(komi)));
 }
 
@@ -430,14 +430,14 @@ void Game::fixSgfComment(QString& sgfData, Game& whiteGame,
         comment += " Black";
     }
     comment += "\\2 Starting GTP commands:";
-    for (const auto command : m_engine.m_commands) {
+    for (const auto& command : m_engine.m_commands) {
         comment += " " + command;
     }
     if (!isSelfPlay) {
         comment += " White options:";
         comment += whiteEngine.m_options + " " + whiteEngine.m_network;
         comment += " Starting GTP commands:";
-        for (const auto command : whiteEngine.m_commands) {
+        for (const auto& command : whiteEngine.m_commands) {
             comment += " " + command;
         }
     }

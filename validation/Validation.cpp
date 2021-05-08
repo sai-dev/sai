@@ -38,10 +38,10 @@ void ValidationWorker::run() {
             emit resultReady(Sprt::NoResult, Game::BLACK);
             return;
         }
-        QTextStream(stdout) << "starting:" << endl <<
-            m_engines[0].getCmdLine() << endl <<
-            "vs" << endl <<
-            m_engines[1].getCmdLine() << endl;
+        QTextStream(stdout) << "starting:" << Qt::endl <<
+            m_engines[0].getCmdLine() << Qt::endl <<
+            "vs" << Qt::endl <<
+            m_engines[1].getCmdLine() << Qt::endl;
 
         QString wmove = "play white ";
         QString bmove = "play black ";
@@ -64,10 +64,10 @@ void ValidationWorker::run() {
             second.readMove();
             first.setMove(wmove + second.getMove());
             second.nextMove();
-        } while (first.nextMove() && m_state.load() == RUNNING);
+        } while (first.nextMove() && m_state.loadRelaxed() == RUNNING);
 
-        if (m_state.load() == RUNNING) {
-            QTextStream(stdout) << "Game has ended." << endl;
+        if (m_state.loadRelaxed() == RUNNING) {
+            QTextStream(stdout) << "Game has ended." << Qt::endl;
             int result = 0;
             if (first.getScore()) {
                 result = first.getWinner();
@@ -82,7 +82,7 @@ void ValidationWorker::run() {
                     QFile(first.getFile() + ".sgf").rename(prefix + first.getFile() + ".sgf");
                 }
             }
-            QTextStream(stdout) << "Stopping engine." << endl;
+            QTextStream(stdout) << "Stopping engine." << Qt::endl;
             first.gameQuit();
             second.gameQuit();
 
@@ -103,7 +103,7 @@ void ValidationWorker::run() {
             first.gameQuit();
             second.gameQuit();
         }
-    } while (m_state.load() != FINISHING);
+    } while (m_state.loadRelaxed() != FINISHING);
 }
 
 void ValidationWorker::init(const QString& gpuIndex,
@@ -117,7 +117,7 @@ void ValidationWorker::init(const QString& gpuIndex,
     }
     m_expected = expected;
     m_keepPath = keep;
-    m_state.store(RUNNING);
+    m_state.storeRelaxed(RUNNING);
 }
 
 Validation::Validation(const int gpus,
@@ -202,24 +202,24 @@ void Validation::loadSprt() {
     in >> m_results;
     f.close();
     QFile::remove(fi.fileName());
-    QTextStream(stdout) << "Initial Statistics" << endl;
+    QTextStream(stdout) << "Initial Statistics" << Qt::endl;
     m_results.printResults(m_engines[0].m_network, m_engines[1].m_network);
     printSprtStatus(m_statistic.status());
 }
 
 void Validation::printSprtStatus(const Sprt::Status& status) {
     QTextStream(stdout)
-        << m_results.getGamesPlayed() << " games played." << endl;
+        << m_results.getGamesPlayed() << " games played." << Qt::endl;
     QTextStream(stdout)
         << "Status: " << status.result
         << " LLR " << status.llr
         << " Lower Bound " << status.lBound
-        << " Upper Bound " << status.uBound << endl;
+        << " Upper Bound " << status.uBound << Qt::endl;
 }
 
 void Validation::getResult(Sprt::GameResult result, int net_one_color) {
     if (result == Sprt::NoResult) {
-        QTextStream(stdout) << "Engine Error." << endl;
+        QTextStream(stdout) << "Engine Error." << Qt::endl;
         return;
     }
     m_syncMutex.lock();
@@ -229,13 +229,13 @@ void Validation::getResult(Sprt::GameResult result, int net_one_color) {
     Sprt::Status status = m_statistic.status();
     auto wdl = m_statistic.getWDL();
     QTextStream(stdout) << std::get<0>(wdl) << " wins, "
-                        << std::get<2>(wdl) << " losses" << endl;
+                        << std::get<2>(wdl) << " losses" << Qt::endl;
     if (status.result != Sprt::Continue) {
         quitThreads();
         QTextStream(stdout)
             << "The first net is "
             <<  ((status.result ==  Sprt::AcceptH0) ? "worse " : "better ")
-            << "than the second" << endl;
+            << "than the second" << Qt::endl;
         m_results.printResults(m_engines[0].m_network, m_engines[1].m_network);
         //sendQuit();
     } else {
@@ -257,7 +257,7 @@ void Validation::wait() {
 }
 
 void Validation::storeSprt() {
-    QTextStream(stdout) << "storeSprt" << endl;
+    QTextStream(stdout) << "storeSprt" << Qt::endl;
     m_syncMutex.lock();
     saveSprt();
     m_syncMutex.unlock();

@@ -26,11 +26,11 @@ void Order::save(const QString &file) {
         return;
     }
     QTextStream out(&f);
-    out << m_type << endl;
-    out << m_parameters.size() << endl;
+    out << m_type << Qt::endl;
+    out << m_parameters.size() << Qt::endl;
     for (QString key : m_parameters.keys())
     {
-        out << key << " " << m_parameters.value(key) << endl;
+        out << key << " " << m_parameters.value(key) << Qt::endl;
     }
     out.flush();
     f.close();

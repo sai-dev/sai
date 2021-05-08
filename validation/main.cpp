@@ -109,13 +109,13 @@ int main(int argc, char *argv[]) {
         gpusNum = 1;
     }
 
-    QTextStream(stdout) << "validation v" << VALIDATION_VERSION << endl;
+    QTextStream(stdout) << "validation v" << VALIDATION_VERSION << Qt::endl;
 
     auto const keepPath = parser.value(keepSgfOption);
     if (parser.isSet(keepSgfOption)) {
         if (!QDir().mkpath(parser.value(keepSgfOption))) {
             QTextStream(stdout) << "Couldn't create output directory for self-play SGF files!"
-                 << endl;
+                 << Qt::endl;
             return EXIT_FAILURE;
         }
     }
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     }
 
     QMutex mutex;
-    QTextStream(stdout) << "SPRT : " << sprtOpt << " h0 " << h0 << " h1 " << h1 << endl;
+    QTextStream(stdout) << "SPRT : " << sprtOpt << " h0 " << h0 << " h1 " << h1 << Qt::endl;
 
     Console *cons = nullptr;
     Validation *validate = new Validation(gpusNum, gamesNum, gpusList,

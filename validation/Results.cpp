@@ -93,7 +93,7 @@ void Results::printResults(const QString& firstNetName,
 QTextStream& operator<<(QTextStream& stream, const Results& r) {
     stream << r.m_gamesPlayed << ' ';
     stream << r.m_blackWins << ' ' << r.m_blackLosses << ' ';
-    stream << r.m_whiteWins << ' ' << r.m_whiteLosses << endl;
+    stream << r.m_whiteWins << ' ' << r.m_whiteLosses << Qt::endl;
     return stream;
 }
 

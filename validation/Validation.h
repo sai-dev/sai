@@ -44,7 +44,7 @@ public:
               const QString& keep,
               int expected);
     void run() override;
-    void doFinish() { m_state.store(FINISHING); }
+    void doFinish() { m_state.storeRelaxed(FINISHING); }
 
 signals:
     void resultReady(Sprt::GameResult r, int net_one_color);

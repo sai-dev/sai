@@ -224,7 +224,7 @@ QTextStream& operator<<(QTextStream& stream, const Sprt& sprt) {
     stream << sprt.m_elo0 << ' ' << sprt.m_elo1 << ' ';
     stream << sprt.m_alpha << ' ' << sprt.m_beta << ' ';
     stream << sprt.m_wins << ' ' << sprt.m_losses << ' ';
-    stream << sprt.m_draws << endl;
+    stream << sprt.m_draws << Qt::endl;
     return stream;
 }
 
