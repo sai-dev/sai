@@ -56,7 +56,12 @@ message(STATUS "Using built-in matrix library.")
 endif()
 find_package(Qt5Core)
 
-set(CMAKE_CXX_STANDARD 14)
+if(USE_CPP_17)
+  set(CMAKE_CXX_STANDARD 17)
+  add_definitions(-DUSE_STAND_SHARED_MUTEX)
+else()
+  set(CMAKE_CXX_STANDARD 14)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED on)
 
 # See if we can set optimization flags as expected.

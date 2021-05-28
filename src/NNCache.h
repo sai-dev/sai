@@ -32,11 +32,17 @@
 
 #include "config.h"
 
+#ifdef USE_STAND_SHARED_MUTEX
+#include <shared_mutex>
+#else
+#include "SharedMutex.h"
+#endif
+
 #include <array>
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <unordered_map>
+
 
 class NNCache {
 public:
@@ -101,9 +107,11 @@ public:
     // Return the estimated memory consumption of the cache.
     size_t get_estimated_size();
 private:
-
-    std::mutex m_mutex;
-
+#ifdef USE_STAND_SHARED_MUTEX
+    std::shared_mutex m_mutex;
+#else
+    SharedMutex m_mutex;
+#endif
     size_t m_size;
 
     // Statistics

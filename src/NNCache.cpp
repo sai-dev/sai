@@ -43,7 +43,11 @@ const size_t NNCache::ENTRY_SIZE;
 NNCache::NNCache(int size) : m_size(size) {}
 
 bool NNCache::lookup(std::uint64_t hash, Netresult & result) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+#ifdef USE_STAND_SHARED_MUTEX
+    std::shared_lock lock(m_mutex);
+#else
+    LockGuard<lock_t::S_LOCK> lock(m_mutex);
+#endif
     ++m_lookups;
 
     auto iter = m_cache.find(hash);
@@ -61,8 +65,11 @@ bool NNCache::lookup(std::uint64_t hash, Netresult & result) {
 
 void NNCache::insert(std::uint64_t hash,
                      const Netresult& result) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
+#ifdef USE_STAND_SHARED_MUTEX
+    std::unique_lock lock(m_mutex);
+#else
+    LockGuard<lock_t::X_LOCK> lock(m_mutex);
+#endif
     if (m_cache.find(hash) != m_cache.end()) {
         return;  // Already in the cache.
     }
